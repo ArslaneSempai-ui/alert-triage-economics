@@ -82,6 +82,9 @@
     border:1px solid var(--line-fort); border-radius:7px; background:var(--panel);
     color:var(--text); cursor:pointer; margin-top:12px; }
   button.b:hover { border-color:var(--text); }
+  /* Le seul repère de quelqu'un qui navigue au clavier. */
+  button.b:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  input[type=range]:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 </style>
 </head>
 <body>
@@ -140,6 +143,10 @@ const T = {
     colRecrut: "à recruter", colCout: "coût annuel", colAttrapes: "attrapés",
     colRates: "manqués", colMarginal: "coût du VP suivant", colFile: "file",
     gratuit: "gratuit", aucunGain: "aucun gain", tient: "tient", deborde: "déborde",
+    enRetard: "hors délai",
+    colAttente: "attente", colCharge: "occupation",
+    delaiRateTitre: "Le délai promis n'est pas tenu",
+    delaiRateQuoi: (a, d, c) => `La file se résorbe, mais l'attente moyenne atteint ${a} jours pour un délai promis de ${d}. À ${c} d'occupation, la moindre absence fait décrocher l'équipe.`,
     courbeQuoi: "Le coût du vrai positif suivant est le chiffre qui décide. Il reste nul tant qu'on occupe des gens déjà payés, puis il explose — bien avant que le coût total ne paraisse déraisonnable.",
     contexte: (ops, vp) => `${ops} opérations sur l'année, ${vp} vrais positifs à trouver. Données synthétiques.`,
   },
@@ -174,6 +181,10 @@ const T = {
     colRecrut: "to hire", colCout: "annual cost", colAttrapes: "caught",
     colRates: "missed", colMarginal: "cost of the next TP", colFile: "queue",
     gratuit: "free", aucunGain: "no gain", tient: "holds", deborde: "breaks",
+    enRetard: "late",
+    colAttente: "wait", colCharge: "occupancy",
+    delaiRateTitre: "The promised deadline is missed",
+    delaiRateQuoi: (a, d, c) => `The backlog clears, but the average wait reaches ${a} days against a promised ${d}. At ${c} occupancy, one absence is enough to lose the team.`,
     courbeQuoi: "The cost of the next true positive is the number that decides. It stays at zero while you're using people you already pay, then it explodes — long before the total cost looks unreasonable.",
     contexte: (ops, vp) => `${ops} operations over the year, ${vp} true positives to find. Synthetic data.`,
   },
@@ -208,6 +219,9 @@ function blocRecommandation() {
   if (!a.fileTient) {
     html += `<div class="encart alerte"><b>${esc(L.debordeTitre)}</b><br>
       ${esc(L.debordeQuoi(a.etpEntiers, etat.hypotheses.effectifActuel))}</div>`;
+  } else if (!a.delaiTenu) {
+    html += `<div class="encart alerte"><b>${esc(L.delaiRateTitre)}</b><br>
+      ${esc(L.delaiRateQuoi(a.attenteJours.toFixed(1), etat.hypotheses.delaiMaxJours, a.charge === null ? "—" : pc(a.charge)))}</div>`;
   }
   if (r && r.vraisPositifsGagnes > 0 && r.seuil < etat.seuil) {
     html += `<div class="encart bon"><b>${esc(L.recoTitre)}</b><br>
@@ -260,11 +274,14 @@ function blocCourbe() {
       : m === 0 ? `<span class="gratuit">${esc(L.gratuit)}</span>`
       : m === null || !isFinite(m) ? esc(L.aucunGain)
       : euro(m);
-    return `<tr class="${Math.abs(p.seuil - etat.seuil) < 0.001 ? "ici " : ""}${p.fileTient ? "" : "deborde"}">
+    return `<tr class="${Math.abs(p.seuil - etat.seuil) < 0.001 ? "ici " : ""}${p.fileTient && p.delaiTenu ? "" : "deborde"}">
       <td>${p.seuil.toFixed(2)}</td><td>${nb(p.alertes)}</td><td>${nb(p.heures)}</td>
       <td>${p.etpEntiers}</td><td>${p.recrutements || "—"}</td><td>${euro(p.coutAnnuel)}</td>
       <td>${nb(p.vraisPositifsAttrapes)}</td><td>${nb(p.vraisPositifsManques)}</td>
-      <td>${marginal}</td><td>${esc(p.fileTient ? L.tient : L.deborde)}</td></tr>`;
+      <td>${marginal}</td>
+      <td>${p.charge === null ? "—" : pc(p.charge)}</td>
+      <td>${p.attenteJours === null ? "—" : p.attenteJours.toFixed(1) + " j"}</td>
+      <td>${esc(!p.fileTient ? L.deborde : p.delaiTenu ? L.tient : L.enRetard)}</td></tr>`;
   }).join("");
 
   $("#courbe").innerHTML = `<div class="carte">
@@ -273,7 +290,7 @@ function blocCourbe() {
       <th>${esc(L.colSeuil)}</th><th>${esc(L.colAlertes)}</th><th>${esc(L.colHeures)}</th>
       <th>${esc(L.colEtp)}</th><th>${esc(L.colRecrut)}</th><th>${esc(L.colCout)}</th>
       <th>${esc(L.colAttrapes)}</th><th>${esc(L.colRates)}</th><th>${esc(L.colMarginal)}</th>
-      <th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
+      <th>${esc(L.colCharge)}</th><th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
     <div class="quoi" style="margin-top:10px">${esc(L.contexte(nb(etat.population.operations), etat.population.vraisPositifsTotal))}</div>
   </div>`;
 }

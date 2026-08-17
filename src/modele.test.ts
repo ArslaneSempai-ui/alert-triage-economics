@@ -60,14 +60,34 @@ test("resserrer la détection est gratuit tant qu'on reste sous l'effectif payé
   for (const p of gratuits) assert.equal(p.recrutements, 0);
 });
 
-test("la file déborde avant que l'effectif ne soit dépassé", () => {
-  // Une file ne tourne pas à 100 % d'occupation : c'est le mur que les modèles
-  // « coût par alerte » ne voient pas.
+test("l'exploitation casse avant qu'un seul recrutement n'apparaisse au budget", () => {
+  // C'est le mur que les modèles « coût par alerte » ne voient pas : la file diverge ou
+  // le délai promis est dépassé, et le coût, lui, n'a pas encore bougé.
   const points = balayer(pop);
-  const premierDebordement = points.find((p) => !p.fileTient);
-  assert.ok(premierDebordement, "aucun débordement dans la plage étudiée");
-  assert.equal(premierDebordement.recrutements, 0,
-    "la file casse alors qu'on n'a encore embauché personne");
+  const premiereCasse = points.find((p) => !p.fileTient || !p.delaiTenu);
+  assert.ok(premiereCasse, "aucune casse dans la plage étudiée");
+  assert.equal(premiereCasse.recrutements, 0,
+    "l'exploitation casse alors qu'on n'a encore embauché personne");
+});
+
+test("le délai promis contraint réellement, il n'est pas décoratif", () => {
+  // Le paramètre était modifiable à l'écran sans être utilisé nulle part. Ce test échoue
+  // si un plafond de charge arbitraire vient de nouveau court-circuiter l'échéance.
+  const large = balayer(pop, SEUILS, { ...HYPOTHESES, delaiMaxJours: 30 });
+  const serre = balayer(pop, SEUILS, { ...HYPOTHESES, delaiMaxJours: 1 });
+  const tenus = (pts) => pts.filter((p) => p.delaiTenu).length;
+  assert.ok(tenus(serre) < tenus(large),
+    "resserrer l'échéance doit disqualifier des configurations");
+});
+
+test("l'attente est en jours ouvrés, pas en heures déguisées", () => {
+  // La formule multipliait par 1/joursTravaillés puis par joursTravaillés — une opération
+  // qui s'annule — et livrait des heures sous un nom promettant des jours.
+  const p = evaluer(pop, 0.45, { ...HYPOTHESES, effectifActuel: 8 });
+  assert.ok(p.attenteJours !== null);
+  const heuresParAlerte = p.heures / p.alertes;
+  const attendu = (p.charge / (1 - p.charge)) * heuresParAlerte / HYPOTHESES.heuresProductivesParJour;
+  assert.ok(Math.abs(p.attenteJours - attendu) < 0.01, "l'unité ne correspond pas à la formule");
 });
 
 test("le coût marginal explose une fois qu'il faut recruter", () => {

@@ -50,10 +50,14 @@ export type Point = {
   coutAnnuel: number;
   /** Coût du vrai positif supplémentaire par rapport au seuil précédent. */
   coutMarginalParVraiPositif: number | null;
-  /** Le stock d'alertes se résorbe-t-il avec l'effectif en poste ? */
+  /** Le stock se résorbe-t-il ? Faux dès que la charge atteint 1. */
   fileTient: boolean;
-  /** Jours d'attente au régime permanent ; null si la file diverge. */
+  /** Taux d'occupation. `null` sans effectif : indéfini, pas nul. */
+  charge: number | null;
+  /** Jours ouvrés d'attente au régime permanent ; null si la file diverge. */
   attenteJours: number | null;
+  /** L'attente respecte-t-elle le délai que la procédure promet ? */
+  delaiTenu: boolean;
 };
 
 const heuresParEtp = (h: Hypotheses) => h.heuresProductivesParJour * h.joursTravaillesParAn;
@@ -74,7 +78,14 @@ export function evaluer(pop: Population, seuil: number, h = HYPOTHESES): Omit<Po
   const etpEntiers = Math.ceil(etpExact);
 
   const capaciteHeures = h.effectifActuel * heuresParEtp(h);
-  const charge = capaciteHeures === 0 ? Infinity : heures / capaciteHeures;
+  /*
+   * Sans effectif, la charge n'est pas un nombre.
+   *
+   * `Infinity` traversait JSON en `null`, et l'écran affichait « 0 % d'occupation » pour
+   * une équipe inexistante et submergée — exactement l'inverse. Une grandeur indéfinie
+   * se transporte comme telle, elle ne se déguise pas en zéro.
+   */
+  const charge: number | null = capaciteHeures === 0 ? null : heures / capaciteHeures;
 
   /*
    * La file d'attente n'est pas une pente, c'est une falaise.
@@ -88,10 +99,38 @@ export function evaluer(pop: Population, seuil: number, h = HYPOTHESES): Omit<Po
    * d'attente croît en 1/(1−charge). Elle n'a pas vocation à être exacte, seulement à
    * montrer que la courbe se redresse violemment bien avant 100 % d'occupation.
    */
-  const fileTient = charge < 0.95;
-  const attenteJours = fileTient
-    ? (charge / (1 - charge)) * (1 / h.joursTravaillesParAn) * (heures / Math.max(retenues.length, 1)) * h.joursTravaillesParAn
+  /*
+   * La file diverge à charge 1, pas à 0,95.
+   *
+   * Le plafond de 0,95 était un nombre magique de ma part, et il court-circuitait le
+   * délai : aucune configuration ne pouvait « se résorber tout en dépassant l'échéance »,
+   * ce qui rendait le paramètre de délai décoratif. C'est la promesse faite au régulateur
+   * qui doit trancher, pas une constante choisie par celui qui écrit le modèle.
+   */
+  const fileTient = charge !== null && charge < 1;
+
+  /*
+   * L'attente, en jours ouvrés.
+   *
+   * La première version multipliait par 1/joursTravaillés puis par joursTravaillés — une
+   * opération qui s'annule — et livrait des heures sous un nom qui promettait des jours.
+   * Le chiffre était faux d'un facteur six et n'était affiché nulle part, ce qui l'avait
+   * mis à l'abri de toute vérification.
+   */
+  const heuresParAlerte = heures / Math.max(retenues.length, 1);
+  const attenteJours = fileTient && charge !== null
+    ? (charge / (1 - charge)) * heuresParAlerte / h.heuresProductivesParJour
     : null;
+
+  /*
+   * Tenir la file et tenir le délai sont deux choses différentes.
+   *
+   * Une file peut se résorber et mettre malgré tout douze jours quand la procédure en
+   * promet cinq. Le paramètre de délai était modifiable à l'écran sans être utilisé
+   * nulle part : un réglage qui ne change rien apprend à l'utilisateur à ne pas croire
+   * les autres.
+   */
+  const delaiTenu = attenteJours !== null && attenteJours <= h.delaiMaxJours;
 
   /*
    * On paie l'effectif en poste, pas l'effectif nécessaire.
@@ -116,7 +155,9 @@ export function evaluer(pop: Population, seuil: number, h = HYPOTHESES): Omit<Po
     recrutements,
     coutAnnuel: effectifPaye * h.coutChargeParAnalyste,
     fileTient,
+    charge,
     attenteJours,
+    delaiTenu,
   };
 }
 
@@ -177,7 +218,7 @@ if (import.meta.filename === process.argv[1]) {
  */
 export function recommander(pop: Population, seuils = SEUILS, h = HYPOTHESES) {
   const points = balayer(pop, seuils, h);
-  const tenables = points.filter((p) => p.fileTient && p.recrutements === 0);
+  const tenables = points.filter((p) => p.fileTient && p.delaiTenu && p.recrutements === 0);
   if (tenables.length === 0) return null;
 
   const retenu = tenables[tenables.length - 1];   // le plus large qui tienne
