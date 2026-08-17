@@ -9,7 +9,8 @@
     "test": "tsc --noEmit && node src/readme.ts --check && node --test src/*.test.ts",
     "typage": "tsc --noEmit",
     "model": "node src/model.ts",
-    "figures": "node src/readme.ts"
+    "figures": "node src/readme.ts",
+    "sensitivity": "node src/sensitivity.ts"
   },
   "engines": {
     "node": ">=24"
