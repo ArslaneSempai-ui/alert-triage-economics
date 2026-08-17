@@ -4,88 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Économie du seuil de détection</title>
-<style>
-  :root {
-    --bg:#faf9f7; --panel:#fff; --line:#e4e2dd; --line-fort:#d0cdc6;
-    --text:#1a1a18; --muted:#69675f; --faint:#9a978e;
-    --accent:#1d6b52; --accent-soft:#eef4f1;
-    --warn:#8a5410; --warn-soft:#fbf2e4; --danger:#93312e; --danger-soft:#faece9;
-    --serif: ui-serif, Georgia, "Times New Roman", serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#131416; --panel:#1c1d20; --line:#2b2c30; --line-fort:#3a3c41;
-      --text:#e8e7e3; --muted:#9a9891; --faint:#6a6862;
-      --accent:#4fbb94; --accent-soft:#16302a;
-      --warn:#dda15e; --warn-soft:#2f2416; --danger:#d98682; --danger-soft:#2c1a19; }
-  }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text);
-    font:15px/1.65 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
-    -webkit-font-smoothing:antialiased; overflow-x:hidden; }
-  main { max-width:920px; margin:0 auto; padding:40px 24px 120px; }
-
-  .haut { display:flex; justify-content:space-between; align-items:flex-start; gap:20px;
-    flex-wrap:wrap; margin-bottom:24px; }
-  h1 { font-family:var(--serif); font-size:25px; font-weight:400; margin:0 0 6px; letter-spacing:-0.01em; }
-  .lede { color:var(--muted); font-size:13.5px; margin:0; max-width:640px; }
-  .lang { display:flex; border:1px solid var(--line-fort); border-radius:7px; overflow:hidden; flex:0 0 auto; }
-  .lang button { border:0; background:none; padding:9px 13px; font:inherit; font-size:12px;
-    color:var(--muted); cursor:pointer; min-height:38px; letter-spacing:.03em; }
-  .lang button.on { background:var(--text); color:var(--bg); font-weight:500; }
-
-  h2 { font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
-    color:var(--muted); margin:32px 0 12px; }
-
-  .chiffres { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
-    gap:1px; background:var(--line); border:1px solid var(--line); border-radius:9px; overflow:hidden; }
-  .chiffre { background:var(--panel); padding:15px 17px; }
-  .chiffre b { display:block; font-size:24px; font-weight:500; letter-spacing:-0.03em;
-    line-height:1.25; font-variant-numeric:tabular-nums; }
-  .chiffre span { font-size:11.5px; color:var(--muted); }
-  .chiffre.mauvais b { color:var(--danger); }
-
-  .carte { background:var(--panel); border:1px solid var(--line); border-radius:9px;
-    padding:17px 19px; margin-top:12px; }
-  .carte .titre { font-weight:500; font-size:14px; }
-  .quoi { color:var(--muted); font-size:13px; margin-top:2px; }
-
-  .curseur { display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
-  .curseur .bout { font-size:12px; color:var(--muted); }
-  input[type=range] { flex:1 1 200px; min-width:0; accent-color:var(--accent); height:28px; }
-  .val { font-variant-numeric:tabular-nums; font-weight:500; min-width:42px; text-align:right; }
-
-  .hyp { display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:12px; margin-top:14px; }
-  .hyp label { display:block; font-size:12.5px; color:var(--muted); margin-bottom:4px; }
-  .hyp input { font:inherit; font-size:13.5px; padding:9px 11px; min-height:42px; width:100%;
-    border:1px solid var(--line-fort); border-radius:7px; background:var(--bg); color:var(--text);
-    font-variant-numeric:tabular-nums; }
-  .hyp input:focus { outline:2px solid var(--accent); outline-offset:1px; }
-
-  .encart { border-radius:9px; padding:15px 18px; margin-top:12px; font-size:13.5px; line-height:1.65; }
-  .encart.bon { background:var(--accent-soft); color:var(--accent); }
-  .encart.alerte { background:var(--danger-soft); color:var(--danger); }
-  .encart b { font-weight:600; }
-
-  .defile { overflow-x:auto; margin-top:12px; }
-  table { width:100%; border-collapse:collapse; font-size:12.5px; }
-  th { text-align:right; font-weight:500; color:var(--muted); font-size:11px;
-    padding:7px 8px; border-bottom:1px solid var(--line-fort); white-space:nowrap; }
-  th:first-child { text-align:left; }
-  td { text-align:right; padding:8px; border-bottom:1px solid var(--line);
-    font-variant-numeric:tabular-nums; white-space:nowrap; }
-  td:first-child { text-align:left; }
-  tr.ici td { background:var(--accent-soft); font-weight:500; }
-  tr.deborde td:last-child { color:var(--danger); font-weight:500; }
-  .gratuit { color:var(--accent); }
-
-  button.b { font:inherit; font-size:13.5px; padding:10px 15px; min-height:44px;
-    border:1px solid var(--line-fort); border-radius:7px; background:var(--panel);
-    color:var(--text); cursor:pointer; margin-top:12px; }
-  button.b:hover { border-color:var(--text); }
-  /* Le seul repère de quelqu'un qui navigue au clavier. */
-  button.b:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  input[type=range]:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-</style>
+<link rel="stylesheet" href="/registre.css" />
 </head>
 <body>
 <main>
@@ -115,6 +34,7 @@ const T = {
   fr: {
     h1: "Économie du seuil de détection",
     lede: "Un seuil de surveillance transactionnelle n'est pas un réglage technique : c'est des heures d'analystes, un effectif et une ligne budgétaire, en face de ce qu'on attrape. Cet écran traduit l'un dans l'autre.",
+    releve: "Relevé d'exploitation",
     alertes: "alertes par an", heures: "heures d'analystes", etp: "ETP nécessaires",
     cout: "coût annuel", attrapes: "vrais positifs attrapés", rates: "manqués",
 
@@ -153,6 +73,7 @@ const T = {
   en: {
     h1: "The economics of a detection threshold",
     lede: "A transaction-monitoring threshold isn't a technical setting: it's analyst hours, headcount and a budget line, set against what you catch. This screen converts one into the other.",
+    releve: "Operating statement",
     alertes: "alerts per year", heures: "analyst hours", etp: "FTE required",
     cout: "annual cost", attrapes: "true positives caught", rates: "missed",
 
@@ -209,22 +130,35 @@ function blocChiffres() {
     { v: nb(a.vraisPositifsAttrapes), l: L.attrapes },
     { v: nb(a.vraisPositifsManques), l: L.rates },
   ];
-  $("#chiffres").innerHTML = cases.map((c) =>
-    `<div class="chiffre${c.mauvais ? " mauvais" : ""}"><b>${esc(c.v)}</b><span>${esc(c.l)}</span></div>`).join("");
+  /*
+   * Le coût annuel est le total : il découle des alertes, des heures et des ETP posés
+   * au-dessus de lui. Six tuiles côte à côte ne montraient aucune de ces dépendances.
+   */
+  const ordre = [cases[0], cases[1], cases[2], cases[4], cases[5]];
+  const total = cases[3];
+  $("#chiffres").innerHTML = `<section class="feuillet">
+    <div class="intitule">${esc(L.releve)}</div>
+    <div class="corps">
+      ${ordre.map((c) => `<div class="ligne">
+        <span class="intitule">${esc(c.l)}</span>
+        <span class="valeur${c.mauvais ? " defavorable" : ""}">${esc(c.v)}</span></div>`).join("")}
+      <div class="ligne total"><span class="intitule">${esc(total.l)}</span>
+        <span class="valeur">${esc(total.v)}</span></div>
+    </div></section>`;
 }
 
 function blocRecommandation() {
   const L = t(), a = etat.actuel, r = etat.recommandation;
   let html = "";
   if (!a.fileTient) {
-    html += `<div class="encart alerte"><b>${esc(L.debordeTitre)}</b><br>
+    html += `<div class="renvoi defavorable"><b>${esc(L.debordeTitre)}</b><br>
       ${esc(L.debordeQuoi(a.etpEntiers, etat.hypotheses.effectifActuel))}</div>`;
   } else if (!a.delaiTenu) {
-    html += `<div class="encart alerte"><b>${esc(L.delaiRateTitre)}</b><br>
+    html += `<div class="renvoi defavorable"><b>${esc(L.delaiRateTitre)}</b><br>
       ${esc(L.delaiRateQuoi(a.attenteJours.toFixed(1), etat.hypotheses.delaiMaxJours, a.charge === null ? "—" : pc(a.charge)))}</div>`;
   }
   if (r && r.vraisPositifsGagnes > 0 && r.seuil < etat.seuil) {
-    html += `<div class="encart bon"><b>${esc(L.recoTitre)}</b><br>
+    html += `<div class="renvoi favorable"><b>${esc(L.recoTitre)}</b><br>
       ${L.recoQuoi(r.seuil, r.vraisPositifsGagnes, pc(r.couvertureAvant), pc(r.couvertureApres), r.capaciteDormante)}</div>`;
   }
   $("#recommandation").innerHTML = html;
@@ -232,16 +166,16 @@ function blocRecommandation() {
 
 function blocReglage() {
   const L = t();
-  $("#reglage").innerHTML = `<div class="carte">
+  $("#reglage").innerHTML = `<section class="feuillet"><div class="corps">
     <div class="titre">${esc(L.seuilTitre)}</div>
     <div class="quoi">${esc(L.seuilQuoi)}</div>
-    <div class="curseur">
+    <div class="rang">
       <span class="bout">${esc(L.large)}</span>
       <input type="range" id="seuil" min="0.30" max="0.95" step="0.05" value="${etat.seuil}"
         aria-label="${esc(L.seuilNom)}" />
       <span class="bout">${esc(L.strict)}</span>
-      <span class="val" id="seuilVal">${etat.seuil.toFixed(2)}</span>
-    </div></div>`;
+      <span class="lecture" id="seuilVal">${etat.seuil.toFixed(2)}</span>
+    </div></div></section>`;
   const s = $("#seuil");
   s.oninput = () => { $("#seuilVal").textContent = Number(s.value).toFixed(2); };
   s.onchange = () => envoyer({ seuil: Number(s.value) });
@@ -255,8 +189,8 @@ function blocHypotheses() {
     return `<div><label for="${cle}">${esc(L[cle])}</label>
       <input type="number" id="${cle}" value="${etat.hypotheses[cle]}" min="${min}" max="${max}" /></div>`;
   }).join("");
-  $("#hypotheses").innerHTML = `<div class="carte"><div class="quoi">${esc(L.hypQuoi)}</div>
-    <div class="hyp">${champs}</div>
+  $("#hypotheses").innerHTML = `<div class="feuillet"><div class="quoi">${esc(L.hypQuoi)}</div>
+    <div class="grille">${champs}</div>
     <button class="b" id="defaut" type="button">${esc(L.defaut)}</button></div>`;
 
   for (const cle of Object.keys(etat.bornes)) {
@@ -284,15 +218,15 @@ function blocCourbe() {
       <td>${esc(!p.fileTient ? L.deborde : p.delaiTenu ? L.tient : L.enRetard)}</td></tr>`;
   }).join("");
 
-  $("#courbe").innerHTML = `<div class="carte">
+  $("#courbe").innerHTML = `<div class="feuillet">
     <div class="quoi">${esc(L.courbeQuoi)}</div>
     <div class="defile"><table><thead><tr>
       <th>${esc(L.colSeuil)}</th><th>${esc(L.colAlertes)}</th><th>${esc(L.colHeures)}</th>
       <th>${esc(L.colEtp)}</th><th>${esc(L.colRecrut)}</th><th>${esc(L.colCout)}</th>
       <th>${esc(L.colAttrapes)}</th><th>${esc(L.colRates)}</th><th>${esc(L.colMarginal)}</th>
       <th>${esc(L.colCharge)}</th><th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
-    <div class="quoi" style="margin-top:10px">${esc(L.contexte(nb(etat.population.operations), etat.population.vraisPositifsTotal))}</div>
-  </div>`;
+    <div class="renvoi">${esc(L.contexte(nb(etat.population.operations), etat.population.vraisPositifsTotal))}</div>
+  </div></section>`;
 }
 
 function dessiner() {
