@@ -34,6 +34,7 @@
  */
 
 import { generatePopulation } from "./alerts.ts";
+import { isMain } from "./cli.ts";
 import { recommend, sweep, evaluate, ASSUMPTIONS, THRESHOLDS, REGULATORY_DEADLINE_DAYS } from "./model.ts";
 import type { Assumptions } from "./model.ts";
 import type { Population } from "./alerts.ts";
@@ -354,7 +355,7 @@ export function cheapestRouteToNextStep(pop = generatePopulation(), a = ASSUMPTI
   };
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (isMain(import.meta)) {
   const pop = generatePopulation();
   const money = (x: number) => "$" + Math.round(x).toLocaleString("en-GB");
   const pc = (x: number) => (x * 100).toFixed(0) + " %";

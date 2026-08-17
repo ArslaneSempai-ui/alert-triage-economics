@@ -1,0 +1,72 @@
+/**
+ * The alert population.
+ *
+ * A transaction-monitoring system scores every operation. Above a threshold it raises an
+ * alert that an analyst has to work. Lowering the threshold catches more true positives —
+ * and costs more. The whole project exists to price that "more", which nobody computes
+ * before moving the setting.
+ *
+ * Two things simple models get wrong, and they are the only two that matter:
+ *
+ *   1. The scores of true and false positives **overlap heavily**. That is not a defect
+ *      of the system, it is the nature of the problem. If they separated cleanly the job
+ *      would not exist.
+ *
+ *   2. Handling time is not flat. A clear-cut alert is filed in minutes; an ambiguous one
+ *      takes an hour. And lowering the threshold adds *ambiguous* alerts specifically, so
+ *      cost grows **faster than volume** — a model averaging cost per alert is wrong in
+ *      the dangerous direction.
+ *
+ * The draw is seeded: without a fixed seed two scenarios are not comparable.
+ */
+function draw(seed) {
+    let state = seed >>> 0;
+    return () => {
+        state = (state * 1_664_525 + 1_013_904_223) >>> 0;
+        return state / 4_294_967_296;
+    };
+}
+/** A sum of uniform draws: a bell, with no dependency. */
+function normal(r, mean, spread) {
+    const s = r() + r() + r() + r() + r() + r() - 3;
+    return mean + s * spread;
+}
+const clamp = (x) => Math.min(0.999, Math.max(0.001, x));
+/**
+ * A year of operations for a mid-sized institution.
+ *
+ * The proportions are the ones seen in practice: the overwhelming majority of operations
+ * is perfectly ordinary, a handful deserves a report, and the two populations do not
+ * separate cleanly.
+ */
+export function generatePopulation(operations = 400_000, truePositiveShare = 0.0012, seed = 20260817) {
+    const r = draw(seed);
+    const alerts = [];
+    let truePositivesTotal = 0;
+    for (let i = 0; i < operations; i++) {
+        const truePositive = r() < truePositiveShare;
+        if (truePositive)
+            truePositivesTotal++;
+        // True positives score higher on average — but the low tail is thick, and it is that
+        // tail which makes choosing a threshold painful.
+        const score = truePositive
+            ? clamp(normal(r, 0.62, 0.20))
+            : clamp(normal(r, 0.24, 0.16));
+        // Keep only what could ever cross a plausible threshold.
+        if (score >= 0.30)
+            alerts.push({ score, truePositive });
+    }
+    alerts.sort((a, b) => b.score - a.score);
+    return { alerts, operations, truePositivesTotal };
+}
+/**
+ * Handling time for one alert, in minutes.
+ *
+ * Highest in the middle of the scale: an alert at 0.95 is documented quickly, one at 0.35
+ * is dismissed quickly, one at 0.60 takes an hour and a second opinion. That is exactly
+ * the population you add by lowering the threshold.
+ */
+export function handlingMinutes(score, minimum = 12, maximum = 55) {
+    const ambiguity = 1 - Math.abs(score - 0.6) / 0.6; // 1 at the most ambiguous, 0 at the extremes
+    return minimum + (maximum - minimum) * Math.max(0, ambiguity);
+}

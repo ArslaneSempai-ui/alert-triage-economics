@@ -21,6 +21,7 @@
  */
 
 import { generatePopulation } from "./alerts.ts";
+import { isMain } from "./cli.ts";
 import { recommend, ASSUMPTIONS } from "./model.ts";
 import type { Assumptions } from "./model.ts";
 
@@ -132,7 +133,7 @@ export function advise(b: Band): string {
   return `Changes nothing across ${f(b.stableFrom)}–${f(b.stableTo)}. Not worth spending weeks measuring for this decision.`;
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (isMain(import.meta)) {
   console.log("\nWhich assumptions decide the recommendation?\n");
   console.log("assumption                 in use     same answer from ... to      verdict");
   console.log("─".repeat(92));

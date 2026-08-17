@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Économie du seuil de détection</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fbfaf7'/%3E%3Crect x='2' y='4' width='12' height='1' fill='%23111'/%3E%3Crect x='2' y='7' width='12' height='1' fill='%23111'/%3E%3Crect x='2' y='11' width='12' height='2' fill='%23111'/%3E%3C/svg%3E" />
-<link rel="stylesheet" href="/registre.css" />
+<link rel="stylesheet" href="registre.css" />
 </head>
 <body>
 <main>
@@ -13,6 +13,11 @@
     <div><h1 id="h1"></h1><p class="lede" id="lede"></p></div>
     <div class="lang"><button id="fr" type="button">FR</button><button id="en" type="button">EN</button></div>
   </div>
+<p class="renvoi" style="margin-bottom:1.5rem">
+This runs entirely in your browser — no server, no data leaves your machine. The alert
+population is <b>synthetic and seeded</b>; the regulatory deadlines are real and cited.
+Every setting below is editable. <a href="https://github.com/ArslaneSempai-ui/alert-triage-economics">Source and method</a>.
+</p>
 
   <div class="chiffres" id="chiffres"></div>
   <div id="recommandation"></div>
@@ -33,6 +38,69 @@
   <p class="renvoi" id="provenanceLegende"></p>
 </main>
 
+<script type="module">
+import { generatePopulation } from "./js/alerts.js";
+import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./js/model.js";
+import { shadowPrice, cheapestRouteToNextStep } from "./js/shadow.js";
+import { plan, costOfTakingTheStep, decisionUnderGrowth, HORIZON } from "./js/plan.js";
+
+const pop = generatePopulation();
+let assumptions = { ...ASSUMPTIONS };
+let threshold = 0.65;
+
+const BOUNDS = {
+  productiveHoursPerDay: [1, 8],
+  workingDaysPerYear: [180, 260],
+  loadedCostPerAnalyst: [20000, 200000],
+  maxHandlingDays: [1, 30],
+  analystsInPost: [0, 200],
+};
+
+const etat = () => ({
+  threshold, assumptions,
+  courbe: sweep(pop, THRESHOLDS, assumptions),
+  actuel: evaluate(pop, threshold, assumptions),
+  recommandation: recommend(pop, THRESHOLDS, assumptions),
+  population: { operations: pop.operations, truePositivesTotal: pop.truePositivesTotal },
+  bounds: BOUNDS,
+});
+
+window.LOCAL = async (chemin, corps) => {
+  if (chemin === "/api/etat") return etat();
+
+  if (chemin === "/api/defaut") {
+    assumptions = { ...ASSUMPTIONS };
+    threshold = 0.65;
+    return etat();
+  }
+
+  if (chemin === "/api/reglage") {
+    if (typeof corps.threshold === "number" && Number.isFinite(corps.threshold)) {
+      threshold = Math.min(0.95, Math.max(0.30, corps.threshold));
+    }
+    for (const [cle, [min, max]] of Object.entries(BOUNDS)) {
+      const v = corps[cle];
+      if (typeof v === "number" && Number.isFinite(v)) {
+        assumptions = { ...assumptions, [cle]: Math.min(max, Math.max(min, v)) };
+      }
+    }
+    return etat();
+  }
+
+  if (chemin === "/api/escalier") {
+    const horizon = { ...HORIZON, threshold: recommend(pop, THRESHOLDS, assumptions)?.threshold ?? HORIZON.threshold };
+    return {
+      analyst: shadowPrice("analyst", pop, assumptions),
+      routes: cheapestRouteToNextStep(pop, assumptions),
+      horizon,
+      plan: plan(horizon, assumptions),
+      step: costOfTakingTheStep(horizon, assumptions),
+      growth: decisionUnderGrowth(undefined, horizon, assumptions),
+    };
+  }
+  return {};
+};
+</script>
 <script type="module">
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));

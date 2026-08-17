@@ -11,6 +11,7 @@
  */
 
 import { generatePopulation, handlingMinutes } from "./alerts.ts";
+import { isMain } from "./cli.ts";
 import { REGULATIONS } from "./regulations.ts";
 import type { Population } from "./alerts.ts";
 
@@ -217,7 +218,7 @@ export function recommend(pop: Population, thresholds = THRESHOLDS, a = ASSUMPTI
   };
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (isMain(import.meta)) {
   const pop = generatePopulation();
   const dollars = (n: number) => "$" + Math.round(n).toLocaleString("en-GB");
 

@@ -143,9 +143,20 @@ const horizon = (() => {
 /* Where every number on this page came from. Generated, and guarded by a test. */
 const provenance = markdown(INVENTORY, table);
 
+/* The finding, in the first screenful. Generated: a headline typed by hand is the figure
+ * most likely to go stale and the one a reader is most likely to quote back. */
+const finding = reco
+  ? `**The finding.** At the tight threshold a cautious team lands on, ${reco.idleCapacity} of ` +
+    `${ASSUMPTIONS.analystsInPost} analysts are paid to sit idle while ${points[0].truePositivesMissed} of ` +
+    `${pop.truePositivesTotal} reportable cases go undetected. Loosening to ` +
+    `${reco.threshold.toFixed(2)} catches **${reco.truePositivesGained} more for no extra money** — the ` +
+    `payroll is already committed. The organisation was never short of budget. It was short of ` +
+    `the calculation.`
+  : "**The finding.** No threshold fits the headcount in post.";
+
 const citations = table(
   ["Citation", "Requires", "Figure", "Retrieved"],
   CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
 );
 
-run(new URL("../README.md", import.meta.url).pathname, { curve, headline, staircase, routes, horizon, provenance, citations });
+run(new URL("../README.md", import.meta.url).pathname, { finding, curve, headline, staircase, routes, horizon, provenance, citations });

@@ -3,20 +3,26 @@
 A transaction-monitoring threshold gets set in a meeting, by intuition. It is in fact a
 staffing decision and a budget line, and almost nobody prices it before moving it.
 
-This turns the setting into the three things a finance committee understands — hours,
-people, money — against what it catches.
-
-```
-npm start      # the screen, on localhost:4700
-npm run modele # the table below
-npm test
-```
+<!-- figures:finding -->
+**The finding.** At the tight threshold a cautious team lands on, 7 of 8 analysts are paid to sit idle while 392 of 454 reportable cases go undetected. Loosening to 0.50 catches **306 more for no extra money** — the payroll is already committed. The organisation was never short of budget. It was short of the calculation.
+<!-- /figures:finding -->
 
 ![The threshold, priced](images/threshold.png)
 
+```bash
+npm start        # the screen, on localhost:4700
+npm run model    # the cost curve, threshold by threshold
+npm run shadow   # what the next analyst actually buys
+npm run plan     # the quarter the hiring decision is due
+npm test         # types, README figures, and 27 tests
+```
+
+Everything runs locally. No API key, nothing leaves the machine, and anyone who clones this
+reproduces every number below.
+
 ---
 
-## The finding
+## The cost curve
 
 Eight analysts in post. A tight threshold of 0.80, which is where a cautious team lands.
 

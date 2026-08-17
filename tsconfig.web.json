@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "docs/js",
+    "noEmit": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "files": [
+    "src/alerts.ts",
+    "src/model.ts",
+    "src/shadow.ts",
+    "src/plan.ts",
+    "src/sensitivity.ts",
+    "src/regulations.ts",
+    "src/provenance.ts"
+  ]
+}

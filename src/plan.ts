@@ -31,6 +31,7 @@
  */
 
 import { generatePopulation } from "./alerts.ts";
+import { isMain } from "./cli.ts";
 import { cheapestRouteToNextStep, RESOURCES, quantity } from "./shadow.ts";
 import { evaluate, recommend, ASSUMPTIONS, THRESHOLDS, REGULATORY_DEADLINE_DAYS } from "./model.ts";
 import type { Assumptions } from "./model.ts";
@@ -322,7 +323,7 @@ export function costOfTakingTheStep(h = HORIZON, a = ASSUMPTIONS) {
   };
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (isMain(import.meta)) {
   const h = HORIZON;
   const p = plan(h);
   const money = (x: number) => "$" + Math.round(x).toLocaleString("en-GB");

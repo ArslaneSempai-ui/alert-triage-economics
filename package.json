@@ -12,7 +12,8 @@
     "figures": "node src/readme.ts",
     "sensitivity": "node src/sensitivity.ts",
     "shadow": "node src/shadow.ts",
-    "plan": "node src/plan.ts"
+    "plan": "node src/plan.ts",
+    "pages": "tsc -p tsconfig.web.json && node src/pages.ts"
   },
   "engines": {
     "node": ">=24"
