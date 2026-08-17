@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Économie du seuil de détection</title>
+<style>
+  :root {
+    --bg:#faf9f7; --panel:#fff; --line:#e4e2dd; --line-fort:#d0cdc6;
+    --text:#1a1a18; --muted:#69675f; --faint:#9a978e;
+    --accent:#1d6b52; --accent-soft:#eef4f1;
+    --warn:#8a5410; --warn-soft:#fbf2e4; --danger:#93312e; --danger-soft:#faece9;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#131416; --panel:#1c1d20; --line:#2b2c30; --line-fort:#3a3c41;
+      --text:#e8e7e3; --muted:#9a9891; --faint:#6a6862;
+      --accent:#4fbb94; --accent-soft:#16302a;
+      --warn:#dda15e; --warn-soft:#2f2416; --danger:#d98682; --danger-soft:#2c1a19; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.65 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  main { max-width:920px; margin:0 auto; padding:40px 24px 120px; }
+
+  .haut { display:flex; justify-content:space-between; align-items:flex-start; gap:20px;
+    flex-wrap:wrap; margin-bottom:24px; }
+  h1 { font-family:var(--serif); font-size:25px; font-weight:400; margin:0 0 6px; letter-spacing:-0.01em; }
+  .lede { color:var(--muted); font-size:13.5px; margin:0; max-width:640px; }
+  .lang { display:flex; border:1px solid var(--line-fort); border-radius:7px; overflow:hidden; flex:0 0 auto; }
+  .lang button { border:0; background:none; padding:9px 13px; font:inherit; font-size:12px;
+    color:var(--muted); cursor:pointer; min-height:38px; letter-spacing:.03em; }
+  .lang button.on { background:var(--text); color:var(--bg); font-weight:500; }
+
+  h2 { font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--muted); margin:32px 0 12px; }
+
+  .chiffres { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:1px; background:var(--line); border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+  .chiffre { background:var(--panel); padding:15px 17px; }
+  .chiffre b { display:block; font-size:24px; font-weight:500; letter-spacing:-0.03em;
+    line-height:1.25; font-variant-numeric:tabular-nums; }
+  .chiffre span { font-size:11.5px; color:var(--muted); }
+  .chiffre.mauvais b { color:var(--danger); }
+
+  .carte { background:var(--panel); border:1px solid var(--line); border-radius:9px;
+    padding:17px 19px; margin-top:12px; }
+  .carte .titre { font-weight:500; font-size:14px; }
+  .quoi { color:var(--muted); font-size:13px; margin-top:2px; }
+
+  .curseur { display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .curseur .bout { font-size:12px; color:var(--muted); }
+  input[type=range] { flex:1 1 200px; min-width:0; accent-color:var(--accent); height:28px; }
+  .val { font-variant-numeric:tabular-nums; font-weight:500; min-width:42px; text-align:right; }
+
+  .hyp { display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:12px; margin-top:14px; }
+  .hyp label { display:block; font-size:12.5px; color:var(--muted); margin-bottom:4px; }
+  .hyp input { font:inherit; font-size:13.5px; padding:9px 11px; min-height:42px; width:100%;
+    border:1px solid var(--line-fort); border-radius:7px; background:var(--bg); color:var(--text);
+    font-variant-numeric:tabular-nums; }
+  .hyp input:focus { outline:2px solid var(--accent); outline-offset:1px; }
+
+  .encart { border-radius:9px; padding:15px 18px; margin-top:12px; font-size:13.5px; line-height:1.65; }
+  .encart.bon { background:var(--accent-soft); color:var(--accent); }
+  .encart.alerte { background:var(--danger-soft); color:var(--danger); }
+  .encart b { font-weight:600; }
+
+  .defile { overflow-x:auto; margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:right; font-weight:500; color:var(--muted); font-size:11px;
+    padding:7px 8px; border-bottom:1px solid var(--line-fort); white-space:nowrap; }
+  th:first-child { text-align:left; }
+  td { text-align:right; padding:8px; border-bottom:1px solid var(--line);
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td:first-child { text-align:left; }
+  tr.ici td { background:var(--accent-soft); font-weight:500; }
+  tr.deborde td:last-child { color:var(--danger); font-weight:500; }
+  .gratuit { color:var(--accent); }
+
+  button.b { font:inherit; font-size:13.5px; padding:10px 15px; min-height:44px;
+    border:1px solid var(--line-fort); border-radius:7px; background:var(--panel);
+    color:var(--text); cursor:pointer; margin-top:12px; }
+  button.b:hover { border-color:var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <div class="haut">
+    <div><h1 id="h1"></h1><p class="lede" id="lede"></p></div>
+    <div class="lang"><button id="fr" type="button">FR</button><button id="en" type="button">EN</button></div>
+  </div>
+
+  <div class="chiffres" id="chiffres"></div>
+  <div id="recommandation"></div>
+  <div id="reglage"></div>
+
+  <h2 id="titreHyp"></h2>
+  <div id="hypotheses"></div>
+
+  <h2 id="titreCourbe"></h2>
+  <div id="courbe"></div>
+</main>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const api = async (chemin, corps) => (await fetch(chemin, corps
+  ? { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(corps) } : {})).json();
+
+const T = {
+  fr: {
+    h1: "Économie du seuil de détection",
+    lede: "Un seuil de surveillance transactionnelle n'est pas un réglage technique : c'est des heures d'analystes, un effectif et une ligne budgétaire, en face de ce qu'on attrape. Cet écran traduit l'un dans l'autre.",
+    alertes: "alertes par an", heures: "heures d'analystes", etp: "ETP nécessaires",
+    cout: "coût annuel", attrapes: "vrais positifs attrapés", rates: "manqués",
+
+    seuilTitre: "Le seuil de détection",
+    seuilQuoi: "Plus bas, plus d'alertes : on attrape davantage et on paie davantage. Toute la question est de savoir à partir de quand on paie sans attraper.",
+    strict: "strict — peu d'alertes", large: "large — beaucoup d'alertes",
+    seuilNom: "Seuil de détection",
+
+    titreHyp: "Les hypothèses d'exploitation",
+    hypQuoi: "Tout est discutable et tout se modifie. Un modèle dont on ne peut pas contester les hypothèses n'est pas un modèle, c'est une opinion présentée en tableau.",
+    heuresProductivesParJour: "Heures productives par jour",
+    joursTravaillesParAn: "Jours travaillés par an",
+    coutChargeParAnalyste: "Coût chargé par analyste (€/an)",
+    delaiMaxJours: "Délai maximal de traitement (jours)",
+    effectifActuel: "Analystes en poste",
+    defaut: "Revenir aux hypothèses de départ",
+
+    debordeTitre: "La file déborde",
+    debordeQuoi: (etp, eff) => `Il faudrait ${etp} ETP pour ${eff} analystes en poste. Une file ne tourne pas à pleine occupation : le stock ne se résorbe plus, et le délai part à l'infini. Ce n'est pas un surcoût, c'est un arrêt.`,
+    recoTitre: "Ce que l'effectif déjà payé permet",
+    recoQuoi: (s, vp, av, ap, dorm) =>
+      `Descendre à <b>${s.toFixed(2)}</b> attrape <b>${vp} vrais positifs de plus</b> pour <b>zéro euro</b> : la couverture passe de ${av} à ${ap}. Au seuil le plus strict, ${dorm} ETP déjà payés ne servent à rien.`,
+
+    titreCourbe: "Ce que coûte chaque cran",
+    colSeuil: "seuil", colAlertes: "alertes", colHeures: "heures", colEtp: "ETP",
+    colRecrut: "à recruter", colCout: "coût annuel", colAttrapes: "attrapés",
+    colRates: "manqués", colMarginal: "coût du VP suivant", colFile: "file",
+    gratuit: "gratuit", aucunGain: "aucun gain", tient: "tient", deborde: "déborde",
+    courbeQuoi: "Le coût du vrai positif suivant est le chiffre qui décide. Il reste nul tant qu'on occupe des gens déjà payés, puis il explose — bien avant que le coût total ne paraisse déraisonnable.",
+    contexte: (ops, vp) => `${ops} opérations sur l'année, ${vp} vrais positifs à trouver. Données synthétiques.`,
+  },
+  en: {
+    h1: "The economics of a detection threshold",
+    lede: "A transaction-monitoring threshold isn't a technical setting: it's analyst hours, headcount and a budget line, set against what you catch. This screen converts one into the other.",
+    alertes: "alerts per year", heures: "analyst hours", etp: "FTE required",
+    cout: "annual cost", attrapes: "true positives caught", rates: "missed",
+
+    seuilTitre: "The detection threshold",
+    seuilQuoi: "Lower means more alerts: you catch more and you pay more. The whole question is where you start paying without catching.",
+    strict: "tight — few alerts", large: "loose — many alerts",
+    seuilNom: "Detection threshold",
+
+    titreHyp: "Operating assumptions",
+    hypQuoi: "All of it is arguable and all of it is editable. A model whose assumptions you can't challenge isn't a model — it's an opinion in a table.",
+    heuresProductivesParJour: "Productive hours per day",
+    joursTravaillesParAn: "Working days per year",
+    coutChargeParAnalyste: "Loaded cost per analyst (€/yr)",
+    delaiMaxJours: "Maximum handling time (days)",
+    effectifActuel: "Analysts in post",
+    defaut: "Reset to the starting assumptions",
+
+    debordeTitre: "The queue breaks",
+    debordeQuoi: (etp, eff) => `This needs ${etp} FTE against ${eff} analysts in post. A queue doesn't run at full occupancy: the backlog stops clearing and the delay runs away. That isn't an overspend, it's a stoppage.`,
+    recoTitre: "What the headcount you already pay for allows",
+    recoQuoi: (s, vp, av, ap, dorm) =>
+      `Going down to <b>${s.toFixed(2)}</b> catches <b>${vp} more true positives</b> for <b>nothing</b>: coverage moves from ${av} to ${ap}. At the tightest threshold, ${dorm} FTE you already pay for sit idle.`,
+
+    titreCourbe: "What each notch costs",
+    colSeuil: "threshold", colAlertes: "alerts", colHeures: "hours", colEtp: "FTE",
+    colRecrut: "to hire", colCout: "annual cost", colAttrapes: "caught",
+    colRates: "missed", colMarginal: "cost of the next TP", colFile: "queue",
+    gratuit: "free", aucunGain: "no gain", tient: "holds", deborde: "breaks",
+    courbeQuoi: "The cost of the next true positive is the number that decides. It stays at zero while you're using people you already pay, then it explodes — long before the total cost looks unreasonable.",
+    contexte: (ops, vp) => `${ops} operations over the year, ${vp} true positives to find. Synthetic data.`,
+  },
+};
+
+let langue = localStorage.getItem("langue") === "en" ? "en" : "fr";
+const t = () => T[langue];
+let etat = null, occupe = false;
+
+const loc = () => (langue === "fr" ? "fr-FR" : "en-GB");
+const nb = (n) => Math.round(n).toLocaleString(loc());
+const euro = (n) => "€" + nb(n);
+const pc = (x) => (x * 100).toFixed(0) + " %";
+
+function blocChiffres() {
+  const L = t(), a = etat.actuel;
+  const cases = [
+    { v: nb(a.alertes), l: L.alertes },
+    { v: nb(a.heures), l: L.heures },
+    { v: a.etpEntiers, l: L.etp, mauvais: !a.fileTient },
+    { v: euro(a.coutAnnuel), l: L.cout },
+    { v: nb(a.vraisPositifsAttrapes), l: L.attrapes },
+    { v: nb(a.vraisPositifsManques), l: L.rates },
+  ];
+  $("#chiffres").innerHTML = cases.map((c) =>
+    `<div class="chiffre${c.mauvais ? " mauvais" : ""}"><b>${esc(c.v)}</b><span>${esc(c.l)}</span></div>`).join("");
+}
+
+function blocRecommandation() {
+  const L = t(), a = etat.actuel, r = etat.recommandation;
+  let html = "";
+  if (!a.fileTient) {
+    html += `<div class="encart alerte"><b>${esc(L.debordeTitre)}</b><br>
+      ${esc(L.debordeQuoi(a.etpEntiers, etat.hypotheses.effectifActuel))}</div>`;
+  }
+  if (r && r.vraisPositifsGagnes > 0 && r.seuil < etat.seuil) {
+    html += `<div class="encart bon"><b>${esc(L.recoTitre)}</b><br>
+      ${L.recoQuoi(r.seuil, r.vraisPositifsGagnes, pc(r.couvertureAvant), pc(r.couvertureApres), r.capaciteDormante)}</div>`;
+  }
+  $("#recommandation").innerHTML = html;
+}
+
+function blocReglage() {
+  const L = t();
+  $("#reglage").innerHTML = `<div class="carte">
+    <div class="titre">${esc(L.seuilTitre)}</div>
+    <div class="quoi">${esc(L.seuilQuoi)}</div>
+    <div class="curseur">
+      <span class="bout">${esc(L.large)}</span>
+      <input type="range" id="seuil" min="0.30" max="0.95" step="0.05" value="${etat.seuil}"
+        aria-label="${esc(L.seuilNom)}" />
+      <span class="bout">${esc(L.strict)}</span>
+      <span class="val" id="seuilVal">${etat.seuil.toFixed(2)}</span>
+    </div></div>`;
+  const s = $("#seuil");
+  s.oninput = () => { $("#seuilVal").textContent = Number(s.value).toFixed(2); };
+  s.onchange = () => envoyer({ seuil: Number(s.value) });
+}
+
+function blocHypotheses() {
+  const L = t();
+  $("#titreHyp").textContent = L.titreHyp;
+  const champs = Object.keys(etat.bornes).map((cle) => {
+    const [min, max] = etat.bornes[cle];
+    return `<div><label for="${cle}">${esc(L[cle])}</label>
+      <input type="number" id="${cle}" value="${etat.hypotheses[cle]}" min="${min}" max="${max}" /></div>`;
+  }).join("");
+  $("#hypotheses").innerHTML = `<div class="carte"><div class="quoi">${esc(L.hypQuoi)}</div>
+    <div class="hyp">${champs}</div>
+    <button class="b" id="defaut" type="button">${esc(L.defaut)}</button></div>`;
+
+  for (const cle of Object.keys(etat.bornes)) {
+    $(`#${cle}`).onchange = (e) => envoyer({ [cle]: Number(e.target.value) });
+  }
+  $("#defaut").onclick = () => envoyer(null, "/api/defaut");
+}
+
+function blocCourbe() {
+  const L = t();
+  $("#titreCourbe").textContent = L.titreCourbe;
+  const lignes = etat.courbe.map((p) => {
+    const m = p.coutMarginalParVraiPositif;
+    const marginal = m === null ? "—"
+      : m === 0 ? `<span class="gratuit">${esc(L.gratuit)}</span>`
+      : m === null || !isFinite(m) ? esc(L.aucunGain)
+      : euro(m);
+    return `<tr class="${Math.abs(p.seuil - etat.seuil) < 0.001 ? "ici " : ""}${p.fileTient ? "" : "deborde"}">
+      <td>${p.seuil.toFixed(2)}</td><td>${nb(p.alertes)}</td><td>${nb(p.heures)}</td>
+      <td>${p.etpEntiers}</td><td>${p.recrutements || "—"}</td><td>${euro(p.coutAnnuel)}</td>
+      <td>${nb(p.vraisPositifsAttrapes)}</td><td>${nb(p.vraisPositifsManques)}</td>
+      <td>${marginal}</td><td>${esc(p.fileTient ? L.tient : L.deborde)}</td></tr>`;
+  }).join("");
+
+  $("#courbe").innerHTML = `<div class="carte">
+    <div class="quoi">${esc(L.courbeQuoi)}</div>
+    <div class="defile"><table><thead><tr>
+      <th>${esc(L.colSeuil)}</th><th>${esc(L.colAlertes)}</th><th>${esc(L.colHeures)}</th>
+      <th>${esc(L.colEtp)}</th><th>${esc(L.colRecrut)}</th><th>${esc(L.colCout)}</th>
+      <th>${esc(L.colAttrapes)}</th><th>${esc(L.colRates)}</th><th>${esc(L.colMarginal)}</th>
+      <th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
+    <div class="quoi" style="margin-top:10px">${esc(L.contexte(nb(etat.population.operations), etat.population.vraisPositifsTotal))}</div>
+  </div>`;
+}
+
+function dessiner() {
+  const L = t();
+  document.documentElement.lang = langue;
+  $("#h1").textContent = L.h1;
+  $("#lede").textContent = L.lede;
+  $("#fr").className = langue === "fr" ? "on" : "";
+  $("#en").className = langue === "en" ? "on" : "";
+  blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe();
+}
+
+async function envoyer(corps, chemin = "/api/reglage") {
+  if (occupe) return;
+  occupe = true;
+  try { etat = await api(chemin, corps ?? {}); dessiner(); }
+  finally { occupe = false; }
+}
+
+for (const l of ["fr", "en"]) {
+  $(`#${l}`).onclick = () => { langue = l; localStorage.setItem("langue", l); dessiner(); };
+}
+
+etat = await api("/api/etat");
+dessiner();
+</script>
+</body>
+</html>

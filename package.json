@@ -1,0 +1,13 @@
+{
+  "name": "alert-triage-economics",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "What a detection threshold costs in analyst hours, headcount and money — and what risk it buys.",
+  "scripts": {
+    "start": "node src/serveur.ts",
+    "modele": "node src/modele.ts",
+    "test": "node --test src/*.test.ts"
+  },
+  "engines": { "node": ">=24" }
+}
