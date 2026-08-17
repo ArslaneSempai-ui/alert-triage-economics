@@ -127,6 +127,24 @@ export const REGULATIONS = {
     source: "https://www.law.cornell.edu/cfr/text/31/1010.311",
     retrieved: RETRIEVED,
   },
+  /*
+   * Why a name-screening system exists at all, and why a regression in one is a
+   * compliance event rather than a quality metric.
+   *
+   * Every other section here is BSA. This one is sanctions, and it is the anchor the
+   * regression bench was missing: property that becomes blocked has to be reported inside
+   * ten business days. A screener that stops matching a name does not lower a score, it
+   * starts a clock nobody knows is running.
+   */
+  blockedPropertyReport: {
+    cite: "31 CFR 501.603(b)(1)",
+    short: "blocked property report",
+    says: "Property blocked under a sanctions programme is reported to OFAC within ten business days of being blocked.",
+    figure: "10 business days",
+    quote: "within 10 business days from the date that property becomes blocked",
+    source: "https://www.law.cornell.edu/cfr/text/31/501.603",
+    retrieved: RETRIEVED,
+  },
 } as const satisfies Record<string, Regulation>;
 
 export type RegulationKey = keyof typeof REGULATIONS;
