@@ -20,15 +20,15 @@ npm test
 
 Eight analysts in post. A tight threshold of 0.80, which is where a cautious team lands.
 
-| Threshold | Alerts/yr | Hours | FTE | To hire | Annual cost | Caught | Missed | Cost of the next TP | Queue |
-|---|---|---|---|---|---|---|---|---|---|
-| 0.80 | 62 | 37 | 1 | — | €496,000 | 62 | 392 | — | holds |
-| 0.70 | 145 | 99 | 1 | — | €496,000 | 145 | 309 | **free** | holds |
-| 0.60 | 367 | 293 | 1 | — | €496,000 | 263 | 191 | **free** | holds |
-| **0.50** | 4,154 | 3,444 | 3 | — | €496,000 | **368** | 86 | **free** | holds |
-| 0.45 | 13,167 | 10,317 | 8 | — | €496,000 | 411 | 43 | free | **breaks** |
-| 0.40 | 32,972 | 24,263 | 19 | 11 | €1,178,000 | 432 | 22 | €32,476 | breaks |
-| 0.35 | 68,724 | 47,342 | 36 | 28 | €2,232,000 | 445 | 9 | €81,077 | breaks |
+| Threshold | Alerts/yr | Hours | FTE | To hire | Annual cost | Caught | Missed | Cost of next TP | Occupancy | Wait | Queue |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.80 | 62 | 37 | 1 | — | €496,000 | 62 | 392 | — | 0 % | 0.0 d | **holds** |
+| 0.70 | 145 | 99 | 1 | — | €496,000 | 145 | 309 | free | 1 % | 0.0 d | **holds** |
+| 0.60 | 367 | 293 | 1 | — | €496,000 | 263 | 191 | free | 3 % | 0.0 d | **holds** |
+| **0.50** | 4,154 | 3,444 | 3 | — | €496,000 | **368** | 86 | free | 33 % | 0.1 d | **holds** |
+| 0.45 | 13,167 | 10,317 | 8 | — | €496,000 | 411 | 43 | free | 98 % | 5.5 d | **late** |
+| 0.40 | 32,972 | 24,263 | 19 | 11 | €1,178,000 | 432 | 22 | €32,476 | 230 % | — | **breaks** |
+| 0.35 | 68,724 | 47,342 | 36 | 28 | €2,232,000 | 445 | 9 | €81,077 | 448 % | — | **breaks** |
 
 **At 0.80 the team uses one FTE out of eight.** Seven analysts are paid to be idle, and
 392 of 454 true positives go undetected.
@@ -53,11 +53,17 @@ the dangerous direction.
 detection is genuinely free; crossing one costs a full salary. Both facts disappear in a
 per-alert average, and they are the only two that matter when deciding.
 
-**The queue is a cliff, not a slope.** At 0.45 the model needs 8 FTE against 8 in post —
-and breaks. A queue cannot run at full occupancy: the backlog stops clearing, the delay
-runs away, and the regulatory deadline goes with it. That happens *before* a single new
-hire appears in the budget, which is why it surprises people. A 10 % volume increase can
-move a team from fine to broken while the cost line barely moves.
+**The queue is a cliff, not a slope.** Clearing the backlog and meeting the deadline are
+two different things, and the second gives way first. At 0.45 the team sits at 98 %
+occupancy: the backlog does still clear, but the average wait reaches 5.5 days against a
+promised 5. Push a little further and the queue diverges outright. Both of those happen
+*before* a single new hire appears in the budget, which is why they surprise people — a
+10 % volume increase can move a team from fine to late while the cost line barely moves.
+
+An earlier version of this model declared the queue broken at 95 % occupancy, a number I
+had picked myself. It was doing real damage: it pre-empted the deadline check, so the
+promised handling time could never be the binding constraint and the setting exposing it
+was decorative. The promise made to the regulator decides now.
 
 ---
 
@@ -76,8 +82,10 @@ and false positives overlap heavily by construction — if they separated cleanl
 wouldn't exist, and neither would the decision this tool exists to inform.
 
 The queue verdict uses the standard result that waiting time grows as 1/(1−load). It isn't
-meant to be precise. It's meant to show that the curve turns vertical well before 100 %
-occupancy, which is the part people get wrong.
+meant to be precise, and it reports a **mean**: at 98 % occupancy the average wait is 5.5
+days, which also means half the files wait longer. One absence, one holiday period, and a
+team sitting there is already past its deadline. Treat anything above about 90 % as
+fragile rather than as fine.
 
 ---
 
