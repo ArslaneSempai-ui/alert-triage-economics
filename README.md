@@ -7,6 +7,8 @@ staffing decision and a budget line, and almost nobody prices it before moving i
 **The finding.** At the tight threshold a cautious team lands on, 7 of 8 analysts are paid to sit idle while 392 of 454 reportable cases go undetected. Loosening to 0.50 catches **306 more for no extra money** — the payroll is already committed. The organisation was never short of budget. It was short of the calculation.
 <!-- /figures:finding -->
 
+**[Try it in your browser →](https://arslanesempai-ui.github.io/alert-triage-economics/)** — every assumption is editable and the model recomputes live. Put your own headcount in.
+
 ![The threshold, priced](images/threshold.png)
 
 ```bash
@@ -300,6 +302,74 @@ agent that escalates when it isn't
 confident](https://github.com/ArslaneSempai-ui/kyc-triage-agent), [a bench that says
 whether either still works](https://github.com/ArslaneSempai-ui/regression-bench), and
 this — what the setting costs.
+
+---
+
+## What this does not let you conclude
+
+Everything above is measured, and a measurement invites conclusions it does not support.
+The ones this page is most likely to be read as making, and does not:
+
+**Not "you can catch 306 more cases for free."** For free at *this* population's shape, at
+*these* five assumptions, on a synthetic alert set whose overlap I chose. What travels is
+the mechanism — a team paid for and not used is capacity you already own — and the fact
+that almost nobody computes it before moving the setting.
+
+**Not "the next analyst costs $1,442 a case."** That is the price of the *first* step. The
+step after it costs $29,524 a case and is eleven analysts wide; the one after that,
+$85,846. Quoting the first number alone is how a committee approves the flat part of a
+staircase.
+
+**Not "the queue model predicts your wait."** It is standard queueing: waiting grows as
+1/(1−load) and diverges at 1. That shape is right; the arrival process here is smooth, and
+a real alert queue is bursty. Burstiness makes waits worse, never better, so the figures
+here are optimistic in the direction that matters.
+
+**Not "the deadline is met."** The model reports whether the *steady-state* wait fits
+inside the target. A queue at 98 % occupancy meets a target on average and misses it every
+time somebody takes leave. That is what the margin column is for, and it is why the free
+route is priced in days of margin rather than called free.
+
+---
+
+## What I would do differently
+
+**Fix the currency before writing a line.** This shipped priced in euros while resting
+entirely on 31 CFR and US salary figures. It is a small thing that a reader notices before
+they read anything else.
+
+**Compute the staircase before the curve.** I built the threshold curve first and the
+step analysis last, which is backwards: the curve invites the question "what does the next
+notch cost", and the honest answer is "nothing, until it costs eleven analysts at once".
+The first version of the step search even capped at eight and reported a wall where there
+is a stair.
+
+**Check every unit conversion at the boundary.** The deadline margin subtracted working
+days from calendar days and looked entirely reasonable doing it. Any number crossing
+between two clocks deserves a test, and it now has one.
+
+**Ask what the plan is for before building the plan.** The capacity horizon is the most
+useful thing here and it came last, as an afterthought. The question a committee actually
+asks is not "what does this cost" but "when do I have to decide" — and that should have
+been the first screen, not the fifth section.
+
+---
+
+## What a reviewer can check without running anything
+
+| Claim | Where it is checked |
+|---|---|
+| Every figure on this page | Generated from the model; `npm test` fails if the page drifts |
+| Every regulation cited | Linked to the section, with the retrieval date, quoted verbatim |
+| Every assumption | Declared in the inventory, editable on the screen, and swept |
+| The deadline arithmetic | Working days converted to calendar days, with a test on the conversion |
+| Every step price | The whole step, not the unit that completes it — asserted in a test |
+| The population draw | Seeded — a stranger running `npm test` gets these exact numbers |
+
+That list is the actual deliverable. A model that produces a confident number and cannot
+show where it came from is worth less than one that produces a hedged number and can.
+
+---
 
 **Arslane Chaouche Ramdane** — six years in AML/KYC and financial crime operations:
 30,000+ profiles reviewed, 6,000+ escalations, a team of five, and an 18 % cut in

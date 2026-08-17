@@ -267,3 +267,24 @@ input[type=checkbox] { accent-color: var(--encre); width: 19px; height: 19px; }
 .attribution { font-size: 12.5px; color: var(--encre-pale); margin-top: 12px;
   padding-top: 11px; border-top: 1px solid var(--filet); }
 .attribution b { color: var(--encre); font-family: var(--chiffres); font-weight: 400; }
+
+/*
+ * Les puces de rappel : des questions déjà écrites, à relancer d'un clic.
+ *
+ * Discrètes par construction. Ce sont des raccourcis vers un travail déjà fait, pas des
+ * actions principales — les traiter comme des boutons pleins mettrait le rappel au même
+ * rang que la recherche elle-même.
+ */
+.puces { margin-top: 14px; }
+.puce {
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--encre-pale);
+  background: transparent;
+  border: 1px solid var(--filet);
+  padding: 4px 9px;
+  margin: 0 6px 6px 0;
+  cursor: pointer;
+}
+.puce:hover { color: var(--encre); border-color: var(--encre-pale); }
+.puce:focus-visible { outline: 2px solid var(--encre); outline-offset: 1px; }
