@@ -98,7 +98,7 @@ src/
   serveur.ts + ui.html   one screen, French or English
 ```
 
-Node 26 with native TypeScript, `node:test`, no build step, no dependencies. 12 tests,
+Node 26 with native TypeScript, `node:test`, no build step, no dependencies. 14 tests,
 including one that fails if the free zone disappears — because that's the finding, and a
 refactor that quietly removes it should not pass silently.
 
