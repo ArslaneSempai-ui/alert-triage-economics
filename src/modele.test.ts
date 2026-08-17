@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { genererPopulation, minutesDeTraitement } from "./alertes.ts";
 import { evaluer, balayer, recommander, HYPOTHESES, SEUILS } from "./modele.ts";
+import type { Point } from "./modele.ts";
 
 const pop = genererPopulation();
 
@@ -75,7 +76,7 @@ test("le délai promis contraint réellement, il n'est pas décoratif", () => {
   // si un plafond de charge arbitraire vient de nouveau court-circuiter l'échéance.
   const large = balayer(pop, SEUILS, { ...HYPOTHESES, delaiMaxJours: 30 });
   const serre = balayer(pop, SEUILS, { ...HYPOTHESES, delaiMaxJours: 1 });
-  const tenus = (pts) => pts.filter((p) => p.delaiTenu).length;
+  const tenus = (pts: Point[]) => pts.filter((p) => p.delaiTenu).length;
   assert.ok(tenus(serre) < tenus(large),
     "resserrer l'échéance doit disqualifier des configurations");
 });
@@ -85,6 +86,7 @@ test("l'attente est en jours ouvrés, pas en heures déguisées", () => {
   // qui s'annule — et livrait des heures sous un nom promettant des jours.
   const p = evaluer(pop, 0.45, { ...HYPOTHESES, effectifActuel: 8 });
   assert.ok(p.attenteJours !== null);
+  assert.ok(p.charge !== null, "sans charge il n'y a pas d'attente à vérifier");
   const heuresParAlerte = p.heures / p.alertes;
   const attendu = (p.charge / (1 - p.charge)) * heuresParAlerte / HYPOTHESES.heuresProductivesParJour;
   assert.ok(Math.abs(p.attenteJours - attendu) < 0.01, "l'unité ne correspond pas à la formule");
