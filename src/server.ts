@@ -1,23 +1,23 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
-import { genererPopulation } from "./alertes.ts";
-import { evaluer, balayer, recommander, HYPOTHESES, SEUILS } from "./modele.ts";
-import type { Hypotheses } from "./modele.ts";
+import { generatePopulation } from "./alerts.ts";
+import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./model.ts";
+import type { Assumptions } from "./model.ts";
 
 const PORT = Number(process.env.PORT ?? 4700);
-const pop = genererPopulation();
+const pop = generatePopulation();
 
 /** Les hypothèses vivent en mémoire : l'outil est une calculatrice, pas un registre. */
-let hypotheses: Hypotheses = { ...HYPOTHESES };
-let seuil = 0.65;
+let assumptions: Assumptions = { ...ASSUMPTIONS };
+let threshold = 0.65;
 
 function json(res: ServerResponse, corps: unknown, code = 200): void {
-  const charge = JSON.stringify(corps);
+  const load = JSON.stringify(corps);
   res.writeHead(code, {
     "content-type": "application/json; charset=utf-8",
-    "content-length": Buffer.byteLength(charge),
+    "content-length": Buffer.byteLength(load),
   });
-  res.end(charge);
+  res.end(load);
 }
 
 function corps(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -30,23 +30,23 @@ function corps(req: IncomingMessage): Promise<Record<string, unknown>> {
 }
 
 /** Bornes de bon sens : un écran qui accepte 400 jours travaillés ment à son lecteur. */
-const BORNES: Record<keyof Hypotheses, [number, number]> = {
-  heuresProductivesParJour: [1, 8],
-  joursTravaillesParAn: [180, 260],
-  coutChargeParAnalyste: [20_000, 200_000],
-  delaiMaxJours: [1, 30],
-  effectifActuel: [0, 200],
+const BOUNDS: Record<keyof Assumptions, [number, number]> = {
+  productiveHoursPerDay: [1, 8],
+  workingDaysPerYear: [180, 260],
+  loadedCostPerAnalyst: [20_000, 200_000],
+  maxHandlingDays: [1, 30],
+  analystsInPost: [0, 200],
 };
 
 function etat() {
   return {
-    seuil,
-    hypotheses,
-    courbe: balayer(pop, SEUILS, hypotheses),
-    actuel: evaluer(pop, seuil, hypotheses),
-    recommandation: recommander(pop, SEUILS, hypotheses),
-    population: { operations: pop.operations, vraisPositifsTotal: pop.vraisPositifsTotal },
-    bornes: BORNES,
+    threshold,
+    assumptions,
+    courbe: sweep(pop, THRESHOLDS, assumptions),
+    actuel: evaluate(pop, threshold, assumptions),
+    recommandation: recommend(pop, THRESHOLDS, assumptions),
+    population: { operations: pop.operations, truePositivesTotal: pop.truePositivesTotal },
+    bounds: BOUNDS,
   };
 }
 
@@ -71,21 +71,21 @@ const serveur = createServer(async (req, res) => {
 
     if (url.pathname === "/api/reglage" && req.method === "POST") {
       const recu = await corps(req);
-      if (typeof recu.seuil === "number" && Number.isFinite(recu.seuil)) {
-        seuil = Math.min(0.95, Math.max(0.30, recu.seuil));
+      if (typeof recu.threshold === "number" && Number.isFinite(recu.threshold)) {
+        threshold = Math.min(0.95, Math.max(0.30, recu.threshold));
       }
-      for (const [cle, [min, max]] of Object.entries(BORNES) as [keyof Hypotheses, [number, number]][]) {
+      for (const [cle, [min, max]] of Object.entries(BOUNDS) as [keyof Assumptions, [number, number]][]) {
         const v = recu[cle];
         if (typeof v === "number" && Number.isFinite(v)) {
-          hypotheses = { ...hypotheses, [cle]: Math.min(max, Math.max(min, v)) };
+          assumptions = { ...assumptions, [cle]: Math.min(max, Math.max(min, v)) };
         }
       }
       return json(res, etat());
     }
 
     if (url.pathname === "/api/defaut" && req.method === "POST") {
-      hypotheses = { ...HYPOTHESES };
-      seuil = 0.65;
+      assumptions = { ...ASSUMPTIONS };
+      threshold = 0.65;
       return json(res, etat());
     }
 

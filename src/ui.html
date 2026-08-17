@@ -18,7 +18,7 @@
   <div id="reglage"></div>
 
   <h2 id="titreHyp"></h2>
-  <div id="hypotheses"></div>
+  <div id="assumptions"></div>
 
   <h2 id="titreCourbe"></h2>
   <div id="courbe"></div>
@@ -35,7 +35,7 @@ const T = {
     h1: "Économie du seuil de détection",
     lede: "Un seuil de surveillance transactionnelle n'est pas un réglage technique : c'est des heures d'analystes, un effectif et une ligne budgétaire, en face de ce qu'on attrape. Cet écran traduit l'un dans l'autre.",
     releve: "Relevé d'exploitation",
-    alertes: "alertes par an", heures: "heures d'analystes", etp: "ETP nécessaires",
+    alerts: "alertes par an", hours: "heures d'analystes", etp: "ETP nécessaires",
     cout: "coût annuel", attrapes: "vrais positifs attrapés", rates: "manqués",
 
     seuilTitre: "Le seuil de détection",
@@ -45,11 +45,11 @@ const T = {
 
     titreHyp: "Les hypothèses d'exploitation",
     hypQuoi: "Tout est discutable et tout se modifie. Un modèle dont on ne peut pas contester les hypothèses n'est pas un modèle, c'est une opinion présentée en tableau.",
-    heuresProductivesParJour: "Heures productives par jour",
-    joursTravaillesParAn: "Jours travaillés par an",
-    coutChargeParAnalyste: "Coût chargé par analyste (€/an)",
-    delaiMaxJours: "Délai maximal de traitement (jours)",
-    effectifActuel: "Analystes en poste",
+    productiveHoursPerDay: "Heures productives par jour",
+    workingDaysPerYear: "Jours travaillés par an",
+    loadedCostPerAnalyst: "Coût chargé par analyste (€/an)",
+    maxHandlingDays: "Délai maximal de traitement (jours)",
+    analystsInPost: "Analystes en poste",
     defaut: "Revenir aux hypothèses de départ",
 
     debordeTitre: "La file déborde",
@@ -74,7 +74,7 @@ const T = {
     h1: "The economics of a detection threshold",
     lede: "A transaction-monitoring threshold isn't a technical setting: it's analyst hours, headcount and a budget line, set against what you catch. This screen converts one into the other.",
     releve: "Operating statement",
-    alertes: "alerts per year", heures: "analyst hours", etp: "FTE required",
+    alerts: "alerts per year", hours: "analyst hours", etp: "FTE required",
     cout: "annual cost", attrapes: "true positives caught", rates: "missed",
 
     seuilTitre: "The detection threshold",
@@ -84,11 +84,11 @@ const T = {
 
     titreHyp: "Operating assumptions",
     hypQuoi: "All of it is arguable and all of it is editable. A model whose assumptions you can't challenge isn't a model — it's an opinion in a table.",
-    heuresProductivesParJour: "Productive hours per day",
-    joursTravaillesParAn: "Working days per year",
-    coutChargeParAnalyste: "Loaded cost per analyst (€/yr)",
-    delaiMaxJours: "Maximum handling time (days)",
-    effectifActuel: "Analysts in post",
+    productiveHoursPerDay: "Productive hours per day",
+    workingDaysPerYear: "Working days per year",
+    loadedCostPerAnalyst: "Loaded cost per analyst (€/yr)",
+    maxHandlingDays: "Maximum handling time (days)",
+    analystsInPost: "Analysts in post",
     defaut: "Reset to the starting assumptions",
 
     debordeTitre: "The queue breaks",
@@ -123,12 +123,12 @@ const pc = (x) => (x * 100).toFixed(0) + " %";
 function blocChiffres() {
   const L = t(), a = etat.actuel;
   const cases = [
-    { v: nb(a.alertes), l: L.alertes },
-    { v: nb(a.heures), l: L.heures },
-    { v: a.etpEntiers, l: L.etp, mauvais: !a.fileTient },
-    { v: euro(a.coutAnnuel), l: L.cout },
-    { v: nb(a.vraisPositifsAttrapes), l: L.attrapes },
-    { v: nb(a.vraisPositifsManques), l: L.rates },
+    { v: nb(a.alerts), l: L.alerts },
+    { v: nb(a.hours), l: L.hours },
+    { v: a.fteWhole, l: L.etp, mauvais: !a.queueHolds },
+    { v: euro(a.annualCost), l: L.cout },
+    { v: nb(a.truePositivesCaught), l: L.attrapes },
+    { v: nb(a.truePositivesMissed), l: L.rates },
   ];
   /*
    * Le coût annuel est le total : il découle des alertes, des heures et des ETP posés
@@ -150,16 +150,16 @@ function blocChiffres() {
 function blocRecommandation() {
   const L = t(), a = etat.actuel, r = etat.recommandation;
   let html = "";
-  if (!a.fileTient) {
+  if (!a.queueHolds) {
     html += `<div class="renvoi defavorable"><b>${esc(L.debordeTitre)}</b><br>
-      ${esc(L.debordeQuoi(a.etpEntiers, etat.hypotheses.effectifActuel))}</div>`;
-  } else if (!a.delaiTenu) {
+      ${esc(L.debordeQuoi(a.fteWhole, etat.assumptions.analystsInPost))}</div>`;
+  } else if (!a.deadlineMet) {
     html += `<div class="renvoi defavorable"><b>${esc(L.delaiRateTitre)}</b><br>
-      ${esc(L.delaiRateQuoi(a.attenteJours.toFixed(1), etat.hypotheses.delaiMaxJours, a.charge === null ? "—" : pc(a.charge)))}</div>`;
+      ${esc(L.delaiRateQuoi(a.waitDays.toFixed(1), etat.assumptions.maxHandlingDays, a.load === null ? "—" : pc(a.load)))}</div>`;
   }
-  if (r && r.vraisPositifsGagnes > 0 && r.seuil < etat.seuil) {
+  if (r && r.truePositivesGained > 0 && r.threshold < etat.threshold) {
     html += `<div class="renvoi favorable"><b>${esc(L.recoTitre)}</b><br>
-      ${L.recoQuoi(r.seuil, r.vraisPositifsGagnes, pc(r.couvertureAvant), pc(r.couvertureApres), r.capaciteDormante)}</div>`;
+      ${L.recoQuoi(r.threshold, r.truePositivesGained, pc(r.coverageBefore), pc(r.coverageAfter), r.idleCapacity)}</div>`;
   }
   $("#recommandation").innerHTML = html;
 }
@@ -171,29 +171,29 @@ function blocReglage() {
     <div class="quoi">${esc(L.seuilQuoi)}</div>
     <div class="rang">
       <span class="bout">${esc(L.large)}</span>
-      <input type="range" id="seuil" min="0.30" max="0.95" step="0.05" value="${etat.seuil}"
+      <input type="range" id="threshold" min="0.30" max="0.95" step="0.05" value="${etat.threshold}"
         aria-label="${esc(L.seuilNom)}" />
       <span class="bout">${esc(L.strict)}</span>
-      <span class="lecture" id="seuilVal">${etat.seuil.toFixed(2)}</span>
+      <span class="lecture" id="seuilVal">${etat.threshold.toFixed(2)}</span>
     </div></div></section>`;
-  const s = $("#seuil");
+  const s = $("#threshold");
   s.oninput = () => { $("#seuilVal").textContent = Number(s.value).toFixed(2); };
-  s.onchange = () => envoyer({ seuil: Number(s.value) });
+  s.onchange = () => envoyer({ threshold: Number(s.value) });
 }
 
 function blocHypotheses() {
   const L = t();
   $("#titreHyp").textContent = L.titreHyp;
-  const champs = Object.keys(etat.bornes).map((cle) => {
-    const [min, max] = etat.bornes[cle];
+  const champs = Object.keys(etat.bounds).map((cle) => {
+    const [min, max] = etat.bounds[cle];
     return `<div><label for="${cle}">${esc(L[cle])}</label>
-      <input type="number" id="${cle}" value="${etat.hypotheses[cle]}" min="${min}" max="${max}" /></div>`;
+      <input type="number" id="${cle}" value="${etat.assumptions[cle]}" min="${min}" max="${max}" /></div>`;
   }).join("");
-  $("#hypotheses").innerHTML = `<div class="feuillet"><div class="quoi">${esc(L.hypQuoi)}</div>
+  $("#assumptions").innerHTML = `<div class="feuillet"><div class="quoi">${esc(L.hypQuoi)}</div>
     <div class="grille">${champs}</div>
     <button class="b" id="defaut" type="button">${esc(L.defaut)}</button></div>`;
 
-  for (const cle of Object.keys(etat.bornes)) {
+  for (const cle of Object.keys(etat.bounds)) {
     $(`#${cle}`).onchange = (e) => envoyer({ [cle]: Number(e.target.value) });
   }
   $("#defaut").onclick = () => envoyer(null, "/api/defaut");
@@ -203,19 +203,19 @@ function blocCourbe() {
   const L = t();
   $("#titreCourbe").textContent = L.titreCourbe;
   const lignes = etat.courbe.map((p) => {
-    const m = p.coutMarginalParVraiPositif;
+    const m = p.costPerMarginalTruePositive;
     const marginal = m === null ? "—"
       : m === 0 ? `<span class="gratuit">${esc(L.gratuit)}</span>`
       : m === null || !isFinite(m) ? esc(L.aucunGain)
       : euro(m);
-    return `<tr class="${Math.abs(p.seuil - etat.seuil) < 0.001 ? "ici " : ""}${p.fileTient && p.delaiTenu ? "" : "deborde"}">
-      <td>${p.seuil.toFixed(2)}</td><td>${nb(p.alertes)}</td><td>${nb(p.heures)}</td>
-      <td>${p.etpEntiers}</td><td>${p.recrutements || "—"}</td><td>${euro(p.coutAnnuel)}</td>
-      <td>${nb(p.vraisPositifsAttrapes)}</td><td>${nb(p.vraisPositifsManques)}</td>
+    return `<tr class="${Math.abs(p.threshold - etat.threshold) < 0.001 ? "ici " : ""}${p.queueHolds && p.deadlineMet ? "" : "deborde"}">
+      <td>${p.threshold.toFixed(2)}</td><td>${nb(p.alerts)}</td><td>${nb(p.hours)}</td>
+      <td>${p.fteWhole}</td><td>${p.hires || "—"}</td><td>${euro(p.annualCost)}</td>
+      <td>${nb(p.truePositivesCaught)}</td><td>${nb(p.truePositivesMissed)}</td>
       <td>${marginal}</td>
-      <td>${p.charge === null ? "—" : pc(p.charge)}</td>
-      <td>${p.attenteJours === null ? "—" : p.attenteJours.toFixed(1) + " j"}</td>
-      <td>${esc(!p.fileTient ? L.deborde : p.delaiTenu ? L.tient : L.enRetard)}</td></tr>`;
+      <td>${p.load === null ? "—" : pc(p.load)}</td>
+      <td>${p.waitDays === null ? "—" : p.waitDays.toFixed(1) + " j"}</td>
+      <td>${esc(!p.queueHolds ? L.deborde : p.deadlineMet ? L.tient : L.enRetard)}</td></tr>`;
   }).join("");
 
   $("#courbe").innerHTML = `<div class="feuillet">
@@ -225,7 +225,7 @@ function blocCourbe() {
       <th>${esc(L.colEtp)}</th><th>${esc(L.colRecrut)}</th><th>${esc(L.colCout)}</th>
       <th>${esc(L.colAttrapes)}</th><th>${esc(L.colRates)}</th><th>${esc(L.colMarginal)}</th>
       <th>${esc(L.colCharge)}</th><th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
-    <div class="renvoi">${esc(L.contexte(nb(etat.population.operations), etat.population.vraisPositifsTotal))}</div>
+    <div class="renvoi">${esc(L.contexte(nb(etat.population.operations), etat.population.truePositivesTotal))}</div>
   </div></section>`;
 }
 

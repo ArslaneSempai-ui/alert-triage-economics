@@ -5,10 +5,10 @@
   "type": "module",
   "description": "What a detection threshold costs in analyst hours, headcount and money \u2014 and what risk it buys.",
   "scripts": {
-    "start": "node src/serveur.ts",
-    "modele": "node src/modele.ts",
+    "start": "node src/server.ts",
     "test": "tsc --noEmit && node --test src/*.test.ts",
-    "typage": "tsc --noEmit"
+    "typage": "tsc --noEmit",
+    "model": "node src/model.ts"
   },
   "engines": {
     "node": ">=24"
