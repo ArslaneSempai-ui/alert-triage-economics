@@ -9,7 +9,7 @@ staffing decision and a budget line, and almost nobody prices it before moving i
 
 **[Try it in your browser →](https://arslanesempai-ui.github.io/alert-triage-economics/)** — every assumption is editable and the model recomputes live. Put your own headcount in.
 
-![The threshold, priced](images/threshold.png)
+![Editing the assumptions: the model recomputes live](images/demo.gif)
 
 ```bash
 npm start        # the screen, on localhost:4700
