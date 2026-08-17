@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { generatePopulation } from "./alerts.ts";
 import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./model.ts";
 import { shadowPrice, cheapestRouteToNextStep } from "./shadow.ts";
+import { plan, costOfTakingTheStep, decisionUnderGrowth, HORIZON } from "./plan.ts";
 import type { Assumptions } from "./model.ts";
 
 const PORT = Number(process.env.PORT ?? 4700);
@@ -80,9 +81,17 @@ const serveur = createServer(async (req, res) => {
      * when the assumptions settle.
      */
     if (url.pathname === "/api/escalier") {
+      /* The threshold planned against is the one the tool recommends at the assumptions in
+       * force, not the constant compiled into HORIZON — that constant was computed at the
+       * default assumptions and would go stale the moment anyone edits the panel. */
+      const horizon = { ...HORIZON, threshold: recommend(pop, THRESHOLDS, assumptions)?.threshold ?? HORIZON.threshold };
       return json(res, {
         analyst: shadowPrice("analyst", pop, assumptions),
         routes: cheapestRouteToNextStep(pop, assumptions),
+        horizon,
+        plan: plan(horizon, assumptions),
+        step: costOfTakingTheStep(horizon, assumptions),
+        growth: decisionUnderGrowth(undefined, horizon, assumptions),
       });
     }
 

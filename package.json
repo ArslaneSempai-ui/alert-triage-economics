@@ -11,7 +11,8 @@
     "model": "node src/model.ts",
     "figures": "node src/readme.ts",
     "sensitivity": "node src/sensitivity.ts",
-    "shadow": "node src/shadow.ts"
+    "shadow": "node src/shadow.ts",
+    "plan": "node src/plan.ts"
   },
   "engines": {
     "node": ">=24"

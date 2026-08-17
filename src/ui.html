@@ -26,6 +26,9 @@
 
   <h2 id="titreEscalier"></h2>
   <div id="escalier"></div>
+
+  <h2 id="titreHorizon"></h2>
+  <div id="horizon"></div>
 </main>
 
 <script type="module">
@@ -67,10 +70,22 @@ const T = {
     colRecrut: "à recruter", colCout: "coût annuel", colAttrapes: "attrapés",
     colRates: "manqués", colMarginal: "coût du VP suivant", colFile: "file",
     gratuit: "gratuit", aucunGain: "aucun gain", tient: "tient", deborde: "déborde",
+    jour: "j",
     enRetard: "hors délai",
     colAttente: "attente", colCharge: "occupation",
     delaiRateTitre: "Le délai promis n'est pas tenu",
     delaiRateQuoi: (a, d, c) => `La file se résorbe, mais l'attente moyenne atteint ${a} jours pour un délai promis de ${d}. À ${c} d'occupation, la moindre absence fait décrocher l'équipe.`,
+    titreHorizon: "Le trimestre où la décision est due",
+    horizonQuoi: (g, att, sem) => `Tout le reste de cet écran répond sur aujourd'hui. À ${g} de croissance des volumes par trimestre, ${att} d'attrition annuelle et ${sem} semaines pour pourvoir un poste, la décision tombe pendant que tous les voyants sont encore au vert.`,
+    colTrim: "trim.", colOps: "opérations", colBesoin: "ETP nécessaires", colTenus: "ETP tenus",
+    casse: "casse", tientH: "tient", tardH: "hors délai",
+    marcheTitre: "La marche que cet outil dit gratuite",
+    marcheTient: (s1, s2, via, n) => `Passer de <b>${s1}</b> à <b>${s2}</b> ne coûte rien ce trimestre : ${via}. Cela tient sur les ${n} analystes en poste sur tout l'horizon.`,
+    marcheCasse: (s1, s2, via, n, quand, combien, fin, dernier, quandDec) => `Passer de <b>${s1}</b> à <b>${s2}</b> ne coûte rien ce trimestre : ${via}. Cela tient sur les ${n} analystes en poste jusqu'en <b>${quand}</b>, où il en faut ${combien} de plus — ${fin} de plus d'ici ${dernier}. La demande de poste est donc due <b>${quandDec}</b>.`,
+    croissanceTitre: "Personne ne peut vous donner la croissance de l'an prochain",
+    colCroissance: "croissance / trim.", colCasse: "la file lâche", colDecision: "première décision due",
+    horsHorizon: "pas sur cet horizon", rienADecider: "rien à décider",
+    trimPasse: (n) => `il y a ${n} trimestre${n > 1 ? "s" : ""}`,
     titreEscalier: "Ce qu'achète l'analyste suivant",
     escalierQuoi: "La recommandation est un cran parmi dix : la ressource s'achète par marches, pas à l'unité. Financer une partie d'une marche n'achète rien — pas moins, rien.",
     colAjoutes: "ajoutés", colLargeur: "largeur de la marche", colCouverture: "couverture",
@@ -116,6 +131,17 @@ const T = {
     recoQuoi: (s, vp, av, ap, dorm) =>
       `Going down to <b>${s.toFixed(2)}</b> catches <b>${vp} more true positives</b> for <b>nothing</b>: coverage moves from ${av} to ${ap}. At the tightest threshold, ${dorm} FTE you already pay for sit idle.`,
 
+    titreHorizon: "The quarter the decision is due",
+    horizonQuoi: (g, att, sem) => `Everything else on this screen answers about today. At ${g} volume growth a quarter, ${att} annual attrition and ${sem} weeks to fill a req, the decision falls while every indicator is still green.`,
+    colTrim: "qtr", colOps: "operations", colBesoin: "heads needed", colTenus: "heads held",
+    casse: "breaks", tientH: "holds", tardH: "late",
+    marcheTitre: "The step this tool calls free",
+    marcheTient: (s1, s2, via, n) => `Going from <b>${s1}</b> to <b>${s2}</b> costs no money this quarter: ${via}. It holds on the ${n} analysts in post across the whole horizon.`,
+    marcheCasse: (s1, s2, via, n, quand, combien, fin, dernier, quandDec) => `Going from <b>${s1}</b> to <b>${s2}</b> costs no money this quarter: ${via}. It holds on the ${n} analysts in post until <b>${quand}</b>, when it needs ${combien} more — ${fin} more by ${dernier}. Which puts the req at <b>${quandDec}</b>.`,
+    croissanceTitre: "Nobody can hand you next year's growth rate",
+    colCroissance: "growth / qtr", colCasse: "queue fails", colDecision: "first decision due",
+    horsHorizon: "not on this horizon", rienADecider: "nothing to decide",
+    trimPasse: (n) => `${n} quarter${n > 1 ? "s" : ""} ago`,
     titreEscalier: "What the next analyst buys",
     escalierQuoi: "The recommendation is one notch out of ten: the resource is bought in steps, not in units. Funding part of a step buys nothing — not less, nothing.",
     colAjoutes: "added", colLargeur: "step width", colCouverture: "coverage",
@@ -136,6 +162,7 @@ const T = {
     colRecrut: "to hire", colCout: "annual cost", colAttrapes: "caught",
     colRates: "missed", colMarginal: "cost of the next TP", colFile: "queue",
     gratuit: "free", aucunGain: "no gain", tient: "holds", deborde: "breaks",
+    jour: "d",
     enRetard: "late",
     colAttente: "wait", colCharge: "occupancy",
     delaiRateTitre: "The promised deadline is missed",
@@ -257,7 +284,7 @@ function blocCourbe() {
       <td>${nb(p.truePositivesCaught)}</td><td>${nb(p.truePositivesMissed)}</td>
       <td>${marginal}</td>
       <td>${p.load === null ? "—" : pc(p.load)}</td>
-      <td>${p.waitDays === null ? "—" : p.waitDays.toFixed(1) + " j"}</td>
+      <td>${p.waitDays === null ? "—" : p.waitDays.toFixed(1) + " " + L.jour}</td>
       <td>${esc(!p.queueHolds ? L.deborde : p.deadlineMet ? L.tient : L.enRetard)}</td></tr>`;
   }).join("");
 
@@ -324,6 +351,54 @@ function blocEscalier() {
   </div>${bloc2}`;
 }
 
+function blocHorizon() {
+  const L = t();
+  $("#titreHorizon").textContent = L.titreHorizon;
+
+  if (!escalier) {
+    $("#horizon").innerHTML = `<div class="feuillet"><div class="renvoi">${esc(L.calcul)}</div></div>`;
+    return;
+  }
+
+  const h = escalier.horizon, p = escalier.plan;
+  const q = (i) => (i < 0 ? L.trimPasse(-i) : "Q" + (i + 1));
+
+  const lignes = p.quarters.map((x) => `<tr class="${x.queueHolds && x.deadlineMet ? "" : "deborde"}">
+    <td>${esc(x.label)}</td><td>${nb(x.operations)}</td><td>${nb(x.alerts)}</td>
+    <td>${x.fteNeeded}</td><td>${x.headcount.toFixed(1)}</td>
+    <td>${x.load === null ? "—" : pc(x.load)}</td>
+    <td>${x.waitDays === null ? "—" : x.waitDays.toFixed(1) + " " + L.jour}</td>
+    <td>${esc(!x.queueHolds ? L.casse : x.deadlineMet ? L.tientH : L.tardH)}</td></tr>`).join("");
+
+  const st = escalier.step;
+  const via = st && st.via ? L.quantite(st.via.resource, st.via.units) : "";
+  const blocStep = !st ? "" : `<section class="feuillet"><div class="corps">
+    <div class="titre">${esc(L.marcheTitre)}</div>
+    <div class="quoi">${st.freeUntil === null || st.decideBy === null
+      ? L.marcheTient(st.from.toFixed(2), st.to.toFixed(2), via, escalier.plan.quarters[0].headcount.toFixed(0))
+      : L.marcheCasse(st.from.toFixed(2), st.to.toFixed(2), via, escalier.plan.quarters[0].headcount.toFixed(0),
+          q(st.freeUntil), st.extraWhenItBites, st.extraByHorizon, q(p.quarters.length - 1), q(st.decideBy))}</div>
+  </div></section>`;
+
+  const croissance = escalier.growth.map((r) => `<tr><td>${(r.growth * 100).toFixed(0)} %</td>
+    <td>${r.breaksAt === null ? esc(L.horsHorizon) : q(r.breaksAt)}</td>
+    <td>${r.decideBy === null ? esc(L.rienADecider) : q(r.decideBy)}</td></tr>`).join("");
+
+  $("#horizon").innerHTML = `<div class="feuillet">
+    <div class="quoi">${esc(L.horizonQuoi((h.quarterlyGrowth * 100).toFixed(0) + " %",
+      (h.attritionPerYear * 100).toFixed(0) + " %", h.hiringLeadWeeks))}</div>
+    <div class="defile"><table><thead><tr>
+      <th>${esc(L.colTrim)}</th><th>${esc(L.colOps)}</th><th>${esc(L.colAlertes)}</th>
+      <th>${esc(L.colBesoin)}</th><th>${esc(L.colTenus)}</th><th>${esc(L.colCharge)}</th>
+      <th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
+  </div>${blocStep}
+  <section class="feuillet"><div class="corps">
+    <div class="titre">${esc(L.croissanceTitre)}</div>
+    <table><thead><tr><th>${esc(L.colCroissance)}</th><th>${esc(L.colCasse)}</th>
+      <th>${esc(L.colDecision)}</th></tr></thead><tbody>${croissance}</tbody></table>
+  </div></section>`;
+}
+
 function dessiner() {
   const L = t();
   document.documentElement.lang = langue;
@@ -331,7 +406,7 @@ function dessiner() {
   $("#lede").textContent = L.lede;
   $("#fr").className = langue === "fr" ? "on" : "";
   $("#en").className = langue === "en" ? "on" : "";
-  blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe(); blocEscalier();
+  blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe(); blocEscalier(); blocHorizon();
 }
 
 /*
@@ -343,11 +418,11 @@ let billet = 0;
 async function chargerEscalier() {
   const mien = ++billet;
   escalier = null;
-  blocEscalier();
+  blocEscalier(); blocHorizon();
   const recu = await api("/api/escalier");
   if (mien !== billet) return;
   escalier = recu;
-  blocEscalier();
+  blocEscalier(); blocHorizon();
 }
 
 async function envoyer(corps, chemin = "/api/reglage") {

@@ -88,6 +88,51 @@ price on it, and it is not the cheapest.
 
 ---
 
+## The quarter the decision is due
+
+Everything above answers a question about today. Nobody runs a compliance operation at a
+fixed volume: transactions grow, alerts grow with them, and a queue comfortable at 33 %
+occupancy is not comfortable eight quarters later.
+
+The finding isn't that the queue eventually breaks — everyone knows that. It's **when you
+had to decide**. A req takes sixteen weeks and a new analyst is worth half a head in their
+first quarter, so the decision lands two quarters before the arrival and the arrival lands
+before the break. Work that backwards and the decision is due while every indicator on the
+dashboard is still green.
+
+<!-- figures:horizon -->
+Holding the threshold this tool recommends (0.50), at 6 % volume growth a quarter, 15 % annual attrition, and a 16-week hiring lead time:
+
+|  | Operations | Alerts | Heads needed | Heads held | Occupancy | Wait | Verdict |
+|---|---|---|---|---|---|---|---|
+| Q1 | 400,000 | 4,154 | 3 | 8.0 | 33 % | 0.1 d | holds |
+| Q2 | 424,000 | 4,412 | 3 | 7.7 | 35 % | 0.1 d | holds |
+| Q3 | 449,440 | 4,684 | 4 | 7.4 | 42 % | 0.1 d | holds |
+| Q4 | 476,406 | 4,966 | 4 | 7.1 | 45 % | 0.1 d | holds |
+| Q5 | 504,991 | 5,264 | 4 | 6.9 | 47 % | 0.1 d | holds |
+| Q6 | 535,290 | 5,554 | 4 | 6.6 | 50 % | 0.1 d | holds |
+| Q7 | 567,408 | 5,853 | 4 | 6.4 | 61 % | 0.2 d | holds |
+| Q8 | 601,452 | 6,210 | 5 | 6.1 | 65 % | 0.3 d | holds |
+
+**The step this tool calls free.** Going from 0.50 to 0.45 costs no money this quarter — 1 more day of handling time. It holds on the 8 analysts in post until **Q2**, when it needs 1 more — 4 more by Q8. A 16-week req puts that decision at **1 quarter ago**.
+
+Nobody can hand you next year's growth rate, so here is the range instead:
+
+| Growth per quarter | Queue fails | First decision due |
+|---|---|---|
+| 2 % | not on this horizon | nothing to decide |
+| 4 % | not on this horizon | nothing to decide |
+| 6 % | not on this horizon | nothing to decide |
+| 8 % | not on this horizon | nothing to decide |
+| 10 % | not on this horizon | nothing to decide |
+| 15 % | Q7 | Q5 |
+<!-- /figures:horizon -->
+
+That is the gap an operations review cannot close. A review reports the present, and the
+present is not when the decision was.
+
+---
+
 ## What is actually being bought
 
 The cost on one side of this model buys compliance with a specific obligation, and it is

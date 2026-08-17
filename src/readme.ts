@@ -9,7 +9,8 @@ import { generatePopulation } from "./alerts.ts";
 import { sweep, recommend, ASSUMPTIONS } from "./model.ts";
 import { run, table } from "./figures.ts";
 import { ALL } from "./regulations.ts";
-import { shadowPrice, cheapestRouteToNextStep } from "./shadow.ts";
+import { shadowPrice, cheapestRouteToNextStep, quantity } from "./shadow.ts";
+import { plan, costOfTakingTheStep, decisionUnderGrowth, HORIZON } from "./plan.ts";
 
 const pop = generatePopulation();
 const points = sweep(pop);
@@ -92,10 +93,55 @@ const routes = (() => {
     `**${same.gained} more reportable cases a year**. There are three ways to get there:\n\n${rows}${caveat}`;
 })();
 
+/*
+ * The capacity plan, and the sentence it exists to produce.
+ *
+ * Generated rather than written because the decision quarter moves whenever anything else
+ * in the model does, and a date typed by hand on a page is a date nobody updates.
+ */
+const horizon = (() => {
+  const p = plan();
+  const q = (i: number) => (i < 0 ? `${-i} quarter${i === -1 ? "" : "s"} ago` : `Q${i + 1}`);
+  const rows = table(
+    ["", "Operations", "Alerts", "Heads needed", "Heads held", "Occupancy", "Wait", "Verdict"],
+    p.quarters.map((x) => [
+      x.label, Math.round(x.operations).toLocaleString("en-GB"), x.alerts.toLocaleString("en-GB"),
+      x.fteNeeded, x.headcount.toFixed(1),
+      x.load === null ? "—" : (x.load * 100).toFixed(0) + " %",
+      x.waitDays === null ? "—" : x.waitDays.toFixed(1) + " d",
+      !x.queueHolds ? "**breaks**" : x.deadlineMet ? "holds" : "**late**",
+    ]),
+  );
+  const step = costOfTakingTheStep();
+  const s2 = !step ? "" :
+    `\n\n**The step this tool calls free.** Going from ${step.from.toFixed(2)} to ${step.to.toFixed(2)} costs no money ` +
+    `this quarter — ${step.via ? quantity(step.via.resource, step.via.units) : "no free route"}. ` +
+    (step.freeUntil === null || step.decideBy === null
+      ? `It holds on the ${ASSUMPTIONS.analystsInPost} analysts in post for the whole horizon.`
+      : `It holds on the ${ASSUMPTIONS.analystsInPost} analysts in post until **${q(step.freeUntil)}**, when it needs ` +
+        `${step.extraWhenItBites} more — ${step.extraByHorizon} more by ${q(p.quarters.length - 1)}. ` +
+        `A ${HORIZON.hiringLeadWeeks}-week req puts that decision at **${q(step.decideBy)}**.`);
+
+  const sweep = table(
+    ["Growth per quarter", "Queue fails", "First decision due"],
+    decisionUnderGrowth().map((r) => [
+      (r.growth * 100).toFixed(0) + " %",
+      r.breaksAt === null ? "not on this horizon" : q(r.breaksAt),
+      r.decideBy === null ? "nothing to decide" : q(r.decideBy),
+    ]),
+  );
+
+  return `Holding the threshold this tool recommends (${HORIZON.threshold.toFixed(2)}), at ` +
+    `${(HORIZON.quarterlyGrowth * 100).toFixed(0)} % volume growth a quarter, ` +
+    `${(HORIZON.attritionPerYear * 100).toFixed(0)} % annual attrition, and a ` +
+    `${HORIZON.hiringLeadWeeks}-week hiring lead time:\n\n${rows}${s2}\n\n` +
+    `Nobody can hand you next year's growth rate, so here is the range instead:\n\n${sweep}`;
+})();
+
 const citations = table(
   ["Citation", "Requires", "Figure", "Retrieved"],
   ALL.filter((r) => /1020\.320|1010\.311/.test(r.cite))
     .map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
 );
 
-run(new URL("../README.md", import.meta.url).pathname, { curve, headline, staircase, routes, citations });
+run(new URL("../README.md", import.meta.url).pathname, { curve, headline, staircase, routes, horizon, citations });

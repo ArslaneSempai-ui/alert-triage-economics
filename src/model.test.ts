@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generatePopulation, handlingMinutes } from "./alerts.ts";
-import { shadowPrice, cheapestRouteToNextStep } from "./shadow.ts";
+import { shadowPrice, cheapestRouteToNextStep, RESOURCES } from "./shadow.ts";
+import { plan, costOfTakingTheStep, leadQuarters, headsRequired, HORIZON } from "./plan.ts";
 import type { Alert } from "./alerts.ts";
 import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./model.ts";
 import type { Point } from "./model.ts";
@@ -196,4 +197,103 @@ test("the free route and the paid route reach the same rung", () => {
   assert.ok(same!.routes.some((r) => (r.cost ?? 0) > 0), "a priced route must be found");
   assert.deepEqual(same!.routes.map((r) => r.cost).slice().sort((a, b) => (a ?? Infinity) - (b ?? Infinity)),
     same!.routes.map((r) => r.cost), "routes must be listed cheapest first");
+});
+
+/* ── the quarter the decision is due ── */
+
+test("a req is dated by its lead time, even when that lands in the past", () => {
+  /*
+   * The one output a capacity plan must never produce is a feasible-looking schedule. If
+   * a decision date is clamped to "this quarter" because the honest answer is negative,
+   * the plan says the shortfall can still be covered when it cannot — and it says so most
+   * confidently in exactly the situation where being wrong costs the most.
+   */
+  /* A team with no slack, so the shortfall lands inside the lead time rather than after it. */
+  const h = { ...HORIZON, quarterlyGrowth: 0.25, quarters: 6 };
+  const thin = { ...ASSUMPTIONS, analystsInPost: 3 };
+  const p = plan(h, thin);
+  assert.ok(p.hires.length > 0, "a team of three at 25 % growth must need somebody");
+
+  for (const hire of p.hires) {
+    assert.equal(hire.arriveIn - hire.decideIn, leadQuarters(h),
+      "the gap between deciding and arriving is the lead time, always");
+  }
+  assert.ok(p.hires[0]!.arriveIn < leadQuarters(h),
+    "the premise of this test is a shortfall arriving sooner than a req can be filled");
+  assert.ok(p.hires.some((x) => x.decideIn < 0),
+    "so the first decision is in the past, and the plan must say so rather than round it up");
+  assert.equal(p.overdue, true);
+});
+
+test("attrition is paid for, not assumed away", () => {
+  /*
+   * A team of eight at fifteen percent loses more than one person a year. A plan that
+   * counts only growth hires is short by about a head a year, every year, and it fails
+   * quietly — the shortfall shows up as a queue that will not clear for no visible reason.
+   */
+  /* Enough slack and nobody needs hiring either way, and the test proves nothing. */
+  const h = { ...HORIZON, quarterlyGrowth: 0.12, quarters: 8 };
+  const thin = { ...ASSUMPTIONS, analystsInPost: 5 };
+  const withAttrition = plan(h, thin);
+  const without = plan({ ...h, attritionPerYear: 0 }, thin);
+  assert.ok(without.hires.length > 0,
+    "the premise of this test is a plan that already needs hires before attrition is added");
+
+  const heads = (p: ReturnType<typeof plan>) => p.hires.reduce((s, x) => s + x.heads, 0);
+  assert.ok(heads(withAttrition) > heads(without),
+    "losing people must cost hires; if it does not, attrition is not being applied");
+
+  /*
+   * The obvious next assertion — that the team losing people ends smaller — is not a law
+   * and was asserted as one. Hires come in whole heads: a team replacing 0.4 leavers a
+   * quarter hires one and ends ahead of a team that never lost anybody. What *is* a law is
+   * that a team losing nobody never shrinks.
+   */
+  for (let i = 1; i < without.quarters.length; i++) {
+    assert.ok(without.quarters[i]!.headcount >= without.quarters[i - 1]!.headcount - 1e-9,
+      "with no attrition and no departures modelled, headcount can only rise");
+  }
+});
+
+test("the free step is measured against the team in post, not against a minimum", () => {
+  /*
+   * The first version compared the smallest team each threshold could run on and concluded
+   * the step cost six heads on day one. It costs none: the free route is a day of handling
+   * time, and the eight analysts already in post absorb it. "How small a team could run
+   * this" and "does the team I have run this" are different questions.
+   */
+  const step = costOfTakingTheStep();
+  assert.ok(step, "there must be a looser threshold to step to");
+  assert.ok(step!.via, "the staircase must find a route that costs no money");
+  assert.notEqual(step!.freeUntil, 0,
+    "if it does not even hold this quarter, it was never free and the staircase is wrong");
+
+  const withRoute = RESOURCES[step!.via!.resource].apply(ASSUMPTIONS, step!.via!.units);
+  const needed = headsRequired(400_000, { ...HORIZON, threshold: step!.to }, withRoute);
+  assert.ok(needed <= ASSUMPTIONS.analystsInPost,
+    "taking the free route must make the looser threshold run on the team in post");
+});
+
+test("the two headcount figures cannot be swapped", () => {
+  /*
+   * What the step needs the quarter it stops being free, and what it needs by the end of
+   * the horizon, are different numbers. The first version printed the second in a sentence
+   * dated with the first.
+   */
+  const step = costOfTakingTheStep();
+  assert.ok(step!.extraWhenItBites <= step!.extraByHorizon,
+    "the bill at the moment it bites cannot exceed the bill eight quarters later");
+});
+
+test("faster growth never moves a decision later", () => {
+  /*
+   * A monotonicity the arithmetic guarantees and a refactor can quietly break. If a higher
+   * growth rate ever produced a later decision date, something is being rounded in the
+   * direction that flatters the plan.
+   */
+  const dates = [0.05, 0.10, 0.20].map((g) => plan({ ...HORIZON, quarterlyGrowth: g, quarters: 6 }).decideBy);
+  const seen = dates.filter((d): d is number => d !== null);
+  for (let i = 1; i < seen.length; i++) {
+    assert.ok(seen[i]! <= seen[i - 1]!, `growth ${i} produced a later decision than the slower one`);
+  }
 });
