@@ -34,19 +34,36 @@ import { isMain } from "./cli.js";
 import { cheapestRouteToNextStep, RESOURCES, quantity } from "./shadow.js";
 import { evaluate, recommend, ASSUMPTIONS, THRESHOLDS, REGULATORY_DEADLINE_DAYS } from "./model.js";
 /**
- * Populations are cached by volume.
+ * Populations are cached by volume, on a grid, and the cache is bounded.
  *
  * A plan evaluates eight quarters, each at up to a few hundred candidate headcounts, and
- * every growth rate in the sweep repeats the exercise. Drawing four hundred thousand
- * operations each time turned a report into a fifteen-second wait. The draw is seeded, so
- * the same volume always yields the same population and caching changes no answer.
+ * every growth rate repeats the exercise. Drawing four hundred thousand operations each
+ * time turned a report into a fifteen-second wait, so the results are kept.
+ *
+ * Two details, both learned the hard way when the Monte Carlo ran a thousand plans:
+ *
+ * **The key is quantised.** Keyed on the exact operation count, a simulation drawing random
+ * growth rates produces a new key every single time and the cache never hits. Rounding to
+ * the nearest thousand out of several hundred thousand is a quantisation of well under a
+ * tenth of a percent — far inside the sampling noise of the draw it is approximating — and
+ * it turns a cache that never hits into one that almost always does.
+ *
+ * **The cache is bounded.** An unbounded cache of half-megabyte populations is not an
+ * optimisation, it is a leak with a good excuse; the first run of the simulation exhausted
+ * a four-gigabyte heap. It is cleared wholesale rather than evicted one at a time: the
+ * access pattern is a sweep, so the least-recently-used entry is also the one about to be
+ * wanted again.
  */
+const GRID = 1_000;
+const CACHE_LIMIT = 400;
 const drawn = new Map();
 function populationAt(operations) {
-    const key = Math.round(operations);
+    const key = Math.max(GRID, Math.round(operations / GRID) * GRID);
     const hit = drawn.get(key);
     if (hit)
         return hit;
+    if (drawn.size >= CACHE_LIMIT)
+        drawn.clear();
     const pop = generatePopulation(key);
     drawn.set(key, pop);
     return pop;
@@ -78,6 +95,84 @@ export function headsRequired(operations, h, a, ceiling = 400) {
     }
     return ceiling;
 }
+/**
+ * The same answer, without drawing a population — because the answer is linear in volume.
+ *
+ * Alerts scale linearly with operations, so hours do too. Both conditions that decide the
+ * headcount depend on the volume *only* through the load, `hours / (heads × capacity)`:
+ * the queue holds below load 1, and the wait — `load/(1−load) × hoursPerAlert` — turns on
+ * the load and on the hours *per alert*, which is an average and does not move with volume.
+ *
+ * So one population, drawn once at a reference volume, gives the hours at that volume; the
+ * hours at any other volume are those scaled by the ratio.
+ *
+ * **It is an approximation, and the first version of this comment claimed it was not.**
+ * The relationship is linear in expectation and the realised hours-per-operation drifts
+ * about 1.4 % across the range this tool uses — sampling noise in the population draw, not
+ * a structural non-linearity, since hours-per-alert is stable to four decimals. That drift
+ * is enough to move the answer by one head when the exact figure sits just under a
+ * boundary, which it does at the top of the range.
+ *
+ * Neither number is the right one in that case. They differ by the noise of the draw, and
+ * the exact version's answer at 900,000 operations is itself one sample. The test asserts
+ * agreement to within a head rather than exactly, because exact agreement would be a
+ * claim about the sampling that is not true.
+ *
+ * It exists because the Monte Carlo needs hundreds of plans over eight quarters at randomly
+ * drawn volumes. Doing that by drawing a population per quarter per run exhausted a
+ * four-gigabyte heap before it finished, which is the sort of thing you find out by running
+ * it rather than by reasoning about it.
+ */
+const REFERENCE_OPERATIONS = 400_000;
+let referenceHours = null;
+function hoursAt(operations, threshold, a) {
+    referenceHours ??= new Map();
+    const cached = referenceHours.get(threshold);
+    const ref = cached !== undefined
+        ? cached
+        : (() => {
+            const p = evaluate(populationAt(REFERENCE_OPERATIONS), threshold, a);
+            referenceHours.set(threshold, p.hours);
+            referenceAlerts.set(threshold, p.alerts);
+            return p.hours;
+        })();
+    const scale = operations / REFERENCE_OPERATIONS;
+    return { hours: ref * scale, alerts: (referenceAlerts.get(threshold) ?? 1) * scale };
+}
+const referenceAlerts = new Map();
+/** The whole per-quarter row, from the scaled hours — no population drawn. */
+export function quarterFast(operations, heads, h, a) {
+    const { hours, alerts } = hoursAt(operations, h.threshold, a);
+    const capacity = a.productiveHoursPerDay * a.workingDaysPerYear;
+    const capacityHours = heads * capacity;
+    const load = capacityHours === 0 ? null : hours / capacityHours;
+    const queueHolds = load !== null && load < 1;
+    const hoursPerAlert = hours / Math.max(alerts, 1);
+    const waitDays = queueHolds && load !== null
+        ? (load / (1 - load)) * hoursPerAlert / a.productiveHoursPerDay
+        : null;
+    return {
+        alerts: Math.round(alerts),
+        load,
+        queueHolds,
+        waitDays,
+        deadlineMet: waitDays !== null && waitDays <= a.maxHandlingDays,
+    };
+}
+export function headsRequiredFast(operations, h, a, ceiling = 400) {
+    const { hours, alerts } = hoursAt(operations, h.threshold, a);
+    const capacity = a.productiveHoursPerDay * a.workingDaysPerYear;
+    const hoursPerAlert = hours / Math.max(alerts, 1);
+    for (let heads = 1; heads <= ceiling; heads++) {
+        const load = hours / (heads * capacity);
+        if (load >= 1)
+            continue;
+        const waitDays = (load / (1 - load)) * hoursPerAlert / a.productiveHoursPerDay;
+        if (waitDays <= a.maxHandlingDays)
+            return heads;
+    }
+    return ceiling;
+}
 export function plan(h = HORIZON, a = ASSUMPTIONS) {
     const lead = leadQuarters(h);
     const baseOperations = 400_000;
@@ -87,7 +182,7 @@ export function plan(h = HORIZON, a = ASSUMPTIONS) {
     for (let q = 0; q < h.quarters; q++) {
         const ops = baseOperations * Math.pow(1 + h.quarterlyGrowth, q);
         operations.push(ops);
-        need.push(headsRequired(ops, h, a));
+        need.push(headsRequiredFast(ops, h, a));
     }
     /*
      * Attrition is applied to the headcount actually held, not to the starting team.
@@ -121,8 +216,7 @@ export function plan(h = HORIZON, a = ASSUMPTIONS) {
                 reason: lost >= shortfall ? "attrition" : "growth",
             });
         }
-        const pop = populationAt(operations[q]);
-        const p = evaluate(pop, h.threshold, { ...a, analystsInPost: Math.max(1, Math.round(effective)) });
+        const p = quarterFast(operations[q], Math.max(1, Math.round(effective)), h, a);
         quarters.push({
             index: q,
             label: `Q${q + 1}`,
@@ -139,9 +233,8 @@ export function plan(h = HORIZON, a = ASSUMPTIONS) {
     }
     /* What happens if nobody acts: the same volumes against the team as it stands today. */
     const doNothing = operations.map((ops, q) => {
-        const staff = a.analystsInPost - cumulativeLoss(q, perQuarterLoss, a.analystsInPost);
-        const p = evaluate(populationAt(ops), h.threshold, { ...a, analystsInPost: Math.max(1, Math.round(staff)) });
-        return { q, ok: p.queueHolds && p.deadlineMet };
+        const staff = Math.max(1, Math.round(a.analystsInPost - cumulativeLoss(q, perQuarterLoss, a.analystsInPost)));
+        return { q, ok: headsRequiredFast(ops, h, a) <= staff };
     });
     const broken = doNothing.find((x) => !x.ok);
     const breaksAt = broken ? broken.q : null;

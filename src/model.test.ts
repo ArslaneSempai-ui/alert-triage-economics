@@ -1,4 +1,6 @@
 import { test } from "node:test";
+import { headsRequiredFast } from "./plan.ts";
+import { simulate, summarise, jensenGap, UNCERTAINTY } from "./montecarlo.ts";
 import { INVENTORY, MUST_DECLARE } from "./inventory.ts";
 import { PLAUSIBLE } from "./sensitivity.ts";
 import { readFileSync } from "node:fs";
@@ -354,4 +356,73 @@ test("the README carries the inventory it was generated from", () => {
   for (const f of INVENTORY) {
     assert.ok(readme.includes(f.name), `${f.name} is in the inventory and not on the page`);
   }
+});
+
+/* ── the plan, run hundreds of times ── */
+
+test("the scaled headcount agrees with the drawn one, to within a head", () => {
+  /*
+   * `headsRequiredFast` scales the hours from one reference population rather than drawing
+   * a new one, because the Monte Carlo needs hundreds of plans over eight quarters and
+   * drawing a population per quarter per run exhausted a four-gigabyte heap.
+   *
+   * The relationship is linear in expectation; the realised hours-per-operation drifts
+   * about 1.4 % across the range, which is sampling noise in the draw rather than a
+   * structural non-linearity — hours-per-alert is stable to four decimals. That drift is
+   * enough to move the answer by one head when the exact figure sits just under a
+   * boundary, so the assertion is "within one", not "equal". Claiming equality would be a
+   * claim about the sampling that is not true, and an earlier version of the comment made
+   * exactly that claim.
+   */
+  for (const ops of [200_000, 400_000, 476_406, 601_452, 750_000, 900_000]) {
+    const exact = headsRequired(ops, HORIZON, ASSUMPTIONS);
+    const fast = headsRequiredFast(ops, HORIZON, ASSUMPTIONS);
+    assert.ok(Math.abs(exact - fast) <= 1,
+      `at ${ops} operations: drawn says ${exact}, scaled says ${fast}`);
+  }
+});
+
+test("the simulation runs without drawing a population per quarter", () => {
+  /*
+   * A performance property asserted as a correctness one, because the failure mode is not
+   * "slow" — it is an out-of-memory crash after a minute, which is how this was found.
+   */
+  const started = Date.now();
+  const draws = simulate({ ...UNCERTAINTY, runs: 120 });
+  assert.equal(draws.length, 120);
+  assert.ok(Date.now() - started < 5_000,
+    `120 runs took ${Date.now() - started} ms — something is drawing populations again`);
+});
+
+test("uncertainty widens the answer rather than shifting it", () => {
+  /*
+   * The median of the simulation should sit near the deterministic plan; what the
+   * simulation adds is the spread. If the median has moved a long way from the central
+   * estimate, the draws are biased and the distribution is describing a different problem.
+   */
+  const draws = simulate({ ...UNCERTAINTY, runs: 200 });
+  const s = summarise(draws);
+  assert.ok(Math.abs(s.headsP50 - s.central.heads) <= 2,
+    `median ${s.headsP50} against a central ${s.central.heads} — the draws look biased`);
+  assert.ok(s.headsP90 >= s.headsP50, "the 90th percentile cannot be below the median");
+});
+
+test("the queue near capacity is where the plan stops being reliable", () => {
+  /*
+   * The finding. At the threshold in use the queue runs at a third of capacity and almost
+   * no future breaks. One notch looser — the step the rest of this repository argues is
+   * free — and the picture inverts. A plan is least reliable exactly when it is most
+   * load-bearing.
+   */
+  const i = THRESHOLDS.indexOf(HORIZON.threshold);
+  const looser = THRESHOLDS[i + 1];
+  assert.ok(looser !== undefined, "there must be a looser threshold to compare against");
+
+  const here = summarise(simulate({ ...UNCERTAINTY, runs: 150 }));
+  const there = summarise(simulate({ ...UNCERTAINTY, runs: 150 }, { ...HORIZON, threshold: looser! }),
+    { ...HORIZON, threshold: looser! });
+
+  assert.ok(there.breaksShare > here.breaksShare + 0.5,
+    `breaking share went ${(here.breaksShare * 100).toFixed(0)} % → ${(there.breaksShare * 100).toFixed(0)} % — not the inversion the page describes`);
+  assert.ok(there.headsP90 >= there.headsP50, "the spread must not invert");
 });

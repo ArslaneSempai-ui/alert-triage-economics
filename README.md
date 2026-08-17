@@ -114,15 +114,15 @@ Holding the threshold this tool recommends (0.50), at 6 % volume growth a quarte
 |  | Operations | Alerts | Heads needed | Heads held | Occupancy | Wait | Verdict |
 |---|---|---|---|---|---|---|---|
 | Q1 | 400,000 | 4,154 | 3 | 8.0 | 33 % | 0.1 d | holds |
-| Q2 | 424,000 | 4,412 | 3 | 7.7 | 35 % | 0.1 d | holds |
-| Q3 | 449,440 | 4,684 | 4 | 7.4 | 42 % | 0.1 d | holds |
-| Q4 | 476,406 | 4,966 | 4 | 7.1 | 45 % | 0.1 d | holds |
-| Q5 | 504,991 | 5,264 | 4 | 6.9 | 47 % | 0.1 d | holds |
-| Q6 | 535,290 | 5,554 | 4 | 6.6 | 50 % | 0.1 d | holds |
-| Q7 | 567,408 | 5,853 | 4 | 6.4 | 61 % | 0.2 d | holds |
-| Q8 | 601,452 | 6,210 | 5 | 6.1 | 65 % | 0.3 d | holds |
+| Q2 | 424,000 | 4,403 | 3 | 7.7 | 35 % | 0.1 d | holds |
+| Q3 | 449,440 | 4,667 | 4 | 7.4 | 42 % | 0.1 d | holds |
+| Q4 | 476,406 | 4,947 | 4 | 7.1 | 44 % | 0.1 d | holds |
+| Q5 | 504,991 | 5,244 | 4 | 6.9 | 47 % | 0.1 d | holds |
+| Q6 | 535,290 | 5,559 | 4 | 6.6 | 50 % | 0.1 d | holds |
+| Q7 | 567,408 | 5,893 | 4 | 6.4 | 62 % | 0.2 d | holds |
+| Q8 | 601,452 | 6,246 | 5 | 6.1 | 65 % | 0.3 d | holds |
 
-**The step this tool calls free.** Going from 0.50 to 0.45 costs no money this quarter — 1 more day of handling time. It holds on the 8 analysts in post until **Q2**, when it needs 1 more — 4 more by Q8. A 16-week req puts that decision at **1 quarter ago**.
+**The step this tool calls free.** Going from 0.50 to 0.45 costs no money this quarter — 1 more day of handling time. It holds on the 8 analysts in post until **Q2**, when it needs 1 more — 5 more by Q8. A 16-week req puts that decision at **1 quarter ago**.
 
 Nobody can hand you next year's growth rate, so here is the range instead:
 
@@ -138,6 +138,34 @@ Nobody can hand you next year's growth rate, so here is the range instead:
 
 That is the gap an operations review cannot close. A review reports the present, and the
 present is not when the decision was.
+
+---
+
+## The same plan, three hundred times
+
+Everything above is a point estimate, and a point estimate of a queue is the wrong shape.
+Growth, attrition and hiring lead time are all uncertain, and a committee that hears "the
+decision is due in Q2" hears a fact about the future.
+
+<!-- figures:simulation -->
+|  | at 0.50 (in use) | at 0.45 (the free step) |
+|---|---|---|
+| futures where the queue breaks | 2 % | **100 %** |
+| futures where the decision is already late | 0 % | **100 %** |
+| heads needed, median | 0 | 7 |
+| heads needed, 90th percentile | 0 | **10** |
+| what the single-point plan says | 0 | 7 |
+
+At the threshold in use the queue runs at a third of capacity, almost no future breaks, and none of this matters. One notch looser — **the step the shadow prices call free** — and every simulated future breaks, every one has a decision that was due before today, and the single-point plan asks for 7 heads where the 90th percentile asks for 10.
+
+That is not a corner case. It is what happens the moment anybody acts on the recommendation, which makes it exactly the configuration a plan has to survive. **A plan is least reliable when it is most load-bearing.**
+<!-- /figures:simulation -->
+
+Waiting grows as 1/(1−load) and diverges at 1. Over a curve that convex, the average of the
+results is worse than the result of the average — so a plan built on a central estimate
+under-provisions systematically rather than by accident. The tool measures that gap on this
+configuration rather than quoting the general result, and reports it as small where it is
+small.
 
 ---
 

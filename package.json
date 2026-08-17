@@ -13,7 +13,8 @@
     "sensitivity": "node src/sensitivity.ts",
     "shadow": "node src/shadow.ts",
     "plan": "node src/plan.ts",
-    "pages": "tsc -p tsconfig.web.json && node src/pages.ts"
+    "pages": "tsc -p tsconfig.web.json && node src/pages.ts",
+    "simulate": "node src/montecarlo.ts"
   },
   "engines": {
     "node": ">=24"

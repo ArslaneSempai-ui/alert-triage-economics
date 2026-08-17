@@ -11,6 +11,8 @@ import { run, table } from "./figures.ts";
 import { ALL } from "./regulations.ts";
 import { shadowPrice, cheapestRouteToNextStep, quantity } from "./shadow.ts";
 import { plan, costOfTakingTheStep, decisionUnderGrowth, HORIZON } from "./plan.ts";
+import { simulate, summarise, UNCERTAINTY } from "./montecarlo.ts";
+import { THRESHOLDS } from "./model.ts";
 import { INVENTORY, CITED } from "./inventory.ts";
 import { markdown } from "./provenance.ts";
 
@@ -141,6 +143,43 @@ const horizon = (() => {
 })();
 
 /* Where every number on this page came from. Generated, and guarded by a test. */
+/*
+ * The plan, run hundreds of times rather than once.
+ *
+ * Generated because the two configurations invert, and a hand-typed pair of percentages
+ * describing an inversion is the figure most likely to be quoted back after it stops being
+ * true.
+ */
+const simulation = (() => {
+  const here = summarise(simulate({ ...UNCERTAINTY, runs: 300 }));
+  const i = THRESHOLDS.indexOf(HORIZON.threshold);
+  const looser = THRESHOLDS[i + 1];
+  if (looser === undefined) return "No looser threshold to compare against.";
+
+  const tight = { ...HORIZON, threshold: looser };
+  const there = summarise(simulate({ ...UNCERTAINTY, runs: 300 }, tight), tight);
+  const q = (x: number | null) => (x === null ? "—" : x < 0 ? `${-x} qtr ago` : `Q${x + 1}`);
+
+  const t = table(
+    ["", `at ${HORIZON.threshold.toFixed(2)} (in use)`, `at ${looser.toFixed(2)} (the free step)`],
+    [
+      ["futures where the queue breaks", pc(here.breaksShare), `**${pc(there.breaksShare)}**`],
+      ["futures where the decision is already late", pc(here.overdueShare), `**${pc(there.overdueShare)}**`],
+      ["heads needed, median", here.headsP50, there.headsP50],
+      ["heads needed, 90th percentile", here.headsP90, `**${there.headsP90}**`],
+      ["what the single-point plan says", here.central.heads, there.central.heads],
+    ],
+  );
+
+  return `${t}\n\nAt the threshold in use the queue runs at a third of capacity, almost no future ` +
+    `breaks, and none of this matters. One notch looser — **the step the shadow prices call free** — ` +
+    `and every simulated future breaks, every one has a decision that was due before today, and the ` +
+    `single-point plan asks for ${there.central.heads} heads where the 90th percentile asks for ` +
+    `${there.headsP90}.\n\nThat is not a corner case. It is what happens the moment anybody acts on ` +
+    `the recommendation, which makes it exactly the configuration a plan has to survive. **A plan is ` +
+    `least reliable when it is most load-bearing.**`;
+})();
+
 const provenance = markdown(INVENTORY, table);
 
 /* The finding, in the first screenful. Generated: a headline typed by hand is the figure
@@ -159,4 +198,4 @@ const citations = table(
   CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
 );
 
-run(new URL("../README.md", import.meta.url).pathname, { finding, curve, headline, staircase, routes, horizon, provenance, citations });
+run(new URL("../README.md", import.meta.url).pathname, { finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });
