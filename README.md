@@ -20,22 +20,23 @@ npm test
 
 Eight analysts in post. A tight threshold of 0.80, which is where a cautious team lands.
 
+<!-- figures:curve -->
 | Threshold | Alerts/yr | Hours | FTE | To hire | Annual cost | Caught | Missed | Cost of next TP | Occupancy | Wait | Queue |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 0.80 | 62 | 37 | 1 | — | €496,000 | 62 | 392 | — | 0 % | 0.0 d | **holds** |
 | 0.70 | 145 | 99 | 1 | — | €496,000 | 145 | 309 | free | 1 % | 0.0 d | **holds** |
 | 0.60 | 367 | 293 | 1 | — | €496,000 | 263 | 191 | free | 3 % | 0.0 d | **holds** |
-| **0.50** | 4,154 | 3,444 | 3 | — | €496,000 | **368** | 86 | free | 33 % | 0.1 d | **holds** |
+| **0.50** | **4,154** | **3,444** | **3** | — | **€496,000** | **368** | 86 | free | 33 % | 0.1 d | **holds** |
 | 0.45 | 13,167 | 10,317 | 8 | — | €496,000 | 411 | 43 | free | 98 % | 5.5 d | **late** |
 | 0.40 | 32,972 | 24,263 | 19 | 11 | €1,178,000 | 432 | 22 | €32,476 | 230 % | — | **breaks** |
 | 0.35 | 68,724 | 47,342 | 36 | 28 | €2,232,000 | 445 | 9 | €81,077 | 448 % | — | **breaks** |
+<!-- /figures:curve -->
 
-**At 0.80 the team uses one FTE out of eight.** Seven analysts are paid to be idle, and
-392 of 454 true positives go undetected.
+<!-- figures:headline -->
+**At 0.80 the team uses 1 FTE out of 8.** 7 analysts are paid to be idle, and 392 of 454 true positives go undetected.
 
-Moving to 0.50 catches **306 more true positives for nothing** — coverage goes from 14 %
-to 81 % — because the payroll is already committed. Below that, the cost of the next true
-positive goes €32,476, then €81,077.
+Moving to 0.50 catches **306 more true positives for nothing** — coverage goes from 14 % to 81 % — because the payroll is already committed.
+<!-- /figures:headline -->
 
 The organisation was never short of money. It was short of the calculation.
 

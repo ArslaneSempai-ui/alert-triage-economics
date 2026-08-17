@@ -6,9 +6,10 @@
   "description": "What a detection threshold costs in analyst hours, headcount and money \u2014 and what risk it buys.",
   "scripts": {
     "start": "node src/server.ts",
-    "test": "tsc --noEmit && node --test src/*.test.ts",
+    "test": "tsc --noEmit && node src/readme.ts --check && node --test src/*.test.ts",
     "typage": "tsc --noEmit",
-    "model": "node src/model.ts"
+    "model": "node src/model.ts",
+    "figures": "node src/readme.ts"
   },
   "engines": {
     "node": ">=24"
