@@ -12,7 +12,7 @@ import type { Point } from "./model.ts";
 
 const pop = generatePopulation();
 
-test("la population est reproductible", () => {
+test("the population is reproducible", () => {
   const a = generatePopulation(20_000);
   const b = generatePopulation(20_000);
   assert.equal(a.alerts.length, b.alerts.length);
@@ -20,114 +20,114 @@ test("la population est reproductible", () => {
   assert.notEqual(generatePopulation(20_000, 0.0012, 999).alerts.length, a.alerts.length);
 });
 
-test("les vrais et les faux positifs se chevauchent", () => {
-  // Si les deux populations se séparaient proprement, le métier n'existerait pas et le
-  // modèle ne dirait rien d'intéressant.
-  const vrais = pop.alerts.filter((a: Alert) => a.truePositive).map((a: Alert) => a.score);
-  const faux = pop.alerts.filter((a: Alert) => !a.truePositive).map((a: Alert) => a.score);
-  assert.ok(Math.min(...vrais) < Math.max(...faux), "aucun chevauchement : population irréaliste");
+test("true and false positives overlap", () => {
+  // If the two populations separated cleanly the job would not exist, and the model would
+  // have nothing interesting to say.
+  const truePositives = pop.alerts.filter((a: Alert) => a.truePositive).map((a: Alert) => a.score);
+  const falsePositives = pop.alerts.filter((a: Alert) => !a.truePositive).map((a: Alert) => a.score);
+  assert.ok(Math.min(...truePositives) < Math.max(...falsePositives), "no overlap — an unrealistic population");
 });
 
-test("baisser le threshold ajoute des alerts et n'en retire jamais", () => {
-  let precedent = 0;
+test("lowering the threshold adds alerts and never removes any", () => {
+  let previous = 0;
   for (const s of [...THRESHOLDS]) {
     const p = evaluate(pop, s);
-    assert.ok(p.alerts >= precedent, `le threshold ${s} retire des alerts`);
-    precedent = p.alerts;
+    assert.ok(p.alerts >= previous, `threshold ${s} removed alerts`);
+    previous = p.alerts;
   }
 });
 
-test("une alerte ambiguë prend plus de temps qu'une alerte franche", () => {
-  // C'est la raison pour laquelle le coût croît plus vite que le volume.
+test("an ambiguous alert takes longer than a clear-cut one", () => {
+  // This is why cost grows faster than volume.
   assert.ok(handlingMinutes(0.60) > handlingMinutes(0.97));
   assert.ok(handlingMinutes(0.60) > handlingMinutes(0.32));
 });
 
-test("le coût croît plus vite que le volume d'alerts", () => {
-  const strict = evaluate(pop, 0.70);
-  const large = evaluate(pop, 0.50);
-  const facteurVolume = large.alerts / strict.alerts;
-  const facteurHeures = large.hours / strict.hours;
-  assert.ok(facteurHeures > facteurVolume,
-    `hours ×${facteurHeures.toFixed(1)} pour un volume ×${facteurVolume.toFixed(1)}`);
+test("cost grows faster than alert volume", () => {
+  const tight = evaluate(pop, 0.70);
+  const loose = evaluate(pop, 0.50);
+  const volumeFactor = loose.alerts / tight.alerts;
+  const hoursFactor = loose.hours / tight.hours;
+  assert.ok(hoursFactor > volumeFactor,
+    `hours ×${hoursFactor.toFixed(1)} against volume ×${volumeFactor.toFixed(1)}`);
 });
 
-test("on paie l'effectif en poste, pas l'effectif nécessaire", () => {
+test("you pay the headcount in post, not the headcount required", () => {
   const p = evaluate(pop, 0.80);
-  assert.ok(p.fteWhole < ASSUMPTIONS.analystsInPost, "ce threshold n'occupe pas toute l'équipe");
+  assert.ok(p.fteWhole < ASSUMPTIONS.analystsInPost, "this threshold must leave the team with slack");
   assert.equal(p.annualCost, ASSUMPTIONS.analystsInPost * ASSUMPTIONS.loadedCostPerAnalyst,
-    "les analystes déjà en poste sont payés qu'on les occupe ou non");
+    "analysts already in post are paid whether or not they are busy");
   assert.equal(p.hires, 0);
 });
 
-test("resserrer la détection est gratuit tant qu'on reste sous l'effectif payé", () => {
+test("tightening detection is free while you stay under the payroll already committed", () => {
   const points = sweep(pop);
-  const gratuits = points.filter((p: Point) => p.costPerMarginalTruePositive === 0);
-  assert.ok(gratuits.length > 0, "aucune marge dormante : le cas le plus intéressant disparaît");
-  for (const p of gratuits) assert.equal(p.hires, 0);
+  const free = points.filter((p: Point) => p.costPerMarginalTruePositive === 0);
+  assert.ok(free.length > 0, "no idle capacity — the most interesting case disappears");
+  for (const p of free) assert.equal(p.hires, 0);
 });
 
-test("l'exploitation casse avant qu'un seul recrutement n'apparaisse au budget", () => {
-  // C'est le mur que les modèles « coût par alerte » ne voient pas : la file diverge ou
-  // le délai promis est dépassé, et le coût, lui, n'a pas encore bougé.
+test("the operation breaks before a single hire shows up on the budget", () => {
+  // The wall a cost-per-alert model cannot see: the queue diverges or the promised
+  // deadline is missed, and the cost has not moved yet.
   const points = sweep(pop);
-  const premiereCasse = points.find((p: Point) => !p.queueHolds || !p.deadlineMet);
-  assert.ok(premiereCasse, "aucune casse dans la plage étudiée");
-  assert.equal(premiereCasse.hires, 0,
-    "l'exploitation casse alors qu'on n'a encore embauché personne");
+  const firstBreak = points.find((p: Point) => !p.queueHolds || !p.deadlineMet);
+  assert.ok(firstBreak, "nothing breaks anywhere in the range studied");
+  assert.equal(firstBreak.hires, 0,
+    "the operation breaks while nobody has been hired yet");
 });
 
-test("le délai promis contraint réellement, il n'est pas décoratif", () => {
-  // Le paramètre était modifiable à l'écran sans être utilisé nulle part. Ce test échoue
-  // si un plafond de load arbitraire vient de nouveau court-circuiter l'échéance.
-  const large = sweep(pop, THRESHOLDS, { ...ASSUMPTIONS, maxHandlingDays: 30 });
-  const serre = sweep(pop, THRESHOLDS, { ...ASSUMPTIONS, maxHandlingDays: 1 });
-  const tenus = (pts: Point[]) => pts.filter((p: Point) => p.deadlineMet).length;
-  assert.ok(tenus(serre) < tenus(large),
-    "resserrer l'échéance doit disqualifier des configurations");
+test("the promised deadline actually binds — it is not decorative", () => {
+  // The parameter was editable on screen without being used anywhere. This test fails if
+  // an arbitrary load ceiling short-circuits the deadline again.
+  const generous = sweep(pop, THRESHOLDS, { ...ASSUMPTIONS, maxHandlingDays: 30 });
+  const tight = sweep(pop, THRESHOLDS, { ...ASSUMPTIONS, maxHandlingDays: 1 });
+  const met = (pts: Point[]) => pts.filter((p: Point) => p.deadlineMet).length;
+  assert.ok(met(tight) < met(generous),
+    "tightening the deadline must disqualify configurations");
 });
 
-test("l'attente est en jours ouvrés, pas en hours déguisées", () => {
-  // La formule multipliait par 1/joursTravaillés puis par joursTravaillés — une opération
-  // qui s'annule — et livrait des hours sous un nom promettant des jours.
+test("the wait is in working days, not hours in disguise", () => {
+  // The formula multiplied by 1/workingDays then by workingDays — an operation that
+  // cancels — and returned hours under a name promising days.
   const p = evaluate(pop, 0.45, { ...ASSUMPTIONS, analystsInPost: 8 });
   assert.ok(p.waitDays !== null);
-  assert.ok(p.load !== null, "sans load il n'y a pas d'attente à vérifier");
-  const heuresParAlerte = p.hours / p.alerts;
-  const attendu = (p.load / (1 - p.load)) * heuresParAlerte / ASSUMPTIONS.productiveHoursPerDay;
-  assert.ok(Math.abs(p.waitDays - attendu) < 0.01, "l'unité ne correspond pas à la formule");
+  assert.ok(p.load !== null, "with no load there is no wait to check");
+  const hoursPerAlert = p.hours / p.alerts;
+  const expected = (p.load / (1 - p.load)) * hoursPerAlert / ASSUMPTIONS.productiveHoursPerDay;
+  assert.ok(Math.abs(p.waitDays - expected) < 0.01, "the unit does not match the formula");
 });
 
-test("le coût marginal explose une fois qu'il faut recruter", () => {
+test("the marginal cost explodes once hiring is needed", () => {
   const points = sweep(pop);
-  const payants = points.filter(
+  const paid = points.filter(
     (p: Point) => typeof p.costPerMarginalTruePositive === "number" && p.costPerMarginalTruePositive > 0,
   );
-  assert.ok(payants.length >= 2);
-  const [premier, ...suite] = payants;
-  assert.ok(suite[suite.length - 1].costPerMarginalTruePositive! > premier.costPerMarginalTruePositive! * 2,
-    "le coût du vrai positif suivant doit se dégrader nettement");
+  assert.ok(paid.length >= 2);
+  const [first, ...rest] = paid;
+  assert.ok(rest[rest.length - 1].costPerMarginalTruePositive! > first.costPerMarginalTruePositive! * 2,
+    "the cost of the next true positive must degrade sharply");
 });
 
-test("aucun gain pour un surcoût réel donne un coût marginal infini, pas une division ratée", () => {
+test("no gain for a real extra cost gives an infinite marginal cost, not a failed division", () => {
   const points = sweep(pop, [0.5, 0.5]);
-  assert.equal(points[1].costPerMarginalTruePositive, null, "aucun surcoût, aucun gain");
+  assert.equal(points[1].costPerMarginalTruePositive, null, "no extra cost and no gain");
 });
 
-test("la recommandation ne propose jamais un threshold qui casse la file", () => {
+test("the recommendation never proposes a threshold that breaks the queue", () => {
   const r = recommend(pop);
-  assert.ok(r, "aucune recommandation trouvée");
+  assert.ok(r, "no recommendation found");
   const p = evaluate(pop, r.threshold);
   assert.equal(p.queueHolds, true);
   assert.equal(p.hires, 0);
-  assert.ok(r.extraCost === 0, "la recommandation doit tenir dans le budget déjà engagé");
+  assert.ok(r.extraCost === 0, "the recommendation must fit inside the payroll already committed");
   assert.ok(r.coverageAfter > r.coverageBefore);
 });
 
-test("sans marge dormante, il n'y a rien à recommend", () => {
-  const serre = { ...ASSUMPTIONS, analystsInPost: 0 };
-  assert.equal(recommend(pop, THRESHOLDS, serre), null,
-    "sans effectif, aucun threshold ne tient sans recrutement");
+test("with no idle capacity there is nothing to recommend", () => {
+  const empty = { ...ASSUMPTIONS, analystsInPost: 0 };
+  assert.equal(recommend(pop, THRESHOLDS, empty), null,
+    "with no headcount, no threshold holds without hiring");
 });
 
 /* ── what the next unit buys ── */

@@ -9,7 +9,7 @@ import type { Assumptions } from "./model.ts";
 const PORT = Number(process.env.PORT ?? 4700);
 const pop = generatePopulation();
 
-/** Les hypothèses vivent en mémoire : l'outil est une calculatrice, pas un registre. */
+/** The assumptions live in memory: this is a calculator, not a ledger. */
 let assumptions: Assumptions = { ...ASSUMPTIONS };
 let threshold = 0.65;
 
@@ -31,7 +31,7 @@ function corps(req: IncomingMessage): Promise<Record<string, unknown>> {
   });
 }
 
-/** Bornes de bon sens : un écran qui accepte 400 jours travaillés ment à son lecteur. */
+/** Sanity bounds: a screen that accepts 400 working days is lying to its reader. */
 const BOUNDS: Record<keyof Assumptions, [number, number]> = {
   productiveHoursPerDay: [1, 8],
   workingDaysPerYear: [180, 260],
@@ -122,12 +122,12 @@ const serveur = createServer(async (req, res) => {
 });
 
 /*
- * On écoute la boucle locale, pas toutes les interfaces.
+ * Bind the loopback interface, not every interface.
  *
- * `listen(PORT)` seul fait écouter Node sur `::` — l'outil devient joignable par
- * n'importe qui sur le même réseau. Sur le wifi d'un café, ça expose un écran qui lit
+ * `listen(PORT)` on its own has Node listen on `::` — the tool becomes reachable by
+ * anyone on the same network. On a café wifi that exposes a screen which reads
  * des dossiers clients.
  */
 serveur.listen(PORT, "127.0.0.1", () => {
-  console.log(`Économie du seuil de détection → http://localhost:${PORT}`);
+  console.log(`The economics of a detection threshold → http://localhost:${PORT}`);
 });
