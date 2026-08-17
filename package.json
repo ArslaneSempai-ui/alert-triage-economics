@@ -10,7 +10,8 @@
     "typage": "tsc --noEmit",
     "model": "node src/model.ts",
     "figures": "node src/readme.ts",
-    "sensitivity": "node src/sensitivity.ts"
+    "sensitivity": "node src/sensitivity.ts",
+    "shadow": "node src/shadow.ts"
   },
   "engines": {
     "node": ">=24"

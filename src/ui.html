@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Économie du seuil de détection</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fbfaf7'/%3E%3Crect x='2' y='4' width='12' height='1' fill='%23111'/%3E%3Crect x='2' y='7' width='12' height='1' fill='%23111'/%3E%3Crect x='2' y='11' width='12' height='2' fill='%23111'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="/registre.css" />
 </head>
 <body>
@@ -22,6 +23,9 @@
 
   <h2 id="titreCourbe"></h2>
   <div id="courbe"></div>
+
+  <h2 id="titreEscalier"></h2>
+  <div id="escalier"></div>
 </main>
 
 <script type="module">
@@ -47,7 +51,7 @@ const T = {
     hypQuoi: "Tout est discutable et tout se modifie. Un modèle dont on ne peut pas contester les hypothèses n'est pas un modèle, c'est une opinion présentée en tableau.",
     productiveHoursPerDay: "Heures productives par jour",
     workingDaysPerYear: "Jours travaillés par an",
-    loadedCostPerAnalyst: "Coût chargé par analyste (€/an)",
+    loadedCostPerAnalyst: "Coût chargé par analyste ($/an)",
     maxHandlingDays: "Délai maximal de traitement (jours)",
     analystsInPost: "Analystes en poste",
     defaut: "Revenir aux hypothèses de départ",
@@ -56,7 +60,7 @@ const T = {
     debordeQuoi: (etp, eff) => `Il faudrait ${etp} ETP pour ${eff} analystes en poste. Une file ne tourne pas à pleine occupation : le stock ne se résorbe plus, et le délai part à l'infini. Ce n'est pas un surcoût, c'est un arrêt.`,
     recoTitre: "Ce que l'effectif déjà payé permet",
     recoQuoi: (s, vp, av, ap, dorm) =>
-      `Descendre à <b>${s.toFixed(2)}</b> attrape <b>${vp} vrais positifs de plus</b> pour <b>zéro euro</b> : la couverture passe de ${av} à ${ap}. Au seuil le plus strict, ${dorm} ETP déjà payés ne servent à rien.`,
+      `Descendre à <b>${s.toFixed(2)}</b> attrape <b>${vp} vrais positifs de plus</b> pour <b>zéro dollar</b> : la couverture passe de ${av} à ${ap}. Au seuil le plus strict, ${dorm} ETP déjà payés ne servent à rien.`,
 
     titreCourbe: "Ce que coûte chaque cran",
     colSeuil: "seuil", colAlertes: "alertes", colHeures: "heures", colEtp: "ETP",
@@ -67,6 +71,21 @@ const T = {
     colAttente: "attente", colCharge: "occupation",
     delaiRateTitre: "Le délai promis n'est pas tenu",
     delaiRateQuoi: (a, d, c) => `La file se résorbe, mais l'attente moyenne atteint ${a} jours pour un délai promis de ${d}. À ${c} d'occupation, la moindre absence fait décrocher l'équipe.`,
+    titreEscalier: "Ce qu'achète l'analyste suivant",
+    escalierQuoi: "La recommandation est un cran parmi dix : la ressource s'achète par marches, pas à l'unité. Financer une partie d'une marche n'achète rien — pas moins, rien.",
+    colAjoutes: "ajoutés", colLargeur: "largeur de la marche", colCouverture: "couverture",
+    colPaie: "masse salariale", colAchete: "ce que la marche achète",
+    aujourdhui: "aujourd'hui", chacun: "chacun", cas: "cas",
+    mort: (n) => `La plus longue série qui n'achète <b>rien du tout</b> fait ${n} analystes.`,
+    quantite: (res, n) => res === "productiveHour"
+      ? (n * 60 % 60 === 0 ? `${n} heure${n > 1 ? "s" : ""} productive${n > 1 ? "s" : ""} de plus par jour` : `${Math.round(n * 60)} minutes productives de plus par jour`)
+      : res === "handlingDay" ? `${n} jour${n > 1 ? "s" : ""} de délai de traitement en plus`
+      : `${n} analyste${n > 1 ? "s" : ""} de plus`,
+    routesTitre: "La même marche, à trois prix",
+    routesQuoi: (s, vp) => `Descendre au seuil ${s} trouve <b>${vp} dossiers déclarables de plus par an</b>. Trois façons d'y arriver :`,
+    gratos: "gratuit", nonChiffre: "non chiffré ici", parAn: "par an",
+    marge: (o, c, mur, m) => `« Gratuit » est une ligne budgétaire, pas une position de risque. La file se stabilise à ${o} jours ouvrés — <b>${c} jours calendaires</b>, l'unité que compte le 31 CFR 1020.320(b)(3) — contre un mur à ${mur} jours. Il reste ${m} jours de marge, et c'est la marge qui absorbe des congés ou une démission.`,
+    calcul: "calcul en cours…",
     courbeQuoi: "Le coût du vrai positif suivant est le chiffre qui décide. Il reste nul tant qu'on occupe des gens déjà payés, puis il explose — bien avant que le coût total ne paraisse déraisonnable.",
     contexte: (ops, vp) => `${ops} opérations sur l'année, ${vp} vrais positifs à trouver. Données synthétiques.`,
   },
@@ -86,7 +105,7 @@ const T = {
     hypQuoi: "All of it is arguable and all of it is editable. A model whose assumptions you can't challenge isn't a model — it's an opinion in a table.",
     productiveHoursPerDay: "Productive hours per day",
     workingDaysPerYear: "Working days per year",
-    loadedCostPerAnalyst: "Loaded cost per analyst (€/yr)",
+    loadedCostPerAnalyst: "Loaded cost per analyst ($/yr)",
     maxHandlingDays: "Maximum handling time (days)",
     analystsInPost: "Analysts in post",
     defaut: "Reset to the starting assumptions",
@@ -97,6 +116,21 @@ const T = {
     recoQuoi: (s, vp, av, ap, dorm) =>
       `Going down to <b>${s.toFixed(2)}</b> catches <b>${vp} more true positives</b> for <b>nothing</b>: coverage moves from ${av} to ${ap}. At the tightest threshold, ${dorm} FTE you already pay for sit idle.`,
 
+    titreEscalier: "What the next analyst buys",
+    escalierQuoi: "The recommendation is one notch out of ten: the resource is bought in steps, not in units. Funding part of a step buys nothing — not less, nothing.",
+    colAjoutes: "added", colLargeur: "step width", colCouverture: "coverage",
+    colPaie: "payroll", colAchete: "what the step bought",
+    aujourdhui: "today", chacun: "each", cas: "cases",
+    mort: (n) => `The longest run that buys <b>nothing at all</b> is ${n} analysts wide.`,
+    quantite: (res, n) => res === "productiveHour"
+      ? (n * 60 % 60 === 0 ? `${n} more productive hour${n > 1 ? "s" : ""} a day` : `${Math.round(n * 60)} more productive minutes a day`)
+      : res === "handlingDay" ? `${n} more day${n > 1 ? "s" : ""} of handling time`
+      : `${n} more analyst${n > 1 ? "s" : ""}`,
+    routesTitre: "The same step, priced three ways",
+    routesQuoi: (s, vp) => `Going down to ${s} finds <b>${vp} more reportable cases a year</b>. Three ways to get there:`,
+    gratos: "free", nonChiffre: "not priced here", parAn: "a year",
+    marge: (o, c, mur, m) => `"Free" is a budget line, not a risk position. The queue settles at ${o} working days — <b>${c} calendar days</b>, the unit 31 CFR 1020.320(b)(3) counts in — against a ${mur}-day wall. That leaves ${m} days of margin, and margin is what absorbs a holiday period or a resignation.`,
+    calcul: "computing…",
     titreCourbe: "What each notch costs",
     colSeuil: "threshold", colAlertes: "alerts", colHeures: "hours", colEtp: "FTE",
     colRecrut: "to hire", colCout: "annual cost", colAttrapes: "caught",
@@ -114,10 +148,19 @@ const T = {
 let langue = localStorage.getItem("langue") === "en" ? "en" : "fr";
 const t = () => T[langue];
 let etat = null, occupe = false;
+let escalier = null;
 
 const loc = () => (langue === "fr" ? "fr-FR" : "en-GB");
 const nb = (n) => Math.round(n).toLocaleString(loc());
-const euro = (n) => "€" + nb(n);
+/*
+ * Money is formatted in one place regardless of the interface language.
+ *
+ * `nb()` follows the reader's locale, which is right for counts and wrong for currency:
+ * the French page was printing "$496 000", an American symbol on a French grouping. The
+ * amounts here are dollars because the regulations behind the model are American, and a
+ * dollar figure reads the same way to everyone who deals in dollars.
+ */
+const dollars = (n) => "$" + Math.round(n).toLocaleString("en-GB");
 const pc = (x) => (x * 100).toFixed(0) + " %";
 
 function blocChiffres() {
@@ -126,7 +169,7 @@ function blocChiffres() {
     { v: nb(a.alerts), l: L.alerts },
     { v: nb(a.hours), l: L.hours },
     { v: a.fteWhole, l: L.etp, mauvais: !a.queueHolds },
-    { v: euro(a.annualCost), l: L.cout },
+    { v: dollars(a.annualCost), l: L.cout },
     { v: nb(a.truePositivesCaught), l: L.attrapes },
     { v: nb(a.truePositivesMissed), l: L.rates },
   ];
@@ -207,10 +250,10 @@ function blocCourbe() {
     const marginal = m === null ? "—"
       : m === 0 ? `<span class="gratuit">${esc(L.gratuit)}</span>`
       : m === null || !isFinite(m) ? esc(L.aucunGain)
-      : euro(m);
+      : dollars(m);
     return `<tr class="${Math.abs(p.threshold - etat.threshold) < 0.001 ? "ici " : ""}${p.queueHolds && p.deadlineMet ? "" : "deborde"}">
       <td>${p.threshold.toFixed(2)}</td><td>${nb(p.alerts)}</td><td>${nb(p.hours)}</td>
-      <td>${p.fteWhole}</td><td>${p.hires || "—"}</td><td>${euro(p.annualCost)}</td>
+      <td>${p.fteWhole}</td><td>${p.hires || "—"}</td><td>${dollars(p.annualCost)}</td>
       <td>${nb(p.truePositivesCaught)}</td><td>${nb(p.truePositivesMissed)}</td>
       <td>${marginal}</td>
       <td>${p.load === null ? "—" : pc(p.load)}</td>
@@ -229,6 +272,58 @@ function blocCourbe() {
   </div></section>`;
 }
 
+/*
+ * The staircase.
+ *
+ * It arrives after the rest of the page because it takes about a second to compute, and a
+ * screen that stalls while someone types in the assumptions panel is a screen they stop
+ * believing. Until it lands the section says so rather than sitting empty — an empty block
+ * where a table is about to appear reads as a bug.
+ */
+function blocEscalier() {
+  const L = t();
+  $("#titreEscalier").textContent = L.titreEscalier;
+
+  if (!escalier) {
+    $("#escalier").innerHTML = `<div class="feuillet"><div class="quoi">${esc(L.escalierQuoi)}</div>
+      <div class="renvoi">${esc(L.calcul)}</div></div>`;
+    return;
+  }
+
+  const lignes = escalier.analyst.rungs.map((r) => `<tr${r.width === 0 ? ' class="ici"' : ""}>
+    <td>${r.units === 0 ? esc(L.aujourdhui) : "+" + r.units}</td>
+    <td>${r.width === 0 ? "—" : "+" + r.width}</td>
+    <td>${r.threshold.toFixed(2)}</td>
+    <td>${nb(r.truePositives)}</td><td>${pc(r.coverage)}</td><td>${dollars(r.annualCost)}</td>
+    <td>${r.width === 0 ? "—"
+      : `+${r.gained} ${esc(L.cas)}` + (r.perTruePositive === null ? "" : ` · <b>${dollars(r.perTruePositive)}</b> ${esc(L.chacun)}`)}</td>
+  </tr>`).join("");
+
+  const routes = escalier.routes;
+  const bloc2 = !routes ? "" : `<section class="feuillet"><div class="corps">
+    <div class="titre">${esc(L.routesTitre)}</div>
+    <div class="quoi">${L.routesQuoi(routes.threshold.toFixed(2), routes.gained)}</div>
+    <table><tbody>${routes.routes.map((r) => `<tr><td>${esc(L.quantite(r.resource, r.units))}</td>
+      <td class="chiffre">${r.cost === null ? esc(L.nonChiffre)
+        : r.cost === 0 ? `<span class="gratuit">${esc(L.gratos)}</span>`
+        : dollars(r.cost) + " " + esc(L.parAn)}</td></tr>`).join("")}</tbody></table>
+    ${routes.deadlineCost ? `<div class="renvoi">${L.marge(
+      routes.deadlineCost.waitWorkingDays.toFixed(1),
+      routes.deadlineCost.waitCalendarDays.toFixed(1),
+      routes.deadlineCost.wallCalendarDays,
+      routes.deadlineCost.marginCalendarDays.toFixed(1))}</div>` : ""}
+  </div></section>`;
+
+  $("#escalier").innerHTML = `<div class="feuillet">
+    <div class="quoi">${esc(L.escalierQuoi)}</div>
+    <div class="defile"><table><thead><tr>
+      <th>${esc(L.colAjoutes)}</th><th>${esc(L.colLargeur)}</th><th>${esc(L.colSeuil)}</th>
+      <th>${esc(L.colAttrapes)}</th><th>${esc(L.colCouverture)}</th><th>${esc(L.colPaie)}</th>
+      <th>${esc(L.colAchete)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
+    <div class="renvoi">${L.mort(escalier.analyst.widestDeadZone)}</div>
+  </div>${bloc2}`;
+}
+
 function dessiner() {
   const L = t();
   document.documentElement.lang = langue;
@@ -236,13 +331,29 @@ function dessiner() {
   $("#lede").textContent = L.lede;
   $("#fr").className = langue === "fr" ? "on" : "";
   $("#en").className = langue === "en" ? "on" : "";
-  blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe();
+  blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe(); blocEscalier();
+}
+
+/*
+ * Fetching it separately means two answers can be in flight at once and the slower one
+ * can land last, painting a staircase for assumptions the user has already changed. Each
+ * request carries a ticket; only the newest one is allowed to draw.
+ */
+let billet = 0;
+async function chargerEscalier() {
+  const mien = ++billet;
+  escalier = null;
+  blocEscalier();
+  const recu = await api("/api/escalier");
+  if (mien !== billet) return;
+  escalier = recu;
+  blocEscalier();
 }
 
 async function envoyer(corps, chemin = "/api/reglage") {
   if (occupe) return;
   occupe = true;
-  try { etat = await api(chemin, corps ?? {}); dessiner(); }
+  try { etat = await api(chemin, corps ?? {}); dessiner(); chargerEscalier(); }
   finally { occupe = false; }
 }
 
@@ -252,6 +363,7 @@ for (const l of ["fr", "en"]) {
 
 etat = await api("/api/etat");
 dessiner();
+chargerEscalier();
 </script>
 </body>
 </html>

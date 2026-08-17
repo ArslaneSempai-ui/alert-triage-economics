@@ -23,13 +23,13 @@ Eight analysts in post. A tight threshold of 0.80, which is where a cautious tea
 <!-- figures:curve -->
 | Threshold | Alerts/yr | Hours | FTE | To hire | Annual cost | Caught | Missed | Cost of next TP | Occupancy | Wait | Queue |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 0.80 | 62 | 37 | 1 | — | €496,000 | 62 | 392 | — | 0 % | 0.0 d | **holds** |
-| 0.70 | 145 | 99 | 1 | — | €496,000 | 145 | 309 | free | 1 % | 0.0 d | **holds** |
-| 0.60 | 367 | 293 | 1 | — | €496,000 | 263 | 191 | free | 3 % | 0.0 d | **holds** |
-| **0.50** | **4,154** | **3,444** | **3** | — | **€496,000** | **368** | 86 | free | 33 % | 0.1 d | **holds** |
-| 0.45 | 13,167 | 10,317 | 8 | — | €496,000 | 411 | 43 | free | 98 % | 5.5 d | **late** |
-| 0.40 | 32,972 | 24,263 | 19 | 11 | €1,178,000 | 432 | 22 | €32,476 | 230 % | — | **breaks** |
-| 0.35 | 68,724 | 47,342 | 36 | 28 | €2,232,000 | 445 | 9 | €81,077 | 448 % | — | **breaks** |
+| 0.80 | 62 | 37 | 1 | — | $496,000 | 62 | 392 | — | 0 % | 0.0 d | **holds** |
+| 0.70 | 145 | 99 | 1 | — | $496,000 | 145 | 309 | free | 1 % | 0.0 d | **holds** |
+| 0.60 | 367 | 293 | 1 | — | $496,000 | 263 | 191 | free | 3 % | 0.0 d | **holds** |
+| **0.50** | **4,154** | **3,444** | **3** | — | **$496,000** | **368** | 86 | free | 33 % | 0.1 d | **holds** |
+| 0.45 | 13,167 | 10,317 | 8 | — | $496,000 | 411 | 43 | free | 98 % | 5.5 d | **late** |
+| 0.40 | 32,972 | 24,263 | 19 | 11 | $1,178,000 | 432 | 22 | $32,476 | 230 % | — | **breaks** |
+| 0.35 | 68,724 | 47,342 | 36 | 28 | $2,232,000 | 445 | 9 | $81,077 | 448 % | — | **breaks** |
 <!-- /figures:curve -->
 
 <!-- figures:headline -->
@@ -39,6 +39,52 @@ Moving to 0.50 catches **306 more true positives for nothing** — coverage goes
 <!-- /figures:headline -->
 
 The organisation was never short of money. It was short of the calculation.
+
+---
+
+## What the next analyst actually buys
+
+A committee asked to fund a head gets a cost and a feeling. The question it is really
+asking has an answer: at the threshold the team can then sustain, how many more reportable
+cases get found, and what does each one cost?
+
+Measured as a **step, not a slope**. The recommendation is one of ten discrete thresholds,
+so differentiating gives the honest and useless answer "the next dollar buys nothing"
+almost everywhere. What decides is how wide the next step is.
+
+<!-- figures:staircase -->
+| Analysts added | Step width | Threshold | Cases found | Coverage | Payroll | This step cost |
+|---|---|---|---|---|---|---|
+| — (today) | — | 0.50 | 368 | 81 % | $496,000 | — |
+| 1 | +1 | 0.45 | 411 | 91 % | $558,000 | +43 cases · **$1,442** each |
+| 11 | +10 | 0.40 | 432 | 95 % | $1,178,000 | +21 cases · **$29,524** each |
+| 29 | +18 | 0.35 | 445 | 98 % | $2,294,000 | +13 cases · **$85,846** each |
+
+The widest run of headcount that buys **nothing at all** is 17 analysts wide.
+<!-- /figures:staircase -->
+
+The first analyst is a bargain. The second through the tenth buy **nothing** — not less,
+nothing — because a threshold the queue cannot sustain is not a threshold anybody runs.
+The eleventh completes a step that costs twenty times as much per case as the first.
+
+A committee funding "a couple more heads" out of the eleven is buying the flat part.
+
+### The same step, priced three ways
+
+<!-- figures:routes -->
+Getting from the threshold in use down to 0.45 finds **43 more reportable cases a year**. There are three ways to get there:
+
+| Route | Cost |
+|---|---|
+| 1 more day of handling time | **free** |
+| 1 more analyst | $62,000 a year |
+| 15 more productive minutes a day | not priced here |
+
+"Free" is a budget line, not a risk position. At 0.45 the queue settles at 5.5 working days — **9.2 calendar days**, which is the unit `31 CFR 1020.320(b)(3)` counts in — against a 30-day wall. That leaves 20.8 days of margin, and margin is what absorbs a holiday period or a resignation. The route costs no money and spends something.
+<!-- /figures:routes -->
+
+Same step, same cases. The paper that reaches a committee is almost always the one with a
+price on it, and it is not the cheapest.
 
 ---
 

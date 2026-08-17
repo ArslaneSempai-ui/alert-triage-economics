@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFileSync } from "node:fs";
 import { generatePopulation } from "./alerts.ts";
 import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./model.ts";
+import { shadowPrice, cheapestRouteToNextStep } from "./shadow.ts";
 import type { Assumptions } from "./model.ts";
 
 const PORT = Number(process.env.PORT ?? 4700);
@@ -68,6 +69,22 @@ const serveur = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/etat") return json(res, etat());
+
+    /*
+     * The staircase has its own route because it is slow.
+     *
+     * Answering it means re-optimising the whole sweep at forty different headcounts, a
+     * second or so of work. Folding it into `/api/etat` would put that second in front of
+     * every keystroke in the assumptions panel — a screen that stutters while someone
+     * types is a screen they stop trusting. It is fetched once the page is up, and again
+     * when the assumptions settle.
+     */
+    if (url.pathname === "/api/escalier") {
+      return json(res, {
+        analyst: shadowPrice("analyst", pop, assumptions),
+        routes: cheapestRouteToNextStep(pop, assumptions),
+      });
+    }
 
     if (url.pathname === "/api/reglage" && req.method === "POST") {
       const recu = await corps(req);

@@ -219,7 +219,7 @@ export function recommend(pop: Population, thresholds = THRESHOLDS, a = ASSUMPTI
 
 if (import.meta.filename === process.argv[1]) {
   const pop = generatePopulation();
-  const euro = (n: number) => "€" + Math.round(n).toLocaleString("en-GB");
+  const dollars = (n: number) => "$" + Math.round(n).toLocaleString("en-GB");
 
   console.log(`\n${pop.operations.toLocaleString("en-GB")} operations over the year, ${pop.truePositivesTotal} true positives to find`);
   console.log(`Analysts in post: ${ASSUMPTIONS.analystsInPost}\n`);
@@ -230,11 +230,11 @@ if (import.meta.filename === process.argv[1]) {
     const marginal = p.costPerMarginalTruePositive === null ? "—"
       : p.costPerMarginalTruePositive === Infinity ? "no gain"
       : p.costPerMarginalTruePositive === 0 ? "free"
-      : euro(p.costPerMarginalTruePositive);
+      : dollars(p.costPerMarginalTruePositive);
     const verdict = !p.queueHolds ? "BREAKS" : p.deadlineMet ? "holds" : "LATE";
     console.log(
       `${p.threshold.toFixed(2)}  ${String(p.alerts).padStart(7)}  ${String(Math.round(p.hours)).padStart(8)}` +
-      `  ${String(p.fteWhole).padStart(4)}  ${String(p.hires).padStart(7)}  ${euro(p.annualCost).padStart(9)}` +
+      `  ${String(p.fteWhole).padStart(4)}  ${String(p.hires).padStart(7)}  ${dollars(p.annualCost).padStart(9)}` +
       `  ${String(p.truePositivesCaught).padStart(7)}  ${String(p.truePositivesMissed).padStart(6)}` +
       `  ${marginal.padStart(14)}   ${verdict}`,
     );

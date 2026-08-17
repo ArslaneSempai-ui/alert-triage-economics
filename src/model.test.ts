@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generatePopulation, handlingMinutes } from "./alerts.ts";
+import { shadowPrice, cheapestRouteToNextStep } from "./shadow.ts";
 import type { Alert } from "./alerts.ts";
 import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./model.ts";
 import type { Point } from "./model.ts";
@@ -123,4 +124,76 @@ test("sans marge dormante, il n'y a rien à recommend", () => {
   const serre = { ...ASSUMPTIONS, analystsInPost: 0 };
   assert.equal(recommend(pop, THRESHOLDS, serre), null,
     "sans effectif, aucun threshold ne tient sans recrutement");
+});
+
+/* ── what the next unit buys ── */
+
+test("a step is priced whole, not by the unit that completes it", () => {
+  /*
+   * The recommendation is one of ten discrete thresholds, so the resource that moves it
+   * comes in steps, not in units. Pricing the eleventh analyst at $62,000 for the 21
+   * cases the eleven of them found together would report a bargain that nobody can buy —
+   * the first ten are a precondition, not an overhead.
+   */
+  const s = shadowPrice("analyst");
+  const steps = s.rungs.slice(1);
+  assert.ok(steps.length >= 2, "the search range must be wide enough to contain a second step");
+
+  for (const r of steps) {
+    assert.ok(r.width >= 1, "a step must cost at least one unit");
+    assert.ok(r.gained > 0, "a rung that gains nothing is not a rung");
+    assert.equal(r.perTruePositive, (s.unitCost! * r.width) / r.gained,
+      "the price of a step is the price of all of it");
+  }
+
+  const [first, second] = steps;
+  assert.ok(second!.perTruePositive! > first!.perTruePositive!,
+    "later cases must cost more, or the curve is not the one being modelled");
+});
+
+test("partial funding of a step buys nothing at all", () => {
+  /*
+   * The finding that justifies the whole file. Between two rungs there is a run of
+   * amounts that change the recommendation not at all — the trap a half-approved budget
+   * falls into.
+   */
+  const s = shadowPrice("analyst");
+  assert.ok(s.widestDeadZone >= 2,
+    "if no amount is ever wasted, the staircase is one unit wide and this analysis is pointless");
+
+  const pop = generatePopulation();
+  const step = s.rungs[2]!;
+  const halfway = Math.floor(step.units - step.width / 2);
+  const partial = recommend(pop, undefined, { ...ASSUMPTIONS, analystsInPost: ASSUMPTIONS.analystsInPost + halfway });
+  const previous = s.rungs[1]!;
+  assert.equal(partial?.threshold, previous.threshold,
+    "half a step must land exactly where the previous rung did");
+});
+
+test("the deadline margin is compared in the units the regulation counts", () => {
+  /*
+   * The queue model works in working days; 31 CFR 1020.320(b)(3) counts calendar days and
+   * says so. The first version subtracted one from the other and overstated the remaining
+   * margin by three and a half days.
+   */
+  const same = cheapestRouteToNextStep();
+  assert.ok(same, "there must be a next step to reach");
+  const d = same!.deadlineCost;
+  assert.ok(d, "the free route must be priced in deadline margin");
+  assert.ok(d!.waitCalendarDays > d!.waitWorkingDays,
+    "calendar days must exceed working days, or no conversion happened");
+  assert.equal(d!.marginCalendarDays, d!.wallCalendarDays - d!.waitCalendarDays);
+});
+
+test("the free route and the paid route reach the same rung", () => {
+  /*
+   * The comparison is only honest if the routes are alternatives. A cheaper route to a
+   * smaller step is not a saving, and listing them side by side would say it was.
+   */
+  const same = cheapestRouteToNextStep();
+  assert.ok(same!.routes.length > 1, "there must be more than one route to compare");
+  assert.ok(same!.routes.some((r) => r.cost === 0 || r.cost === null), "a free route must be found");
+  assert.ok(same!.routes.some((r) => (r.cost ?? 0) > 0), "a priced route must be found");
+  assert.deepEqual(same!.routes.map((r) => r.cost).slice().sort((a, b) => (a ?? Infinity) - (b ?? Infinity)),
+    same!.routes.map((r) => r.cost), "routes must be listed cheapest first");
 });
