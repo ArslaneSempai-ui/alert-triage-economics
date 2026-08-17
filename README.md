@@ -208,6 +208,58 @@ fragile rather than as fine.
 
 ---
 
+## Where every number comes from
+
+A table renders a figure retrieved from the Code of Federal Regulations and a figure I
+picked in exactly the same typeface, which quietly claims they are equivalent. They are
+not, and the ranking isn't subtle.
+
+<!-- figures:provenance -->
+**5 retrieved**, **5 measured**, **9 assumed**, **4 chosen**. What each kind means, and what you are entitled to ask of it:
+
+- **retrieved** — a public source says this, on the date recorded, in words linked from the page. *follow the link.*
+- **measured** — running the code in this repository produces it. *run it yourself — the draws are seeded.*
+- **assumed** — an input nobody here can know; yours to supply. *put your own figure in, and read the band around it.*
+- **chosen** — my judgement and nothing else. *check whether the sweep says it decides anything.*
+
+| Kind | Name | What it is | Note |
+|---|---|---|---|
+| retrieved | `31 CFR 1020.320(a)(2)` | A bank must report a suspicious transaction conducted or attempted by, at or through it once the amount involved or aggregated reaches the threshold. | retrieved 2026-08-17 |
+| retrieved | `31 CFR 1020.320(b)(3)` | The report is due within thirty calendar days of initial detection. Where no suspect has been identified the bank may take a further thirty days, and never more than sixty in total. | retrieved 2026-08-17 |
+| retrieved | `31 CFR 1020.320(d)` | The bank keeps a copy of the report and its supporting documentation for five years from the filing date. | retrieved 2026-08-17 |
+| retrieved | `31 CFR 1020.320(e)` | Nobody at the bank may disclose a report, or any information that would reveal one exists. | retrieved 2026-08-17 |
+| retrieved | `31 CFR 1010.311` | A currency transaction above the threshold is reported by the financial institution. | retrieved 2026-08-17 |
+| measured | `alerts, hours, FTE, coverage` | the operating statement at any threshold | measured on the synthetic population below — see `truePositiveShare` |
+| measured | `costPerMarginalTruePositive` | what the next detection costs when the threshold drops one notch | the shape of the curve is the finding; the amounts illustrate it |
+| measured | `waitDays, load, queueHolds` | whether the backlog clears, and how long a file waits | standard queueing: waiting grows as 1/(1−load), and diverges at 1 |
+| measured | `rungs, widestDeadZone` | how wide the next step is, and how much of it buys nothing | the eleven-analyst step is a property of this population's shape |
+| measured | `plan.decideBy` | the quarter a hiring decision is due | arithmetic on the assumptions below — no data of its own |
+| assumed | `productiveHoursPerDay` | hours genuinely productive per analyst per day | your own time-tracking, if you have any; weeks of work to establish |
+| assumed | `workingDaysPerYear` | working days in your calendar | your HR calendar knows this exactly |
+| assumed | `loadedCostPerAnalyst` | salary, charges, desk and supervision for one analyst | your finance team knows this exactly; BLS publishes a related occupation |
+| assumed | `maxHandlingDays` | the internal target for working an alert | your own procedure; the outer wall is retrieved, above |
+| assumed | `analystsInPost` | how many analysts you actually have | you know this one |
+| assumed | `quarterlyGrowth` | growth in transaction volume per quarter | swept: the plan reports which growth rates move the decision |
+| assumed | `hiringLeadWeeks` | weeks from approving a req to the person sitting down | your own recruiting data; notice periods are the part people forget |
+| assumed | `rampFirstQuarter` | what a new analyst is worth in their first quarter | your own onboarding experience |
+| assumed | `attritionPerYear` | annual voluntary departures | your own leavers, and it is never zero |
+| chosen | `truePositiveShare` | how rare a genuinely reportable case is, in the synthetic population | no public figure exists — banks do not publish their true-positive rate |
+| chosen | `score distributions` | how much the true and false populations overlap on the score | the overlap is the whole problem; its exact width is mine |
+| chosen | `handlingMinutes` | 12 to 55 minutes, highest for the most ambiguous alerts | the shape — ambiguous costs most — is the point; the bounds are mine |
+| chosen | `THRESHOLDS` | the ten notches the recommendation may land on | a finer grid narrows every step reported by the staircase |
+<!-- /figures:provenance -->
+
+The uncomfortable line is the population. The headline figures on this page are measured —
+run the code and you get them, the draws are seeded — and they are measured on a population
+whose shape I chose. Measured on chosen inputs is not measured.
+
+What survives that is narrower and worth stating exactly: **the mechanism is the finding,
+the magnitudes are illustration.** That lowering a threshold adds *ambiguous* alerts
+specifically, so cost grows faster than volume, holds for any two overlapping
+distributions. That it costs $1,442 a case at the first step holds for mine.
+
+---
+
 ## How it's built
 
 ```

@@ -11,6 +11,8 @@ import { run, table } from "./figures.ts";
 import { ALL } from "./regulations.ts";
 import { shadowPrice, cheapestRouteToNextStep, quantity } from "./shadow.ts";
 import { plan, costOfTakingTheStep, decisionUnderGrowth, HORIZON } from "./plan.ts";
+import { INVENTORY, CITED } from "./inventory.ts";
+import { markdown } from "./provenance.ts";
 
 const pop = generatePopulation();
 const points = sweep(pop);
@@ -138,10 +140,12 @@ const horizon = (() => {
     `Nobody can hand you next year's growth rate, so here is the range instead:\n\n${sweep}`;
 })();
 
+/* Where every number on this page came from. Generated, and guarded by a test. */
+const provenance = markdown(INVENTORY, table);
+
 const citations = table(
   ["Citation", "Requires", "Figure", "Retrieved"],
-  ALL.filter((r) => /1020\.320|1010\.311/.test(r.cite))
-    .map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
+  CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
 );
 
-run(new URL("../README.md", import.meta.url).pathname, { curve, headline, staircase, routes, horizon, citations });
+run(new URL("../README.md", import.meta.url).pathname, { curve, headline, staircase, routes, horizon, provenance, citations });

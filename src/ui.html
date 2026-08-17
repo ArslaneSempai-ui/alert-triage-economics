@@ -29,6 +29,8 @@
 
   <h2 id="titreHorizon"></h2>
   <div id="horizon"></div>
+
+  <p class="renvoi" id="provenanceLegende"></p>
 </main>
 
 <script type="module">
@@ -40,6 +42,7 @@ const api = async (chemin, corps) => (await fetch(chemin, corps
 const T = {
   fr: {
     h1: "Économie du seuil de détection",
+    provenance: "Chaque chiffre de cette page est <b>retrouvé</b> dans un texte public, <b>mesuré</b> en faisant tourner le code, <b>supposé</b> parce que personne ici ne peut le connaître, ou <b>choisi</b> par moi. Le README dit lequel, un par un.",
     lede: "Un seuil de surveillance transactionnelle n'est pas un réglage technique : c'est des heures d'analystes, un effectif et une ligne budgétaire, en face de ce qu'on attrape. Cet écran traduit l'un dans l'autre.",
     releve: "Relevé d'exploitation",
     alerts: "alertes par an", hours: "heures d'analystes", etp: "ETP nécessaires",
@@ -106,6 +109,7 @@ const T = {
   },
   en: {
     h1: "The economics of a detection threshold",
+    provenance: "Every figure on this page is <b>retrieved</b> from a public source, <b>measured</b> by running the code, <b>assumed</b> because nobody here can know it, or <b>chosen</b> by me. The README says which, one by one.",
     lede: "A transaction-monitoring threshold isn't a technical setting: it's analyst hours, headcount and a budget line, set against what you catch. This screen converts one into the other.",
     releve: "Operating statement",
     alerts: "alerts per year", hours: "analyst hours", etp: "FTE required",
@@ -403,6 +407,7 @@ function dessiner() {
   const L = t();
   document.documentElement.lang = langue;
   $("#h1").textContent = L.h1;
+  $("#provenanceLegende").innerHTML = L.provenance;
   $("#lede").textContent = L.lede;
   $("#fr").className = langue === "fr" ? "on" : "";
   $("#en").className = langue === "en" ? "on" : "";

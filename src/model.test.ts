@@ -1,4 +1,7 @@
 import { test } from "node:test";
+import { INVENTORY, MUST_DECLARE } from "./inventory.ts";
+import { PLAUSIBLE } from "./sensitivity.ts";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { generatePopulation, handlingMinutes } from "./alerts.ts";
 import { shadowPrice, cheapestRouteToNextStep, RESOURCES } from "./shadow.ts";
@@ -295,5 +298,60 @@ test("faster growth never moves a decision later", () => {
   const seen = dates.filter((d): d is number => d !== null);
   for (let i = 1; i < seen.length; i++) {
     assert.ok(seen[i]! <= seen[i - 1]!, `growth ${i} produced a later decision than the slower one`);
+  }
+});
+
+/* ── where every number came from ── */
+
+test("nothing the model runs on is missing from the inventory", () => {
+  /*
+   * An inventory of a page's own numbers, typed by hand, goes stale the first time
+   * somebody adds a figure — and it goes stale in the flattering direction, because the
+   * figure people forget to declare is the one they were least comfortable declaring.
+   *
+   * So the declaration is checked against the structures it describes. Add an assumption
+   * and this fails until you have said, in writing, where a reader would get their own.
+   */
+  const declared = new Set(INVENTORY.map((f) => f.name));
+
+  for (const key of MUST_DECLARE.assumptions) {
+    assert.ok(declared.has(key), `${key} is an assumption the model uses and the inventory does not declare`);
+  }
+  for (const key of MUST_DECLARE.horizon) {
+    assert.ok(declared.has(key), `${key} drives the capacity plan and the inventory does not declare it`);
+  }
+  for (const cite of MUST_DECLARE.regulations) {
+    assert.ok(declared.has(cite), `${cite} is cited on the page and the inventory does not declare it`);
+  }
+});
+
+test("every assumption is declared assumed, and every one of them is swept", () => {
+  /*
+   * The two halves of the promise. An input nobody can know is only acceptable on a page
+   * if the page also says how much the conclusion depends on it — otherwise "assumed" is
+   * just a politer word for "made up".
+   */
+  for (const key of MUST_DECLARE.assumptions) {
+    const f = INVENTORY.find((x) => x.name === key)!;
+    assert.equal(f.provenance, "assumed", `${key} is an input and must be labelled as one`);
+    assert.ok(key in PLAUSIBLE, `${key} is declared assumed but no sweep reports a band around it`);
+  }
+});
+
+test("no chosen figure is left without its admission", () => {
+  /*
+   * "Chosen" is the weakest kind of number here and the one most likely to be read as
+   * authoritative, because it appears in the same table as a citation. The note is what
+   * stops that: it says what no source says about it.
+   */
+  for (const f of INVENTORY.filter((x) => x.provenance === "chosen")) {
+    assert.ok(f.note && f.note.length > 20, `${f.name} is chosen and says nothing about why`);
+  }
+});
+
+test("the README carries the inventory it was generated from", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  for (const f of INVENTORY) {
+    assert.ok(readme.includes(f.name), `${f.name} is in the inventory and not on the page`);
   }
 });
