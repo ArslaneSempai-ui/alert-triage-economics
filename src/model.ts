@@ -11,6 +11,7 @@
  */
 
 import { generatePopulation, handlingMinutes } from "./alerts.ts";
+import { REGULATIONS } from "./regulations.ts";
 import type { Population } from "./alerts.ts";
 
 export type Assumptions = {
@@ -19,11 +20,30 @@ export type Assumptions = {
   workingDaysPerYear: number;
   /** Loaded annual cost of an analyst: salary, charges, desk, supervision. */
   loadedCostPerAnalyst: number;
-  /** Maximum handling time for an alert, in working days. */
+  /**
+   * Maximum handling time for an alert, in working days.
+   *
+   * The binding figure behind this is not internal. A suspicious transaction must be
+   * reported within 30 calendar days of initial detection — `31 CFR 1020.320(b)(3)` —
+   * and that clock starts when the facts became known, not when the review concludes. An
+   * alert queue that takes twenty working days to reach an analyst has spent the
+   * regulatory deadline before anyone has looked at the file.
+   *
+   * The default below is an internal target well inside that limit, which is how it is
+   * normally set: the deadline is the wall, not the plan.
+   */
   maxHandlingDays: number;
   /** Analysts actually in post. 0 = size the team without constraint. */
   analystsInPost: number;
 };
+
+/**
+ * What the deadline actually is, as opposed to what a team aims for.
+ *
+ * Retrieved from the source, not recalled. A queue whose average wait approaches this has
+ * no margin left for an absence or a holiday period.
+ */
+export const REGULATORY_DEADLINE_DAYS = 30;
 
 export const ASSUMPTIONS: Assumptions = {
   productiveHoursPerDay: 6,

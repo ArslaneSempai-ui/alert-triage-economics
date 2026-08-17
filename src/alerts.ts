@@ -23,7 +23,14 @@
 export type Alert = {
   /** Score from the monitoring engine, 0 to 1. */
   score: number;
-  /** What the investigation concluded. Known here, unknown at triage time. */
+  /**
+   * What the investigation concluded. Known here, unknown at triage time.
+   *
+   * A "true positive" means the file warranted a suspicious activity report — the
+   * obligation at `31 CFR 1020.320(a)(2)`, which attaches once the amount involved or
+   * aggregated reaches $5,000. That is what the cost on the other side of this model is
+   * being spent to find, and it is worth naming rather than leaving as an abstraction.
+   */
   truePositive: boolean;
 };
 

@@ -42,6 +42,33 @@ The organisation was never short of money. It was short of the calculation.
 
 ---
 
+## What is actually being bought
+
+The cost on one side of this model buys compliance with a specific obligation, and it is
+worth naming rather than leaving as an abstraction.
+
+<!-- figures:citations -->
+| Citation | Requires | Figure | Retrieved |
+|---|---|---|---|
+| [31 CFR 1020.320(a)(2)](https://www.law.cornell.edu/cfr/text/31/1020.320) | A bank must report a suspicious transaction conducted or attempted by, at or through it once the amount involved or aggregated reaches the threshold. | $5,000 | 2026-08-17 |
+| [31 CFR 1020.320(b)(3)](https://www.law.cornell.edu/cfr/text/31/1020.320) | The report is due within thirty calendar days of initial detection. Where no suspect has been identified the bank may take a further thirty days, and never more than sixty in total. | 30 days, 60 maximum | 2026-08-17 |
+| [31 CFR 1020.320(d)](https://www.law.cornell.edu/cfr/text/31/1020.320) | The bank keeps a copy of the report and its supporting documentation for five years from the filing date. | 5 years | 2026-08-17 |
+| [31 CFR 1020.320(e)](https://www.law.cornell.edu/cfr/text/31/1020.320) | Nobody at the bank may disclose a report, or any information that would reveal one exists. | — | 2026-08-17 |
+| [31 CFR 1010.311](https://www.law.cornell.edu/cfr/text/31/1010.311) | A currency transaction above the threshold is reported by the financial institution. | $10,000 | 2026-08-17 |
+<!-- /figures:citations -->
+
+The handling-time setting matters more than it looks. A suspicious transaction must be
+reported within 30 calendar days of **initial detection** — the clock starts when the
+facts became known, not when the review concludes. An alert queue taking twenty working
+days to reach an analyst has spent the regulatory deadline before anyone has opened the
+file. The deadline is the wall; the internal target is the plan, and they are not the same
+number.
+
+Every citation was retrieved from the source on the date shown. Nothing here is cited from
+memory.
+
+---
+
 ## Three things a cost-per-alert model gets wrong
 
 **Cost grows faster than volume.** Handling time isn't flat: a clear-cut alert is filed in

@@ -8,6 +8,7 @@
 import { generatePopulation } from "./alerts.ts";
 import { sweep, recommend, ASSUMPTIONS } from "./model.ts";
 import { run, table } from "./figures.ts";
+import { ALL } from "./regulations.ts";
 
 const pop = generatePopulation();
 const points = sweep(pop);
@@ -44,4 +45,10 @@ const headline = reco
     `${(reco.coverageAfter * 100).toFixed(0)} % — because the payroll is already committed.`
   : "No threshold fits the headcount in post.";
 
-run(new URL("../README.md", import.meta.url).pathname, { curve, headline });
+const citations = table(
+  ["Citation", "Requires", "Figure", "Retrieved"],
+  ALL.filter((r) => /1020\.320|1010\.311/.test(r.cite))
+    .map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
+);
+
+run(new URL("../README.md", import.meta.url).pathname, { curve, headline, citations });
