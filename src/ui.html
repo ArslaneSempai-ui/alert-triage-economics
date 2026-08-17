@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -186,7 +186,7 @@ const T = {
   },
 };
 
-let langue = localStorage.getItem("langue") === "en" ? "en" : "fr";
+let langue = localStorage.getItem("langue") === "fr" ? "fr" : "en";
 const t = () => T[langue];
 let etat = null, occupe = false;
 let escalier = null;
@@ -202,6 +202,16 @@ const nb = (n) => Math.round(n).toLocaleString(loc());
  * dollar figure reads the same way to everyone who deals in dollars.
  */
 const dollars = (n) => "$" + Math.round(n).toLocaleString("en-GB");
+
+/*
+ * A number typed by a human, read tolerantly.
+ *
+ * `<input type="number">` renders its value through the browser's locale, so 2.4 appeared
+ * as "2,4" on an English page — a visible inconsistency on a screen whose whole argument is
+ * that its figures are trustworthy. These are text fields now, and both separators are
+ * accepted because both are what people type.
+ */
+const lire = (v) => Number(String(v).replace(/\s/g, "").replace(",", "."));
 const pc = (x) => (x * 100).toFixed(0) + " %";
 
 function blocChiffres() {
@@ -271,14 +281,14 @@ function blocHypotheses() {
   const champs = Object.keys(etat.bounds).map((cle) => {
     const [min, max] = etat.bounds[cle];
     return `<div><label for="${cle}">${esc(L[cle])}</label>
-      <input type="number" id="${cle}" value="${etat.assumptions[cle]}" min="${min}" max="${max}" /></div>`;
+      <input type="text" inputmode="decimal" id="${cle}" value="${etat.assumptions[cle]}" data-min="${min}" data-max="${max}" /></div>`;
   }).join("");
   $("#assumptions").innerHTML = `<div class="feuillet"><div class="quoi">${esc(L.hypQuoi)}</div>
     <div class="grille">${champs}</div>
     <button class="b" id="defaut" type="button">${esc(L.defaut)}</button></div>`;
 
   for (const cle of Object.keys(etat.bounds)) {
-    $(`#${cle}`).onchange = (e) => envoyer({ [cle]: Number(e.target.value) });
+    $(`#${cle}`).onchange = (e) => envoyer({ [cle]: lire(e.target.value) });
   }
   $("#defaut").onclick = () => envoyer(null, "/api/defaut");
 }

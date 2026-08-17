@@ -1,290 +1,368 @@
 /*
- * LE REGISTRE — feuille de style commune aux quatre outils.
+ * L'IDENTITÉ COMMUNE AUX OUTILS DU PORTFOLIO.
  *
- * Une seule affirmation, tenue partout : « ces chiffres se recoupent, vérifiez-les ».
+ * Une seule affirmation, tenue partout : « voici ce que personne ne calcule, et voici le
+ * calcul ». Un écran qui annonce un résultat montre au-dessus les nombres dont il découle.
+ * Cette contrainte-là ne change pas.
  *
- * La grammaire est celle d'un compte. Chaque grandeur occupe une ligne, l'intitulé à
- * gauche, la valeur à droite, alignée sur ses unités. Un filet gras précède le total, et
- * le total est la conclusion — jamais une affirmation posée à côté du calcul.
+ * ─── Ce qui a changé, et pourquoi l'écrire ───
  *
- * Ce que cette forme interdit, et c'est son intérêt : affirmer sans poser le calcul.
- * Un écran qui annonce « refusé » doit montrer au-dessus les deux nombres dont ce refus
- * découle. La contrainte est volontaire.
+ * La version précédente s'appelait « le registre » et imitait un relevé comptable : angles
+ * droits partout, zéro coin arrondi, zéro ombre, une chasse fixe sur tous les chiffres,
+ * toutes les cellules, tous les intitulés. C'était intellectuellement cohérent et c'était
+ * une erreur, pour trois raisons qu'il vaut mieux écrire que réapprendre :
  *
- * Trois règles de couleur, sans exception :
- *   1. L'encre est noire. Les filets sont gris.
- *   2. Le rouge ne marque qu'un total défavorable — jamais un titre, jamais un bouton.
- *   3. Le vert ne félicite pas : il marque un total favorable, et rien d'autre.
+ *  1. **La chasse fixe ne disait plus rien.** Elle signifie « ceci est une donnée » ;
+ *     appliquée à tout — y compris au sélecteur de langue et à la signature — elle ne
+ *     distingue plus rien, et la page devient du bruit.
+ *  2. **Les boutons ne ressemblaient pas à des boutons.** Un filet de 1 px sur fond clair,
+ *     exactement comme chaque panneau et chaque encadré. Rien ne disait « clique ici ».
+ *  3. **Le serré était un bug, pas un parti pris.** La marge intérieure dépendait d'un
+ *     conteneur qu'il fallait penser à écrire, et vingt panneaux sur trente-cinq l'avaient
+ *     oublié. Le feuillet porte sa marge lui-même désormais.
  *
- * Ce fichier est recopié à l'identique dans les quatre dépôts. Aucun n'a de dépendance,
- * et chacun doit tourner seul après un clone : une bibliothèque partagée coûterait plus
- * cher que la duplication.
+ * ─── Les règles, cette fois ───
+ *
+ *  1. **Une seule famille de caractères.** La hiérarchie vient du poids et de la taille.
+ *     Les chiffres reçoivent `tabular-nums` pour s'aligner — pas une fonte à part.
+ *  2. **Une seule couleur d'accent**, un vert profond, et elle ne marque qu'une chose : ce
+ *     qui porte la conclusion. Jamais un titre, jamais une décoration.
+ *  3. **Le rouge reste sémantique** : un total défavorable, et rien d'autre.
+ *  4. **Un bouton est plein ou franchement bordé**, jamais un simple cadre. Actif, il est
+ *     rempli. On doit savoir où cliquer sans essayer.
+ *  5. **Ce qui se compare se dessine.** Un classement porte une jauge : l'écart se voit
+ *     avant d'être lu, et sur ces outils l'écart *est* la trouvaille.
+ *
+ * Le fichier garde son nom — `registre.css` — parce que six écrans, six scripts de
+ * publication et les démos en ligne le référencent, et qu'un renommage a déjà cassé ce
+ * projet trois fois. Le nom est de l'histoire ; les règles sont ci-dessus.
+ *
+ * Recopié à l'identique dans chaque dépôt : aucun n'a de dépendance, et chacun doit
+ * tourner seul après un clone.
  */
 
 :root {
-  --papier: #fdfdfb;
-  --fond: #f4f2ed;
-  --encre: #1a1a18;
-  --encre-pale: #56544d;
-  --encre-tres-pale: #8e8b83;
-  --filet: #e6e3db;
-  --filet-gras: #2a2823;
-  --defavorable: #96271f;
-  --favorable: #1d6b52;
-  --attention: #8a5410;
-  --surligne: #f1efe8;
+  --fond: #f6f7f8;
+  --papier: #ffffff;
+  --encre: #15171a;
+  --encre-pale: #5b6068;
+  --encre-tres-pale: #8a9099;
+  --filet: #e6e9ec;
+  --filet-gras: #ced3d8;
 
-  --serif: ui-serif, Georgia, "Times New Roman", serif;
-  --chiffres: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
-}
+  /* Le vert profond : aussi lisible qu'un bleu, nettement moins vu. */
+  --accent: #14603f;
+  --accent-clair: #2f8a60;
+  --accent-fond: #edf7f2;
+  --accent-bord: #b9dfcb;
+  --accent-sombre: #0d4a30;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --papier: #17181a;
-    --fond: #101113;
-    --encre: #e9e7e2;
-    --encre-pale: #9c9a93;
-    --encre-tres-pale: #6d6b65;
-    --filet: #2a2c30;
-    --filet-gras: #4e5157;
-    --defavorable: #d98682;
-    --favorable: #58bd97;
-    --attention: #dda15e;
-    --surligne: #1e2023;
-  }
+  --defavorable: #b42318;
+  --favorable: #14603f;
+  --attention: #b54708;
+  --surligne: #f4f6f7;
+
+  --ombre: 0 1px 2px rgba(16, 24, 40, .05), 0 8px 24px rgba(16, 24, 40, .05);
+  --ombre-bouton: 0 1px 2px rgba(16, 24, 40, .06);
+  --arrondi: 14px;
+  --arrondi-petit: 10px;
+
+  --police: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ui-sans-serif, sans-serif;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  overflow-x: hidden;
   background: var(--fond);
   color: var(--encre);
-  font: 15px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.6 var(--police);
   -webkit-font-smoothing: antialiased;
 }
 
-main { max-width: 940px; margin: 0 auto; padding: 40px 22px 110px; }
+main { max-width: 980px; margin: 0 auto; padding: 40px 22px 120px; }
 
-/* ─────────────── En-tête ─────────────── */
+/* ─────────────────────────── en-tête ─────────────────────────── */
 
 .haut {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 20px; flex-wrap: wrap; margin-bottom: 26px;
 }
-h1 {
-  font: 400 25px/1.2 var(--serif);
-  margin: 0 0 5px; letter-spacing: -0.01em;
-}
-.lede { color: var(--encre-pale); font-size: 13.5px; margin: 0; max-width: 620px; }
+h1 { font: 700 27px/1.2 var(--police); margin: 0 0 6px; letter-spacing: -.028em; }
+.lede { color: var(--encre-pale); font-size: 14.5px; margin: 0; max-width: 640px; line-height: 1.55; }
 
-/* Le sélecteur de langue : deux cases d'un registre, pas des onglets. */
-.lang { display: flex; border: 1px solid var(--filet-gras); flex: 0 0 auto; }
+.lang { display: flex; gap: 4px; flex: 0 0 auto; }
 .lang button {
-  border: 0; background: none; padding: 9px 13px; min-height: 38px;
-  font: 400 11px/1 var(--chiffres); letter-spacing: .12em;
-  color: var(--encre-pale); cursor: pointer;
+  font: 600 12px/1 var(--police); letter-spacing: .06em;
+  border: 1px solid var(--filet-gras); background: var(--papier); color: var(--encre-pale);
+  border-radius: var(--arrondi-petit); padding: 0 13px; min-height: 36px; cursor: pointer;
+  transition: .12s;
 }
-.lang button.on { background: var(--encre); color: var(--papier); }
-.lang button:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
-
-/* ─────────────── Feuillets ─────────────── */
-
-/*
- * Un feuillet est une page du registre : un intitulé souligné d'un filet gras, puis des
- * lignes. C'est le seul conteneur de l'interface — il n'y a pas de « cartes ».
- */
-.feuillet { background: var(--papier); border: 1px solid var(--filet); margin-top: 16px; }
-.feuillet > .intitule {
-  font: 500 11.5px/1 ui-sans-serif, sans-serif; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--encre-pale); padding: 15px 20px 11px; border-bottom: 1.5px solid var(--filet-gras);
-}
-.feuillet > .corps { padding: 6px 20px 18px; }
-.feuillet > .corps > .quoi:first-child { padding-top: 12px; }
-
-.quoi { color: var(--encre-pale); font-size: 13px; line-height: 1.6; }
-
-/* ─────────────── Lignes de compte ─────────────── */
-
-.ligne {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 18px;
-  padding: 11px 0; border-bottom: 1px solid var(--filet);
-}
-.ligne:last-child { border-bottom: 0; }
-.ligne .intitule { color: var(--encre-pale); font-size: 13.5px; min-width: 0; }
-.ligne .intitule small { display: block; color: var(--encre-tres-pale); font-size: 11.5px; margin-top: 2px; }
-.ligne .valeur {
-  font: 400 14px/1.4 var(--chiffres); font-variant-numeric: tabular-nums;
-  text-align: right; flex: 0 0 auto; white-space: nowrap;
-}
-.ligne .valeur small { color: var(--encre-tres-pale); font-size: 11px; }
-
-/* Le total : ce qui découle des lignes au-dessus, et rien d'autre. */
-.ligne.total {
-  border-bottom: 0; border-top: 1.5px solid var(--filet-gras);
-  padding-top: 14px; margin-top: 3px;
-}
-.ligne.total .intitule { color: var(--encre); font-weight: 600; font-size: 14.5px; }
-.ligne.total .valeur { font-size: 17px; font-weight: 500; }
-.ligne.total.defavorable .valeur { color: var(--defavorable); }
-.ligne.total.favorable .valeur { color: var(--favorable); }
-.ligne.total.attente .valeur { color: var(--encre-tres-pale); }
-
-/* Une ligne mise en avant : la position actuelle dans un tableau de variantes. */
-.ligne.ici { background: var(--surligne); margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
-
-/* ─────────────── Renvois ─────────────── */
-
-/*
- * Le renvoi porte ce qu'un chiffre ne peut pas dire : la condition, la réserve, le
- * comptage insuffisant. Il est indenté sous le compte auquel il se rapporte, comme une
- * note de bas de tableau.
- */
-.renvoi {
-  margin-top: 14px; padding-left: 15px; border-left: 2px solid var(--filet);
-  color: var(--encre-pale); font-size: 12.5px; line-height: 1.65;
-}
-.renvoi.defavorable { border-left-color: var(--defavorable); color: var(--defavorable); }
-.renvoi.attention { border-left-color: var(--attention); color: var(--attention); }
-.renvoi.favorable { border-left-color: var(--favorable); color: var(--favorable); }
-.renvoi b { font-weight: 600; }
-
-/* ─────────────── Tableaux ─────────────── */
-
-.defile { overflow-x: auto; margin-top: 4px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th {
-  text-align: right; font: 500 11px/1.3 ui-sans-serif, sans-serif; letter-spacing: .06em;
-  color: var(--encre-tres-pale); padding: 9px 8px; white-space: nowrap;
-  border-bottom: 1.5px solid var(--filet-gras);
-}
-th:first-child { text-align: left; }
-td {
-  text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--filet);
-  font-family: var(--chiffres); font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-td:first-child { text-align: left; font-family: inherit; }
-tr:last-child td { border-bottom: 0; }
-tr.ici td { background: var(--surligne); font-weight: 500; }
-tr.defavorable td:last-child { color: var(--defavorable); }
-tr.attention td:last-child { color: var(--attention); }
-
-/* ─────────────── Commandes ─────────────── */
-
-/*
- * Angles vifs partout. Un registre n'a pas de coins arrondis, et l'absence de rayon est
- * ce qui distingue le plus nettement cette identité d'une interface de produit.
- */
-button.b {
-  font: inherit; font-size: 13.5px; padding: 10px 16px; min-height: 44px;
-  border: 1px solid var(--filet-gras); background: var(--papier); color: var(--encre);
-  cursor: pointer;
-}
-button.b:hover:not(:disabled) { background: var(--surligne); }
-button.b:disabled { opacity: .38; cursor: default; }
-button.b:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
-/* La commande qui fait avancer d'un cran. Jamais colorée : seulement plus encrée. */
-button.b.suite { background: var(--encre); color: var(--papier); border-color: var(--encre); }
-button.b.suite:hover:not(:disabled) { opacity: .86; background: var(--encre); }
-button.b.discret { min-height: 36px; padding: 7px 12px; font-size: 12.5px; color: var(--encre-pale); }
-
-input[type=text], input[type=number], input:not([type]), select {
-  font: inherit; font-size: 13.5px; padding: 11px 12px; min-height: 44px;
-  border: 1px solid var(--filet-gras); background: var(--fond); color: var(--encre);
-  font-variant-numeric: tabular-nums;
-}
-input:focus-visible, select:focus-visible { outline: 2px solid var(--encre); outline-offset: 1px; }
-input:disabled { opacity: .45; }
-
-input[type=range] { min-height: 30px; accent-color: var(--encre); flex: 1 1 190px; min-width: 0; }
-input[type=range]:focus-visible { outline: 2px solid var(--encre); outline-offset: 3px; }
-
-.rang { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-.rang .bout { font-size: 12px; color: var(--encre-tres-pale); }
-.rang .lecture {
-  font: 400 14px/1 var(--chiffres); font-variant-numeric: tabular-nums;
-  min-width: 44px; text-align: right;
-}
-
-/* ─────────────── Divers ─────────────── */
-
-.vide {
-  color: var(--encre-pale); font-size: 13.5px; padding: 22px; text-align: center;
-  border: 1px dashed var(--filet-gras); margin-top: 12px;
-}
-
-/* La signature : ce qui rend le compte vérifiable. Toujours en bas, jamais caché. */
-.signature {
-  margin-top: 34px; padding-top: 13px; border-top: 1px solid var(--filet);
-  font: 400 11px/1.7 var(--chiffres); color: var(--encre-tres-pale);
-}
-
-.reference { font-family: var(--chiffres); font-size: 11.5px; color: var(--encre-tres-pale); }
-
-/* ─────────────── Compléments ─────────────── */
-
-/*
- * Ajoutés après le premier restylage : ces règles vivaient dans les feuilles locales et
- * leur suppression avait laissé des titres à la taille par défaut du navigateur et une
- * grille de saisie effondrée en escalier. Elles appartiennent au registre, pas aux outils.
- */
+.lang button:hover { border-color: var(--encre-tres-pale); color: var(--encre); }
+.lang button.on { background: var(--encre); border-color: var(--encre); color: var(--papier); }
+.lang button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 h2 {
-  font: 500 11.5px/1 ui-sans-serif, sans-serif; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--encre-pale); margin: 30px 0 0;
+  font: 700 12.5px/1 var(--police); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--encre-tres-pale); margin: 40px 0 0;
 }
 
-/* Un intertitre à l'intérieur d'un feuillet. */
-.titre { font-weight: 500; font-size: 14px; margin-top: 4px; }
+/* ─────────────────────────── le feuillet ─────────────────────────── */
 
-/* L'en-tête d'une fiche : un nom à gauche, sa référence à droite. */
-.entete {
-  display: flex; justify-content: space-between; align-items: baseline;
-  gap: 14px; flex-wrap: wrap; margin-bottom: 4px;
+.feuillet {
+  background: var(--papier);
+  border-radius: var(--arrondi);
+  box-shadow: var(--ombre);
+  margin-top: 16px;
+  padding: 22px 24px 24px;
 }
-.nom { font-weight: 500; }
-.meta { font-size: 12.5px; color: var(--encre-pale); }
+.feuillet > .corps { padding: 0; }
 
-/* Saisies étiquetées, en colonnes. */
-.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 14px; }
-.grille label { display: block; font-size: 12.5px; color: var(--encre-pale); margin-bottom: 5px; }
-.grille input { width: 100%; }
+.feuillet > .titre, .titre {
+  font: 700 16px/1.35 var(--police); letter-spacing: -.015em;
+  color: var(--encre); margin: 0 0 10px; text-transform: none;
+}
+.feuillet > .intitule {
+  font: 700 11.5px/1 var(--police); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--encre-tres-pale); margin: 0 0 14px; padding: 0;
+}
 
-/* Un champ de saisie qui occupe la place restante sur sa ligne. */
-.champ { flex: 1 1 190px; min-width: 0; }
+.quoi { color: var(--encre-pale); font-size: 13.5px; line-height: 1.62; margin: 0 0 16px; max-width: 76ch; }
+.quoi:last-child { margin-bottom: 0; }
+.quoi b { color: var(--encre); font-weight: 600; }
 
-/* Une valeur favorable ou défavorable posée dans une cellule ou une ligne. */
-.valeur.defavorable, .favorable-txt { color: var(--favorable); }
+/* ─────────────────────────── les lignes ─────────────────────────── */
+
+.ligne {
+  display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  padding: 13px 14px; border-radius: var(--arrondi-petit);
+}
+.ligne + .ligne { margin-top: 3px; }
+.ligne .intitule { color: var(--encre); font-size: 14.5px; font-weight: 500; min-width: 0; }
+.ligne .intitule small { display: block; color: var(--encre-pale); font-size: 12.5px; font-weight: 400; margin-top: 2px; }
+.ligne .valeur {
+  font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
+  white-space: nowrap; letter-spacing: -.01em;
+}
+.ligne .valeur small { color: var(--encre-tres-pale); font-size: 12px; font-weight: 400; }
+
+/* La conclusion : la seule ligne en accent, et jamais plus d'une par panneau. */
+.ligne.total {
+  background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent-bord);
+  margin-top: 12px;
+}
+.ligne.total .intitule { font-weight: 700; }
+.ligne.total .valeur { font-size: 20px; color: var(--accent-sombre); }
+.ligne.total.defavorable { background: #fef3f2; box-shadow: inset 0 0 0 1px #fecdca; }
+.ligne.total.defavorable .valeur { color: var(--defavorable); }
+.ligne.total.attente .valeur { color: var(--encre-tres-pale); }
+
+.ligne.ici { background: var(--surligne); }
 .valeur.defavorable { color: var(--defavorable); }
-td.favorable, .gratuit { color: var(--favorable); }
+.valeur.favorable, .gratuit { color: var(--favorable); font-weight: 600; }
+.neutre, .discret { color: var(--encre-tres-pale); }
 
-/* Les cases à cocher suivent l'encre, pas le bleu du système. */
-input[type=checkbox] { accent-color: var(--encre); width: 19px; height: 19px; }
-.bascule { display: flex; align-items: flex-start; gap: 11px; margin-top: 14px;
-  padding-top: 14px; border-top: 1px solid var(--filet); }
-.bascule label { font-size: 13.5px; cursor: pointer; }
-.attribution { font-size: 12.5px; color: var(--encre-pale); margin-top: 12px;
-  padding-top: 11px; border-top: 1px solid var(--filet); }
-.attribution b { color: var(--encre); font-family: var(--chiffres); font-weight: 400; }
+/* ─────────────────────────── le rang, avec sa jauge ─────────────────────────── */
 
 /*
- * Les puces de rappel : des questions déjà écrites, à relancer d'un clic.
+ * Ce qui se compare se dessine.
  *
- * Discrètes par construction. Ce sont des raccourcis vers un travail déjà fait, pas des
- * actions principales — les traiter comme des boutons pleins mettrait le rappel au même
- * rang que la recherche elle-même.
+ * Un classement rendu en colonnes demande de lire quatre nombres et de faire la
+ * soustraction soi-même. Une jauge montre l'écart avant qu'on l'ait lu.
  */
-.puces { margin-top: 14px; }
-.puce {
-  font: inherit;
-  font-size: 12.5px;
-  color: var(--encre-pale);
-  background: transparent;
-  border: 1px solid var(--filet);
-  padding: 4px 9px;
-  margin: 0 6px 6px 0;
-  cursor: pointer;
+.rang { display: flex; align-items: center; gap: 15px; padding: 13px 14px; border-radius: var(--arrondi-petit); }
+.rang + .rang { margin-top: 4px; }
+.rang.ici, .rang.gagnant {
+  background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent-bord);
 }
-.puce:hover { color: var(--encre); border-color: var(--encre-pale); }
-.puce:focus-visible { outline: 2px solid var(--encre); outline-offset: 1px; }
+.rang .n {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+  font: 700 13px/1 var(--police); background: #eaecf0; color: var(--encre-pale); flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.rang.ici .n, .rang.gagnant .n { background: var(--accent); color: #fff; }
+.rang .nom { flex: 1; font-weight: 600; font-size: 15px; min-width: 0; }
+.rang .nom small { display: block; font-weight: 400; color: var(--encre-pale); font-size: 12.5px; margin-top: 1px; }
+.rang .valeur { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rang.ici .valeur, .rang.gagnant .valeur { color: var(--accent-sombre); }
+
+.jauge { margin-bottom: 18px; }
+.jauge:last-child { margin-bottom: 0; }
+.jauge .etiquette { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 7px; }
+.jauge .etiquette b { font-size: 14.5px; font-weight: 600; }
+.jauge .etiquette small { color: var(--encre-pale); font-size: 12.5px; font-weight: 400; }
+.jauge .etiquette .valeur { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jauge .piste { height: 12px; background: #eef0f2; border-radius: 99px; overflow: hidden; }
+.jauge .remplissage { height: 100%; border-radius: 99px; background: #c8cdd3; transition: width .25s ease; }
+.jauge.gagnant .remplissage { background: linear-gradient(90deg, var(--accent), var(--accent-clair)); }
+.jauge.gagnant .etiquette .valeur { color: var(--accent-sombre); }
+.jauge.defavorable .remplissage { background: var(--defavorable); }
+
+/* ─────────────────────────── les renvois ─────────────────────────── */
+
+.renvoi {
+  margin-top: 14px; padding: 13px 16px; border-radius: var(--arrondi-petit);
+  background: var(--surligne); border-left: 3px solid var(--filet-gras);
+  color: var(--encre-pale); font-size: 13.5px; line-height: 1.6;
+}
+.renvoi b { color: var(--encre); font-weight: 600; }
+.renvoi.defavorable { background: #fef3f2; border-left-color: var(--defavorable); color: #7a271a; }
+.renvoi.attention { background: #fffaeb; border-left-color: var(--attention); color: #7a2e0e; }
+.renvoi.favorable { background: var(--accent-fond); border-left-color: var(--accent); color: var(--accent-sombre); }
+
+/* La suite : ce qu'une section vient de montrer, et pourquoi la prochaine existe. */
+.suite {
+  margin: 20px 0 4px; padding: 15px 18px; border-radius: var(--arrondi-petit);
+  background: #f8f9fa; border-left: 3px solid var(--encre);
+  color: var(--encre-pale); font-size: 14px; line-height: 1.65;
+}
+.suite b { color: var(--encre); font-weight: 600; }
+.suite em { font-style: normal; color: var(--encre-tres-pale); }
+
+/* ─────────────────────────── tableaux ─────────────────────────── */
+
+.defile { overflow-x: auto; margin: 4px -4px 0; padding: 0 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  text-align: right; font: 600 11.5px/1.3 var(--police); letter-spacing: .05em;
+  text-transform: uppercase; color: var(--encre-tres-pale);
+  padding: 0 12px 10px 0; white-space: nowrap; border-bottom: 1px solid var(--filet);
+}
+th:first-child, td:first-child { text-align: left; padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
+td {
+  text-align: right; padding: 12px 12px 12px 0; border-bottom: 1px solid var(--filet);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+td:first-child { font-weight: 500; white-space: normal; }
+tr:last-child td { border-bottom: 0; }
+tr.ici td { background: var(--accent-fond); }
+tr.ici td:first-child { border-radius: var(--arrondi-petit) 0 0 var(--arrondi-petit); padding-left: 12px; }
+tr.ici td:last-child { border-radius: 0 var(--arrondi-petit) var(--arrondi-petit) 0; padding-right: 12px; }
+tr.deborde td { color: var(--defavorable); }
+code { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; background: var(--surligne); padding: 1px 5px; border-radius: 5px; }
+
+/* ─────────────────────────── boutons ─────────────────────────── */
+
+/*
+ * Un bouton est plein ou franchement bordé, jamais un simple cadre.
+ *
+ * La version précédente les dessinait avec le même filet de 1 px que les panneaux, et
+ * personne ne pouvait deviner qu'ils étaient cliquables. C'est le reproche le plus juste
+ * qu'on ait fait à cette interface.
+ */
+.b {
+  font: 600 13.5px/1 var(--police); cursor: pointer;
+  background: var(--encre); color: var(--papier); border: 1px solid var(--encre);
+  border-radius: var(--arrondi-petit); padding: 0 18px; min-height: 42px;
+  box-shadow: var(--ombre-bouton); transition: .12s;
+}
+.b:hover { background: #000; }
+.b:active { transform: translateY(1px); }
+.b[disabled] { background: #eef0f2; border-color: #eef0f2; color: var(--encre-tres-pale); cursor: not-allowed; box-shadow: none; }
+.b:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.b.discret, .b.secondaire {
+  background: var(--papier); color: var(--encre); border-color: var(--filet-gras);
+}
+.b.discret:hover, .b.secondaire:hover { background: var(--surligne); border-color: var(--encre-tres-pale); }
+.b.suite { background: var(--accent); border-color: var(--accent); color: #fff; margin: 0; padding: 0 18px; }
+.b.suite:hover { background: var(--accent-sombre); }
+
+/* Les scénarios : une situation nommée, en un clic. */
+/*
+ * Deux colonnes, jamais trois.
+ *
+ * Une grille `auto-fit` rangeait quatre boutons en 3 + 1 : un orphelin sur la deuxième
+ * ligne, et des largeurs inégales. C'est ce que « pas symétrique » désignait.
+ */
+.scenarios { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 4px 0 18px; }
+@media (max-width: 560px) { .scenarios { grid-template-columns: 1fr; } }
+.scenario {
+  font: 600 13.5px/1.35 var(--police); text-align: left; cursor: pointer;
+  background: var(--papier); color: var(--encre);
+  border: 1px solid var(--filet-gras); border-radius: var(--arrondi-petit);
+  padding: 13px 15px; box-shadow: var(--ombre-bouton); transition: .12s;
+}
+.scenario:hover { border-color: var(--encre-tres-pale); box-shadow: 0 2px 6px rgba(16, 24, 40, .09); }
+.scenario small { display: block; font-weight: 400; color: var(--encre-pale); font-size: 12px; margin-top: 4px; }
+.scenario.on { background: var(--encre); border-color: var(--encre); color: var(--papier); }
+.scenario.on small { color: #c9cdd3; }
+.scenario:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Les puces de rappel : des raccourcis vers un travail déjà fait, pas des actions. */
+.puces { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 7px; }
+.puce {
+  font: 400 12.5px/1.3 var(--police); cursor: pointer;
+  color: var(--encre-pale); background: var(--surligne); border: 1px solid transparent;
+  border-radius: 99px; padding: 7px 13px; transition: .12s;
+}
+.puce:hover { color: var(--encre); border-color: var(--filet-gras); background: var(--papier); }
+.puce:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ─────────────────────────── formulaires ─────────────────────────── */
+
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); gap: 16px; margin: 4px 0 18px; }
+label { display: block; font-size: 12.5px; color: var(--encre-pale); margin-bottom: 6px; }
+input[type="number"], input[type="text"], select, textarea {
+  font: 500 14.5px/1 var(--police); width: 100%;
+  background: var(--papier); color: var(--encre);
+  border: 1px solid var(--filet-gras); border-radius: var(--arrondi-petit);
+  padding: 0 14px; min-height: 44px;
+  font-variant-numeric: tabular-nums;
+}
+textarea { padding: 12px 14px; min-height: 76px; line-height: 1.5; font-weight: 400; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+.rang.reglage { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+input[type="range"] { flex: 1; min-width: 180px; accent-color: var(--accent); height: 24px; }
+.bout { color: var(--encre-tres-pale); font-size: 12px; flex: 0 0 auto; }
+.lecture { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+
+/* ─────────────────────────── avant / après ─────────────────────────── */
+
+.avant-apres { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+.avant-apres > div {
+  flex: 1 1 240px; padding: 14px 16px; border-radius: var(--arrondi-petit);
+  background: var(--surligne);
+}
+.avant-apres .quand {
+  color: var(--encre-tres-pale); font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: .07em; font-weight: 700;
+}
+.avant-apres .ordre { font-size: 14.5px; font-weight: 600; margin-top: 6px; }
+.avant-apres .change { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent-bord); }
+.avant-apres .change .ordre { color: var(--accent-sombre); }
+
+/* ─────────────────────────── divers ─────────────────────────── */
+
+.chiffres { margin-top: 16px; }
+.meta, .reference { color: var(--encre-tres-pale); font-size: 12px; }
+.vide { color: var(--encre-tres-pale); font-size: 13.5px; padding: 22px 0; text-align: center; }
+.entete { font-weight: 600; }
+.signature, .attribution { color: var(--encre-pale); font-size: 13px; margin-top: 26px; }
+.attribution b { color: var(--encre); font-weight: 600; }
+
+details { margin-top: 18px; }
+details > summary {
+  cursor: pointer; color: var(--encre-pale); font: 600 13px/1 var(--police);
+  list-style: none; display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surligne); border: 1px solid var(--filet-gras);
+  border-radius: var(--arrondi-petit); padding: 10px 14px; min-height: 40px;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "+"; font-size: 15px; color: var(--encre-tres-pale); }
+details[open] > summary::before { content: "−"; }
+details > summary:hover { border-color: var(--encre-tres-pale); color: var(--encre); }
+details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details[open] > summary { margin-bottom: 14px; color: var(--encre); }
+
+a { color: var(--accent-sombre); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--encre); }
+
+@media (max-width: 640px) {
+  main { padding: 26px 16px 90px; }
+  h1 { font-size: 23px; }
+  .feuillet { padding: 18px 16px 20px; }
+  .ligne, .rang { padding: 12px 10px; }
+  .scenarios { grid-template-columns: 1fr; }
+}
