@@ -49,10 +49,19 @@ const PILOTE = `
      * champ rempli, c'est une limite qu'on déplace. Sans ça le film ne montrerait que des
      * états, et un lecteur ne saurait pas que la figure se touche.
      */
-    if (etape.includes("~")) {
+    /*
+     * Le glissement se reconnaît à la fin, pas au milieu.
+     *
+     * Le marqueur était « l'étape contient un tilde » — et un sélecteur peut en contenir
+     * un, dans une valeur d'attribut. Le pilote prenait alors la branche du glissement,
+     * découpait le sélecteur en deux, ne trouvait rien, et le film sortait en images
+     * identiques. On exige donc un tilde suivi d'une fraction, en fin d'étape.
+     */
+    if (/~[\d.]+(,[\d.]+)?$/.test(etape)) {
       /* « sel~x » glisse le long de l'axe, « sel~x,y » sur les deux : une carte de verdict
        * a deux entrées, et n'en bouger qu'une ne montre pas la frontière. */
-      const [sel, f] = etape.split("~");
+      const coupe = etape.lastIndexOf("~");
+      const sel = etape.slice(0, coupe), f = etape.slice(coupe + 1);
       const [fx, fy] = f.split(",");
       const el = await attendre(sel);
       if (el) {

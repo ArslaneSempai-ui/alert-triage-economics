@@ -624,6 +624,21 @@ a:hover { color: var(--encre); }
 .graphe .marche-zone { fill: transparent; }
 .graphe .marche-zone:hover { fill: var(--encre); fill-opacity: .035; }
 .graphe .marche-ici, .graphe .rang-ici { fill: var(--accent); fill-opacity: .10; }
+
+/* L'affectation : une case par couple, la retenue pleine, l'optimum au contour. */
+/* Le fond de case reste un socle, sinon la barre pleine et la barre vide se ressemblent :
+   c'est la hauteur qui doit porter la justesse, pas la teinte. */
+.graphe .affect-case { fill: var(--encre-tres-pale); fill-opacity: .07; }
+.graphe .affect-case.pris { fill-opacity: .12; }
+.graphe .affect-barre { fill: var(--encre-pale); fill-opacity: .28; }
+.graphe .affect-barre.pris { fill: var(--accent); fill-opacity: .55; }
+.graphe .affect-val { font: 600 12px/1 var(--police); fill: var(--encre-pale); font-variant-numeric: tabular-nums; }
+.graphe .affect-val.pris { fill: var(--encre); }
+.graphe .affect-optimum { fill: none; stroke: var(--encre); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.graphe .affect-nom { font: 500 13px/1 var(--police); fill: var(--encre); }
+.graphe .affect-tete { font: 600 11.5px/1 var(--police); fill: var(--encre); letter-spacing: .05em; text-transform: uppercase; }
+.graphe .affect-zone { fill: transparent; cursor: pointer; }
+.graphe .affect-zone:hover { fill: var(--encre); fill-opacity: .05; }
 .graphe .rang-zone, .graphe .grille-zone { fill: transparent; }
 .graphe .grille-zone:hover { fill: var(--encre); fill-opacity: .035; }
 .graphe .grille-ici { fill: var(--accent); fill-opacity: .10; }

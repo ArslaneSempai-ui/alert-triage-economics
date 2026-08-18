@@ -1207,6 +1207,81 @@ export function choisir(racine, onChoix, courant) {
 }
 
 /**
+ * L'AFFECTATION — une ligne, un choix, et l'optimum en regard.
+ *
+ * Cinq champs, quatre paliers : mille vingt-quatre routages possibles, dont un seul est
+ * optimal. Le dire est une phrase ; le montrer demande que le lecteur pose lui-même son
+ * affectation et voie ce qu'elle vaut. Chaque case porte la justesse mesurée du couple, la
+ * case retenue est pleine, et celle que le modèle choisirait porte un contour — l'écart
+ * entre les deux est la figure.
+ *
+ * Pourquoi pas un tableau colorié : une cellule teintée selon sa valeur est de la mise en
+ * forme conditionnelle, elle se lit comme un dégradé et ne se prend pas. Ici la hauteur de
+ * la barre dans la case porte la justesse, et la case entière est la commande.
+ *
+ * Chaque ligne porte sa clé de modèle : c'est elle qui repart dans `data-choix`, sous la
+ * forme `ligne~colonne`. L'intitulé affiché peut contenir des espaces — « date of birth » —
+ * et le renvoyer obligerait l'appelant à le retraduire, ce qui est une occasion de se
+ * tromper pour rien.
+ *
+ * @param {{lignes: Array<{nom:string, cle?:string, choix:string, optimum?:string,
+ *                         cases: Array<{cle:string, valeur:number, indisponible?:boolean}>}>,
+ *          colonnes: Array<{nom:string, note?:string}>, fmt?:(v:number)=>string,
+ *          motOptimum?:string, aria:string}} o
+ */
+export function affectation({ lignes, colonnes, fmt = String, motOptimum, aria }) {
+  if (!lignes?.length || !colonnes?.length) return "";
+  const G = 128, D = 24, T = 52, RANG = 54, ECART = 10;
+  const H = T + lignes.length * RANG + 30;
+  const large = (L - G - D) / colonnes.length;
+  const cellW = large - ECART;
+
+  let svg = "";
+  colonnes.forEach((c, j) => {
+    const x = G + j * large + cellW / 2;
+    svg += `<text class="affect-tete" x="${arr(x)}" y="${T - 26}" text-anchor="middle">${ech(c.nom)}</text>`;
+    if (c.note) svg += `<text class="grad" x="${arr(x)}" y="${T - 10}" text-anchor="middle">${ech(c.note)}</text>`;
+  });
+
+  lignes.forEach((l, i) => {
+    const y = T + i * RANG;
+    const haut = RANG - 16;
+    svg += `<text class="affect-nom" x="${G - 12}" y="${arr(y + haut / 2 + 4)}" text-anchor="end">${ech(l.nom)}</text>`;
+    l.cases.forEach((c, j) => {
+      const x = G + j * large;
+      const pris = c.cle === l.choix;
+      const opt = c.cle === l.optimum;
+      /* La barre dans la case : la justesse se lit à la hauteur, pas à la teinte. */
+      const hb = Math.max(1, (c.indisponible ? 0 : c.valeur) * (haut - 4));
+      svg += `<rect class="affect-case${pris ? " pris" : ""}" x="${arr(x)}" y="${arr(y)}" width="${arr(cellW)}" height="${haut}" />`
+        + `<rect class="affect-barre${pris ? " pris" : ""}" x="${arr(x)}" y="${arr(y + haut - hb)}" width="${arr(cellW)}" height="${arr(hb)}" />`
+        + `<text class="affect-val${pris ? " pris" : ""}" x="${arr(x + cellW / 2)}" y="${arr(y + haut / 2 + 4)}" text-anchor="middle">${ech(c.indisponible ? "—" : fmt(c.valeur))}</text>`;
+      if (opt) {
+        svg += `<rect class="affect-optimum" x="${arr(x)}" y="${arr(y)}" width="${arr(cellW)}" height="${haut}" />`;
+      }
+    });
+  });
+
+  if (motOptimum) {
+    svg += `<rect class="affect-optimum" x="${G}" y="${H - 22}" width="26" height="12" />`
+      + `<text class="grad" x="${G + 34}" y="${H - 12}">${ech(motOptimum)}</text>`;
+  }
+
+  /* En dernier, donc au-dessus : la case entière est la prise. */
+  lignes.forEach((l, i) => {
+    const y = T + i * RANG;
+    l.cases.forEach((c, j) => {
+      if (c.indisponible) return;
+      svg += `<rect class="affect-zone" x="${arr(G + j * large)}" y="${arr(y)}" width="${arr(cellW)}"
+        height="${RANG - 16}" data-choix="${ech((l.cle ?? l.nom) + "~" + c.cle)}"
+        data-lecture="${ech(`<u>${l.nom} · ${colonnes[j]?.nom ?? ""}</u><br>${fmt(c.valeur)}`)}" />`;
+    });
+  });
+
+  return cadre(svg, H, aria) + "</figure>";
+}
+
+/**
  * LES STRATES — une promesse qu'on déplace, et les populations qu'elle sépare.
  *
  * Une moyenne ne décrit personne quand la population en cache plusieurs. Le dire est un
