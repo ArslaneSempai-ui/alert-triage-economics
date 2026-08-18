@@ -22,7 +22,7 @@ import { isMain } from "./cli.ts";
 const root = new URL("..", import.meta.url).pathname;
 
 /** The shim: the same four routes, answered from memory. */
-const SHIM = `<script type="module">
+const SHIM = `<script>window.LOCAL_PRET = new Promise((r) => { window.LOCAL_POSE = r; });</script>\n<script type="module">
 import { generatePopulation } from "./js/alerts.js";
 import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./js/model.js";
 import { shadowPrice, cheapestRouteToNextStep } from "./js/shadow.js";
@@ -84,6 +84,10 @@ window.LOCAL = async (chemin, corps) => {
   }
   return {};
 };
+
+/* Le shim est en place : l'écran peut partir. La balise classique qui a créé la promesse
+ * s'exécute avant tout module, donc personne ne peut la manquer. */
+window.LOCAL_POSE && window.LOCAL_POSE();
 ` + "</" + "script>\n";
 
 /**

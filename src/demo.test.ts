@@ -54,14 +54,32 @@ test("tout module importé par la démo est présent et suivi par git", (t) => {
   }
 });
 
+/*
+ * Le shim, retrouvé par ce qu'il fait et non par sa place.
+ *
+ * On le découpait comme « tout ce qui précède le script de l'écran », en partant de la
+ * première occurrence de `window.LOCAL`. Le jour où une balise classique a été posée
+ * devant, pour que l'écran puisse attendre le shim, cette première occurrence est devenue
+ * la balise — et le découpage a rendu trois lignes vides. Le test a crié, ce qui est bien,
+ * mais il criait sur lui-même. On cherche donc l'assignation, puis le module qui la
+ * contient.
+ */
+function shimDe(html: string): string {
+  const i = html.indexOf("window.LOCAL =");
+  if (i < 0) return "";
+  const debut = html.lastIndexOf('<script type="module">', i);
+  const fin = html.indexOf("</" + "script>", i);
+  return html.slice(debut < 0 ? 0 : debut, fin < 0 ? html.length : fin);
+}
+
 test("le shim répond avec tous les champs que l'écran lit", (t) => {
   if (!existsSync(page)) return t.skip("docs/index.html absent");
   const html = readFileSync(page, "utf8");
   const ui = readFileSync(racine + "src/ui.html", "utf8");
-  if (!html.includes("window.LOCAL")) return t.skip("cette démo n'a pas de shim");
+  if (!html.includes("window.LOCAL =")) return t.skip("cette démo n'a pas de shim");
 
   /* Le shim est tout ce qui précède le script de l'écran. */
-  const shim = html.slice(0, html.indexOf('<script type="module">', html.indexOf("window.LOCAL")));
+  const shim = shimDe(html);
 
   /*
    * Les champs que l'écran lit sur son état. On ne retient que le premier niveau : un
@@ -81,8 +99,8 @@ test("le shim connaît toutes les routes que l'écran appelle", (t) => {
   if (!existsSync(page)) return t.skip("docs/index.html absent");
   const html = readFileSync(page, "utf8");
   const ui = readFileSync(racine + "src/ui.html", "utf8");
-  if (!html.includes("window.LOCAL")) return t.skip("cette démo n'a pas de shim");
-  const shim = html.slice(0, html.indexOf('<script type="module">', html.indexOf("window.LOCAL")));
+  if (!html.includes("window.LOCAL =")) return t.skip("cette démo n'a pas de shim");
+  const shim = shimDe(html);
 
   /*
    * Le troisième trou, trouvé en ajoutant une figure.
