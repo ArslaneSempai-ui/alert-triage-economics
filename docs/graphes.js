@@ -568,7 +568,7 @@ export function histogramme({ bandes, seuil, fmt = String, fmtX = String, legend
  * autant, elle devient seulement illisible, ce qui se voit.
  *
  * @param {{colonnes: Array<string|{nom:string}>,
- *          lignes: Array<{nom:string, cellules:Array<boolean|null>, bout?:string}>,
+ *          lignes: Array<{nom:string, cellules:Array<boolean|null>, instables?:boolean[], bout?:string}>,
  *          legende?: Array<{texte:string, etat:string}>, aria:string}} o
  */
 export function grille({ colonnes, lignes, legende, aria }) {
@@ -577,7 +577,23 @@ export function grille({ colonnes, lignes, legende, aria }) {
   const GAUCHE = 122, DROITE = 54, HAUT = 16, LIGNE = 26, CELL = 18;
   const pas = (L - GAUCHE - DROITE) / cols.length;
   const large = Math.max(6, Math.min(26, pas - 4));
-  const hauteur = HAUT + lignes.length * LIGNE + 22 + (legende?.length ? 24 : 0);
+
+  /*
+   * La légende est disposée avant de connaître la hauteur, parce qu'elle la décide.
+   *
+   * À quatre entrées elle tenait sur une ligne ; la cinquième sortait du cadre et se
+   * faisait couper au milieu d'un mot. Une légende tronquée est pire qu'une légende
+   * absente : elle donne l'illusion d'avoir été lue.
+   */
+  const RANG_LEG = 18;
+  const cles = (legende ?? []).map((c) => ({ ...c, w: 32 + String(c.texte).length * 6.2 }));
+  let cx = GAUCHE, rangs = cles.length ? 1 : 0;
+  for (const c of cles) {
+    if (cx + c.w > L - 12 && cx > GAUCHE) { rangs++; cx = GAUCHE; }
+    c.x = cx; c.rang = rangs - 1;
+    cx += c.w;
+  }
+  const hauteur = HAUT + lignes.length * LIGNE + 22 + rangs * RANG_LEG + (rangs ? 6 : 0);
 
   let svg = "";
   lignes.forEach((l, i) => {
@@ -585,7 +601,16 @@ export function grille({ colonnes, lignes, legende, aria }) {
     svg += `<text class="grille-nom" x="${GAUCHE - 10}" y="${y + CELL - 4}" text-anchor="end">${ech(l.nom)}</text>`;
     l.cellules.forEach((v, j) => {
       const avant = i > 0 ? lignes[i - 1].cellules[j] : null;
-      const etat = v === null ? "vide"
+      /*
+       * L'instabilité prime sur le résultat du jour.
+       *
+       * Un cas qui réussit sept fois sur huit n'est pas un cas qui réussit — et une
+       * exécution unique en donne pile-ou-face. Sans cet état, la grille marquait « cassé
+       * par cette version » une visite sur huit, sur un cas qui n'avait rien cassé : la
+       * confusion exacte que ce banc existe pour lever.
+       */
+      const etat = l.instables?.[j] ? "instable"
+        : v === null ? "vide"
         : v ? (avant === false ? "repare" : "ok")
         : (avant === true ? "casse" : "ko");
       const x = arr(GAUCHE + j * pas + (pas - large) / 2);
@@ -606,13 +631,10 @@ export function grille({ colonnes, lignes, legende, aria }) {
     svg += `<text class="grille-num" x="${arr(GAUCHE + j * pas + pas / 2)}" y="${yNum}" text-anchor="middle">${j + 1}</text>`;
   });
 
-  if (legende?.length) {
-    let x = GAUCHE;
-    for (const c of legende) {
-      svg += `<rect class="case-${c.etat}" x="${x}" y="${hauteur - 22}" width="12" height="10" />`
-        + `<text class="grad" x="${x + 18}" y="${hauteur - 13}">${ech(c.texte)}</text>`;
-      x += 32 + String(c.texte).length * 6.2;
-    }
+  for (const c of cles) {
+    const y = hauteur - 6 - (rangs - c.rang) * RANG_LEG;
+    svg += `<rect class="case-${c.etat}" x="${c.x}" y="${y}" width="12" height="10" />`
+      + `<text class="grad" x="${c.x + 18}" y="${y + 9}">${ech(c.texte)}</text>`;
   }
 
   return cadre(svg, hauteur, aria) + "</figure>";

@@ -548,8 +548,10 @@ a:hover { color: var(--encre); }
 .graphe .case-repare { fill: var(--accent); }
 .graphe .case-ko { fill: var(--papier); stroke: var(--filet); stroke-width: 1; }
 .graphe .case-casse { fill: var(--papier); stroke: var(--defavorable); stroke-width: 1.8; }
+.graphe .case-instable { fill: var(--surligne); stroke: var(--attention); stroke-width: 1.6; stroke-dasharray: 3 2.5; }
 .graphe .case-vide { fill: none; }
-.graphe .case-ok, .graphe .case-ko, .graphe .case-casse, .graphe .case-repare { cursor: crosshair; }
+.graphe .case-ok, .graphe .case-ko, .graphe .case-casse, .graphe .case-repare,
+.graphe .case-instable { cursor: crosshair; }
 .graphe .grille-nom { font: 500 12.5px/1 var(--police); fill: var(--encre-pale); }
 .graphe .grille-bout { font: 600 12.5px/1 var(--police); fill: var(--encre); font-variant-numeric: tabular-nums; }
 .graphe .grille-num { font-size: 10.5px; fill: var(--encre-tres-pale); font-variant-numeric: tabular-nums; }

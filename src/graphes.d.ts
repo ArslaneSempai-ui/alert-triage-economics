@@ -111,8 +111,8 @@ export function populations(o: {
 
 export function grille(o: {
   colonnes: (string | { nom: string })[];
-  lignes: { nom: string; cellules: (boolean | null)[]; bout?: string }[];
-  legende?: { texte: string; etat: "ok" | "ko" | "casse" | "repare" }[];
+  lignes: { nom: string; cellules: (boolean | null)[]; instables?: boolean[]; bout?: string }[];
+  legende?: { texte: string; etat: "ok" | "ko" | "casse" | "repare" | "instable" }[];
   aria: string;
 }): string;
 
