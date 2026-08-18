@@ -200,8 +200,8 @@ memory.
 
 **Cost grows faster than volume.** Handling time isn't flat: a clear-cut alert is filed in
 minutes, an ambiguous one takes an hour and a second opinion. Lowering the threshold adds
-*ambiguous* alerts specifically. Between 0.70 and 0.50 the volume goes ×29 and the hours
-go ×35. A model averaging cost per alert understates the change, and it understates it in
+*ambiguous* alerts specifically. Between 0.70 and 0.50 the volume goes ×<!--p:economics.facteurVolume-->29<!--/p--> and the hours
+go ×<!--p:economics.facteurHeures-->35<!--/p-->. A model averaging cost per alert understates the change, and it understates it in
 the dangerous direction.
 
 **Headcount is a step, not a slope.** You hire whole people. Inside a step, tightening
@@ -209,8 +209,8 @@ detection is genuinely free; crossing one costs a full salary. Both facts disapp
 per-alert average, and they are the only two that matter when deciding.
 
 **The queue is a cliff, not a slope.** Clearing the backlog and meeting the deadline are
-two different things, and the second gives way first. At 0.45 the team sits at 98 %
-occupancy: the backlog does still clear, but the average wait reaches 5.5 days against a
+two different things, and the second gives way first. At <!--p:economics.seuilGratuitLePlusLarge~n2-->0.45<!--/p--> the team sits at <!--p:economics.chargeAuSeuilGratuit~pc0-->98 %<!--/p-->
+occupancy: the backlog does still clear, but the average wait reaches <!--p:economics.attenteAuSeuilGratuit~n1-->5.5<!--/p--> days against a
 promised 5. Push a little further and the queue diverges outright. Both of those happen
 *before* a single new hire appears in the budget, which is why they surprise people — a
 10 % volume increase can move a team from fine to late while the cost line barely moves.
@@ -237,7 +237,7 @@ and false positives overlap heavily by construction — if they separated cleanl
 wouldn't exist, and neither would the decision this tool exists to inform.
 
 The queue verdict uses the standard result that waiting time grows as 1/(1−load). It isn't
-meant to be precise, and it reports a **mean**: at 98 % occupancy the average wait is 5.5
+meant to be precise, and it reports a **mean**: at <!--p:economics.chargeAuSeuilGratuit~pc0-->98 %<!--/p--> occupancy the average wait is <!--p:economics.attenteAuSeuilGratuit~n1-->5.5<!--/p-->
 days, which also means half the files wait longer. One absence, one holiday period, and a
 team sitting there is already past its deadline. Treat anything above about 90 % as
 fragile rather than as fine.
@@ -305,7 +305,7 @@ src/
   serveur.ts + ui.html   one screen, French or English
 ```
 
-Node 26 with native TypeScript, `node:test`, no build step, no dependencies. 14 tests,
+Node 26 with native TypeScript, `node:test`, no build step, no dependencies. <!--p:portfolio.parDepot.economics-->47<!--/p--> tests,
 including one that fails if the free zone disappears — because that's the finding, and a
 refactor that quietly removes it should not pass silently.
 
@@ -354,7 +354,7 @@ a real alert queue is bursty. Burstiness makes waits worse, never better, so the
 here are optimistic in the direction that matters.
 
 **Not "the deadline is met."** The model reports whether the *steady-state* wait fits
-inside the target. A queue at 98 % occupancy meets a target on average and misses it every
+inside the target. A queue at <!--p:economics.chargeAuSeuilGratuit~pc0-->98 %<!--/p--> occupancy meets a target on average and misses it every
 time somebody takes leave. That is what the margin column is for, and it is why the free
 route is priced in days of margin rather than called free.
 
