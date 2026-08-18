@@ -134,6 +134,21 @@ export function histogramme(o: {
   aria: string;
 }): string;
 
+export function opposees(o: {
+  items: { nom: string; valeur: number; bas?: number; haut?: number; note?: string; ici?: boolean }[];
+  fmt?: (v: number) => string;
+  aria: string;
+}): string;
+
+export function axe(o: {
+  bas: number;
+  haut: number;
+  seuil: { v: number; etiquette?: string; avant?: string; apres?: string };
+  bandes?: { de: number; a: number; nom: string; sens?: "haut" | "bas" }[];
+  fmtX?: (v: number) => string;
+  aria: string;
+}): string;
+
 export type Rang = { rang: number; valeur?: number };
 
 export type SerieRang = {

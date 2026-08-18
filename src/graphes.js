@@ -739,6 +739,126 @@ export function populations({ groupes, seuil, fmtX = String, motRecouvrement, ar
 }
 
 /**
+ * LES DEUX SENS.
+ *
+ * Deux fonctions qui ne veulent pas la même chose, sur le même axe, de part et d'autre du
+ * zéro. C'est la figure que la réunion n'a jamais : chacun arrive avec son tableau, et les
+ * deux tableaux n'ont pas d'origine commune.
+ *
+ * Pourquoi pas `barres` : une barre horizontale classique se cale sur le maximum et part
+ * toujours du même bord. Une dépense de dix millions y ressemble trait pour trait à un
+ * revenu de dix millions — le lecteur voit deux barres dans le même sens dont l'une est une
+ * sortie de caisse. Ici le zéro est au milieu, et le sens porte le signe avant que le
+ * chiffre soit lu.
+ *
+ * @param {{items: Array<{nom:string, valeur:number, bas?:number, haut?:number, note?:string, ici?:boolean}>,
+ *          fmt?:(v:number)=>string, aria:string, hauteur?:number}} o
+ */
+export function opposees({ items, fmt = String, aria }) {
+  if (!items?.length) return "";
+  const vals = items.flatMap((i) => [i.valeur, i.bas, i.haut].filter(fini));
+  const ampleur = Math.max(...vals.map(Math.abs), 1);
+  const GAUCHE = 176, DROITE = 128, LIGNE = 34, HAUT = 20;
+  const large = L - GAUCHE - DROITE;
+  const zero = GAUCHE + large / 2;
+  const px = (v) => arr(zero + (v / ampleur) * (large / 2) * 0.94);
+  const hauteur = HAUT + items.length * LIGNE + 26;
+
+  let svg = "";
+  items.forEach((it, i) => {
+    const y = HAUT + i * LIGNE;
+    const milieu = y + LIGNE / 2 - 4;
+    const x = px(it.valeur);
+    const de = Math.min(zero, x), a = Math.max(zero, x);
+    svg += `<text class="opp-nom${it.ici ? " ici" : ""}" x="${GAUCHE - 12}" y="${milieu + 4}" text-anchor="end">${ech(it.nom)}</text>`;
+    svg += `<rect class="opp-barre${it.valeur < 0 ? " sortie" : ""}${it.ici ? " ici" : ""}"
+      x="${de}" y="${y + 4}" width="${arr(Math.max(1, a - de))}" height="${LIGNE - 16}"
+      data-lecture="${ech(`<u>${it.nom}</u><br>${fmt(it.valeur)}`)}" />`;
+    if (fini(it.bas) && fini(it.haut)) {
+      const g = px(it.bas), d = px(it.haut);
+      svg += `<line class="opp-inter" x1="${g}" y1="${milieu}" x2="${d}" y2="${milieu}" />`
+        + `<line class="opp-borne" x1="${g}" y1="${milieu - 5}" x2="${g}" y2="${milieu + 5}" />`
+        + `<line class="opp-borne" x1="${d}" y1="${milieu - 5}" x2="${d}" y2="${milieu + 5}" />`;
+    }
+    svg += `<text class="opp-val" x="${L - DROITE + 12}" y="${milieu + 4}">${ech(fmt(it.valeur))}</text>`;
+  });
+  /* Le zéro par-dessus les barres : c'est la référence, elle ne se laisse pas recouvrir. */
+  svg += `<line class="opp-zero" x1="${zero}" y1="${HAUT - 4}" x2="${zero}" y2="${HAUT + items.length * LIGNE + 2}" />`
+    + `<text class="grad" x="${zero}" y="${hauteur - 8}" text-anchor="middle">0</text>`;
+
+  return cadre(svg, hauteur, aria) + "</figure>";
+}
+
+/**
+ * UN AXE, UN POINT DE BASCULE, ET CE QUE CHACUN DÉFEND.
+ *
+ * Pour une grandeur que personne n'a mesurée. Il n'y a donc **rien à compter** : pas de
+ * carrés, pas d'histogramme, pas de nuage — dessiner des points ici ferait passer une
+ * croyance pour un relevé. Une bande est ce qu'on peut honnêtement montrer, et la bascule
+ * est le seul trait qui vaut quelque chose : elle transforme « combien vaut ce nombre ? »,
+ * à quoi personne ne peut répondre, en « est-il au-dessus de ceci ? », à quoi un
+ * responsable peut répondre.
+ *
+ * @param {{bas:number, haut:number, seuil:{v:number, etiquette?:string, avant?:string, apres?:string},
+ *          bandes?: Array<{de:number, a:number, nom:string, sens?:"haut"|"bas"}>,
+ *          fmtX?:(v:number)=>string, aria:string}} o
+ */
+export function axe({ bas, haut, seuil, bandes = [], fmtX = String, aria }) {
+  if (!(haut > bas)) return "";
+  const HAUT = 34, LIGNE = 26;
+  const px = (v) => arr(M.gauche + ((v - bas) / (haut - bas)) * (L - M.gauche - M.droite));
+  const rangs = Math.max(1, bandes.length);
+  const axeY = HAUT + rangs * LIGNE + 12;
+  const hauteur = axeY + 46;
+
+  let svg = "";
+  bandes.forEach((b, i) => {
+    const y = HAUT + i * LIGNE;
+    const g = px(Math.max(bas, b.de)), d = px(Math.min(haut, b.a));
+    svg += `<rect class="axe-bande${b.sens === "bas" ? " bas" : ""}" x="${g}" y="${y}" width="${arr(Math.max(2, d - g))}" height="${LIGNE - 9}"
+      data-lecture="${ech(`<u>${b.nom}</u><br>${fmtX(b.de)} – ${fmtX(b.a)}`)}" />`;
+    /*
+     * Où poser l'intitulé, en trois essais successifs et deux échecs.
+     *
+     * « Du côté où il reste de la place » collait les deux textes de part et d'autre de la
+     * bascule, chacun désignant la bande d'en face. « Toujours vers l'extérieur » les
+     * poussait hors du cadre, où ils se faisaient couper — « 0,50 % – 1,33 % » s'affichait
+     * « 33 % ». Ce qui marche : dans la bande quand elle est assez large, sinon dehors du
+     * côté extérieur, et jamais au-delà du cadre.
+     */
+    const largeurTexte = String(b.nom).length * 6.4;
+    const dedans = d - g > largeurTexte + 16;
+    const versLaGauche = (b.de + b.a) / 2 < seuil.v;
+    const y0 = y + LIGNE - 14;
+    if (dedans) {
+      svg += `<text class="axe-nom dans${b.sens === "bas" ? " bas" : ""}" x="${arr((g + d) / 2)}" y="${y0}"
+        text-anchor="middle">${ech(b.nom)}</text>`;
+    } else {
+      const x = versLaGauche ? Math.max(M.gauche + largeurTexte, g - 10) : Math.min(L - M.droite - largeurTexte, d + 10);
+      svg += `<text class="axe-nom${b.sens === "bas" ? " bas" : ""}" x="${arr(x)}" y="${y0}"
+        text-anchor="${versLaGauche ? "end" : "start"}">${ech(b.nom)}</text>`;
+    }
+  });
+
+  svg += `<line class="sol" x1="${M.gauche}" y1="${axeY}" x2="${L - M.droite}" y2="${axeY}" />`;
+  const x = px(seuil.v);
+  svg += `<line class="repere-seuil" x1="${x}" y1="${HAUT - 20}" x2="${x}" y2="${axeY + 8}" />`;
+  if (seuil.etiquette) {
+    const colle = x - M.gauche < 100;
+    svg += `<text class="etiq-seuil" x="${arr(x + (colle ? 8 : -8))}" y="${HAUT - 24}"
+      text-anchor="${colle ? "start" : "end"}">${ech(seuil.etiquette)}</text>`;
+  }
+  if (seuil.avant) svg += `<text class="dit-avant" x="${arr(x - 8)}" y="${HAUT - 8}" text-anchor="end">${ech(seuil.avant)}</text>`;
+  if (seuil.apres) svg += `<text class="dit-apres" x="${arr(x + 8)}" y="${HAUT - 8}">${ech(seuil.apres)}</text>`;
+
+  for (const v of [bas, seuil.v, haut]) {
+    const ancrage = v === bas ? "start" : v === haut ? "end" : "middle";
+    svg += `<text class="grad" x="${px(v)}" y="${axeY + 18}" text-anchor="${ancrage}">${ech(fmtX(v))}</text>`;
+  }
+  return cadre(svg, hauteur, aria) + "</figure>";
+}
+
+/**
  * LES RANGS.
  *
  * Un classement qui bouge. Des barres n'en montrent qu'un état : le lecteur à qui l'on

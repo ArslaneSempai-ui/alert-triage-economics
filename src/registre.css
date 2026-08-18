@@ -564,6 +564,30 @@ a:hover { color: var(--encre); }
 .graphe .pop-nom { font: 600 11.5px/1 var(--police); fill: var(--accent); }
 .graphe .pop-nom.bas { fill: var(--encre-pale); }
 
+/* Les deux sens. Le zéro au milieu : le sens porte le signe avant que le chiffre soit lu,
+   et une sortie de caisse ne peut plus ressembler à une recette. */
+.graphe .opp-barre { fill: var(--accent-bord); cursor: crosshair; }
+.graphe .opp-barre.sortie { fill: var(--defavorable); fill-opacity: .34; }
+.graphe .opp-barre.ici { fill: var(--accent); }
+/* Une barre mise en avant reste une sortie de caisse si elle est négative : sans cette
+   ligne, un net défavorable se dessinait en vert pendant que son signe disait l'inverse. */
+.graphe .opp-barre.ici.sortie { fill: var(--defavorable); fill-opacity: 1; }
+.graphe .opp-zero { stroke: var(--encre); stroke-width: 1.4; }
+.graphe .opp-inter { stroke: var(--encre-pale); stroke-width: 1.4; }
+.graphe .opp-borne { stroke: var(--encre-pale); stroke-width: 1.4; }
+.graphe .opp-nom { font: 500 13px/1 var(--police); fill: var(--encre-pale); }
+.graphe .opp-nom.ici { font-weight: 700; fill: var(--encre); }
+.graphe .opp-val { font: 600 13.5px/1 var(--police); fill: var(--encre); font-variant-numeric: tabular-nums; }
+
+/* L'axe des croyances. Une bande, pas des points : rien n'a été compté ici. */
+.graphe .axe-bande { fill: var(--accent-bord); cursor: help; }
+.graphe .axe-bande.bas { fill: var(--contexte); }
+.graphe .axe-nom { font: 600 11.5px/1 var(--police); fill: var(--accent); }
+.graphe .axe-nom.bas { fill: var(--encre-pale); }
+/* Posé sur la bande, l'intitulé doit rester lisible sur son propre fond. */
+.graphe .axe-nom.dans { fill: var(--encre); }
+.graphe .axe-nom.dans.bas { fill: var(--encre-pale); }
+
 /* Les rangs. L'accent ne porte jamais seul : trait épais, point plein, intitulé gras —
    un lecteur qui ne distingue pas les deux verts lit quand même laquelle est suivie. */
 .graphe .rang-colonne { stroke: var(--filet); stroke-width: 1; }
