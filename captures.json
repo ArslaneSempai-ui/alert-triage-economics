@@ -1,0 +1,19 @@
+{
+  "images": [
+    {
+      "sortie": "images/demo.gif",
+      "type": "gif",
+      "taille": [900, 780],
+      "echelle": 1,
+      "duree": 1100,
+      "scenes": [
+        [],
+        ["#threshold=0.60"],
+        ["#threshold=0.50"],
+        ["#threshold=0.45"],
+        ["#threshold=0.40"],
+        ["#threshold=0.35"]
+      ]
+    }
+  ]
+}
