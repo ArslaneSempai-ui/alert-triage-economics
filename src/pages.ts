@@ -3,7 +3,7 @@
  *
  * "Clone this and run `npm start`" is a request most readers decline. A link they can click
  * is not the same artefact — and a *static snapshot* of one is worse than nothing, because
- * the first thing anyone does is move a slider and watch nothing happen.
+ * the first thing anyone does is pick a notch and watch what it costs.
  *
  * So the demo is not a snapshot. Every figure in this repository comes out of pure
  * arithmetic on a seeded population, with no database and no network, which means the whole

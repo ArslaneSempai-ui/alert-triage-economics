@@ -169,3 +169,9 @@ export function rangs(o: {
 
 /** Branche les lectures au survol. Sans effet là où aucune figure n'a d'information de plus. */
 export function brancher(racine?: ParentNode): void;
+
+/** Une part écrite en pour-cent, le plein réservé au plein. */
+export function partEcrite(dedans: number, total: number): string;
+
+/** Rendre choisissables les formes qui portent `data-choix`. */
+export function choisir(racine: Element, onChoix: (valeur: string) => void, courant?: unknown): void;

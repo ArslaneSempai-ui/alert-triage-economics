@@ -7,9 +7,9 @@ staffing decision and a budget line, and almost nobody prices it before moving i
 **The finding.** At the tight threshold a cautious team lands on, 7 of 8 analysts are paid to sit idle while 392 of 454 reportable cases go undetected. Loosening to 0.50 catches **306 more for no extra money** — the payroll is already committed. The organisation was never short of budget. It was short of the calculation.
 <!-- /figures:finding -->
 
-**[Try it in your browser →](https://arslanesempai-ui.github.io/alert-triage-economics/)** — every assumption is editable and the model recomputes live. Put your own headcount in.
+**[Try it in your browser →](https://arslanesempai-ui.github.io/alert-triage-economics/)** — pick the notch whose price you accept, and every figure follows. Every assumption is editable too: put your own headcount in.
 
-![Editing the assumptions: the model recomputes live](images/demo.gif)
+![Picking a notch on the staircase: the cost of the next true positive stays at zero, then explodes](images/demo.gif)
 
 ```bash
 npm start        # the screen, on localhost:4700

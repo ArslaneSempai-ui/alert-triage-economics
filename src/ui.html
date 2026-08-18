@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Économie du seuil de détection</title>
+<title>What the next true positive costs</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fbfaf7'/%3E%3Crect x='2' y='4' width='12' height='1' fill='%23111'/%3E%3Crect x='2' y='7' width='12' height='1' fill='%23111'/%3E%3Crect x='2' y='11' width='12' height='2' fill='%23111'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="/registre.css" />
 </head>
@@ -11,12 +11,10 @@
 <main>
   <div class="haut">
     <div><h1 id="h1"></h1><p class="lede" id="lede"></p></div>
-    <div class="lang"><button id="fr" type="button">FR</button><button id="en" type="button">EN</button></div>
   </div>
 
   <div class="chiffres" id="chiffres"></div>
   <div id="recommandation"></div>
-  <div id="reglage"></div>
 
   <h2 id="titreHyp"></h2>
   <div id="assumptions"></div>
@@ -34,7 +32,7 @@
 </main>
 
 <script type="module">
-import { courbe, barres, escalier as marchesG, brancher } from "/graphes.js";
+import { courbe, barres, escalier as marchesG, brancher, choisir } from "/graphes.js";
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 /*
@@ -51,94 +49,6 @@ const api = async (chemin, corps) =>
         ? { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(corps) } : {})).json();
 
 const T = {
-  fr: {
-    h1: "Économie du seuil de détection",
-    provenance: "Chaque chiffre de cette page est <b>retrouvé</b> dans un texte public, <b>mesuré</b> en faisant tourner le code, <b>supposé</b> parce que personne ici ne peut le connaître, ou <b>choisi</b> par moi. Le README dit lequel, un par un.",
-    lede: "Un seuil de détection, c'est des heures d'analystes, un effectif et une ligne budgétaire. Cet écran traduit l'un dans l'autre.",
-    releve: "Relevé d'exploitation",
-    alerts: "alertes par an", hours: "heures d'analystes", etp: "ETP nécessaires",
-    cout: "coût annuel", attrapes: "vrais positifs attrapés", rates: "manqués",
-
-    seuilTitre: "Le seuil de détection",
-    seuilQuoi: "Plus bas, plus d'alertes : on attrape davantage et on paie davantage. Toute la question est de savoir à partir de quand on paie sans attraper.",
-    strict: "strict — peu d'alertes", large: "large — beaucoup d'alertes",
-    seuilNom: "Seuil de détection",
-
-    titreHyp: "Les hypothèses d'exploitation",
-    hypQuoi: "Tout est discutable, et tout se modifie.",
-    productiveHoursPerDay: "Heures productives par jour",
-    workingDaysPerYear: "Jours travaillés par an",
-    loadedCostPerAnalyst: "Coût chargé par analyste ($/an)",
-    maxHandlingDays: "Délai maximal de traitement (jours)",
-    analystsInPost: "Analystes en poste",
-    defaut: "Revenir aux hypothèses de départ",
-
-    debordeTitre: "La file déborde",
-    debordeQuoi: (etp, eff) => `Il faudrait ${etp} ETP pour ${eff} analystes en poste. Une file ne tourne pas à pleine occupation : le stock ne se résorbe plus, et le délai part à l'infini. Ce n'est pas un surcoût, c'est un arrêt.`,
-    recoTitre: "Ce que l'effectif déjà payé permet",
-    recoQuoi: (s, vp, av, ap, dorm) =>
-      `Descendre à <b>${s.toFixed(2)}</b> attrape <b>${vp} vrais positifs de plus</b> pour <b>zéro dollar</b> : la couverture passe de ${av} à ${ap}. Au seuil le plus strict, ${dorm} ETP déjà payés ne servent à rien.`,
-
-    titreCourbe: "Ce que coûte chaque cran",
-    colSeuil: "seuil", colAlertes: "alertes", colHeures: "heures", colEtp: "ETP",
-    colRecrut: "à recruter", colCout: "coût annuel", colAttrapes: "attrapés",
-    colRates: "manqués", colMarginal: "coût du VP suivant", colFile: "file",
-    gratuit: "gratuit", aucunGain: "aucun gain", tient: "tient", deborde: "déborde",
-    jour: "j",
-    enRetard: "hors délai",
-    colAttente: "attente", colCharge: "occupation",
-    delaiRateTitre: "Le délai promis n'est pas tenu",
-    delaiRateQuoi: (a, d, c) => `La file se résorbe, mais l'attente moyenne atteint ${a} jours pour un délai promis de ${d}. À ${c} d'occupation, la moindre absence fait décrocher l'équipe.`,
-    titreHorizon: "Le trimestre où la décision est due",
-    horizonQuoi: (g, att, sem) => `Tout le reste de cet écran répond sur aujourd'hui. À ${g} de croissance des volumes par trimestre, ${att} d'attrition annuelle et ${sem} semaines pour pourvoir un poste, la décision tombe pendant que tous les voyants sont encore au vert.`,
-    colTrim: "trim.", colOps: "opérations", colBesoin: "ETP nécessaires", colTenus: "ETP tenus",
-    casse: "casse", tientH: "tient", tardH: "hors délai",
-    marcheTitre: "La marche que cet outil dit gratuite",
-    marcheTient: (s1, s2, via, n) => `Passer de <b>${s1}</b> à <b>${s2}</b> ne coûte rien ce trimestre : ${via}. Cela tient sur les ${n} analystes en poste sur tout l'horizon.`,
-    marcheCasse: (s1, s2, via, n, quand, combien, fin, dernier, quandDec) => `Passer de <b>${s1}</b> à <b>${s2}</b> ne coûte rien ce trimestre : ${via}. Cela tient sur les ${n} analystes en poste jusqu'en <b>${quand}</b>, où il en faut ${combien} de plus — ${fin} de plus d'ici ${dernier}. La demande de poste est donc due <b>${quandDec}</b>.`,
-    croissanceTitre: "Personne ne peut vous donner la croissance de l'an prochain",
-    colCroissance: "croissance / trim.", colCasse: "la file lâche", colDecision: "première décision due",
-    horsHorizon: "pas sur cet horizon", rienADecider: "rien à décider",
-    trimPasse: (n) => `il y a ${n} trimestre${n > 1 ? "s" : ""}`,
-    titreEscalier: "Ce qu'achète l'analyste suivant",
-    escalierQuoi: "La ressource s'achète par marches. Financer une partie d'une marche n'achète rien — pas moins, rien.",
-    colAjoutes: "ajoutés", colLargeur: "largeur de la marche", colCouverture: "couverture",
-    colPaie: "masse salariale", colAchete: "ce que la marche achète",
-    aujourdhui: "aujourd'hui", chacun: "chacun", cas: "cas",
-    mort: (n) => `La plus longue série qui n'achète <b>rien du tout</b> fait ${n} analystes.`,
-    quantite: (res, n) => res === "productiveHour"
-      ? (n * 60 % 60 === 0 ? `${n} heure${n > 1 ? "s" : ""} productive${n > 1 ? "s" : ""} de plus par jour` : `${Math.round(n * 60)} minutes productives de plus par jour`)
-      : res === "handlingDay" ? `${n} jour${n > 1 ? "s" : ""} de délai de traitement en plus`
-      : `${n} analyste${n > 1 ? "s" : ""} de plus`,
-    routesTitre: "La même marche, à trois prix",
-    routesQuoi: (s, vp) => `Descendre au seuil ${s} trouve <b>${vp} dossiers déclarables de plus par an</b>. Trois façons d'y arriver :`,
-    gratos: "gratuit", nonChiffre: "non chiffré ici", parAn: "par an",
-    marge: (o, c, mur, m) => `« Gratuit » est une ligne budgétaire, pas une position de risque. La file se stabilise à ${o} jours ouvrés — <b>${c} jours calendaires</b>, l'unité que compte le 31 CFR 1020.320(b)(3) — contre un mur à ${mur} jours. Il reste ${m} jours de marge, et c'est la marge qui absorbe des congés ou une démission.`,
-    calcul: "calcul en cours…",
-    courbeQuoi: "Le coût du vrai positif suivant reste nul, puis il explose — bien avant que le coût total ne paraisse déraisonnable.",
-    figCoutTitre: "Le coût du vrai positif suivant, cran par cran",
-    figCoutAria: "Diagramme en marches : sur les crans les plus stricts le vrai positif suivant ne coûte rien, puis le coût saute à plusieurs dizaines de milliers de dollars sur les deux derniers.",
-    figEchangeTitre: "Ce qu'on attrape contre ce que ça coûte",
-    figEchangeAria: "Deux courbes contre le seuil : les vrais positifs attrapés montent puis saturent, tandis que le coût annuel reste plat longtemps puis s'envole.",
-    figFileTitre: "La file d'attente",
-    figFileAria: "L'attente reste sous la journée tant que la charge est loin de 1, puis diverge ; au-delà d'une charge de 1 la file ne se vide jamais et la courbe s'interrompt.",
-    figMarchesTitre: "Combien d'analystes financer avant que quoi que ce soit change",
-    figMarchesAria: "Barres : la largeur de chaque marche grandit pendant que le nombre de cas gagnés diminue.",
-    figPlanTitre: "Besoin contre effectif tenu, trimestre par trimestre",
-    figPlanAria: "Le besoin monte par marches avec les volumes pendant que l'effectif en poste s'érode ; l'écart se referme trimestre après trimestre.",
-    serAttrapes: "Vrais positifs attrapés", serCout: "Coût annuel",
-    serAttente: "Attente moyenne", serCharge: "Charge de la file",
-    serBesoin: "ETP nécessaires", serTenus: "Effectif en poste",
-    bandeDeborde: "hors délai ou file qui déborde", seuilUn: "charge = 1",
-    iciRepere: "réglage actuel", analystes: "analystes",
-    tableauDetail: "Le détail, seuil par seuil",
-    tableauDetailH: "Le détail, trimestre par trimestre",
-    analyste: "analyste",
-    marcheNom: (de, a) => `seuil ${de} → ${a}`,
-    gagnes: (n) => `+${n} cas`,
-    contexte: (ops, vp) => `${ops} opérations sur l'année, ${vp} vrais positifs à trouver. Données synthétiques.`,
-  },
-  en: {
     h1: "The economics of a detection threshold",
     provenance: "Every figure on this page is <b>retrieved</b> from a public source, <b>measured</b> by running the code, <b>assumed</b> because nobody here can know it, or <b>chosen</b> by me. The README says which, one by one.",
     lede: "A detection threshold is analyst hours, headcount and a budget line. This screen converts one into the other.",
@@ -148,7 +58,6 @@ const T = {
 
     seuilTitre: "The detection threshold",
     seuilQuoi: "Lower catches more and costs more. The question is where you start paying without catching.",
-    strict: "tight — few alerts", large: "loose — many alerts",
     seuilNom: "Detection threshold",
 
     titreHyp: "Operating assumptions",
@@ -224,15 +133,13 @@ const T = {
     marcheNom: (de, a) => `threshold ${de} → ${a}`,
     gagnes: (n) => `+${n} cases`,
     contexte: (ops, vp) => `${ops} operations over the year, ${vp} true positives to find. Synthetic data.`,
-  },
 };
 
-let langue = localStorage.getItem("langue") === "fr" ? "fr" : "en";
-const t = () => T[langue];
+const t = () => T;
 let etat = null, occupe = false;
 let escalier = null;
 
-const loc = () => (langue === "fr" ? "fr-FR" : "en-GB");
+const loc = () => "en-GB";
 const nb = (n) => Math.round(n).toLocaleString(loc());
 /*
  * Money is formatted in one place regardless of the interface language.
@@ -306,23 +213,6 @@ function blocRecommandation() {
   $("#recommandation").innerHTML = html;
 }
 
-function blocReglage() {
-  const L = t();
-  $("#reglage").innerHTML = `<section class="feuillet"><div class="corps">
-    <div class="titre">${esc(L.seuilTitre)}</div>
-    <div class="quoi">${esc(L.seuilQuoi)}</div>
-    <div class="rang">
-      <span class="bout">${esc(L.large)}</span>
-      <input type="range" id="threshold" min="0.30" max="0.95" step="0.05" value="${etat.threshold}"
-        aria-label="${esc(L.seuilNom)}" />
-      <span class="bout">${esc(L.strict)}</span>
-      <span class="lecture" id="seuilVal">${etat.threshold.toFixed(2)}</span>
-    </div></div></section>`;
-  const s = $("#threshold");
-  s.oninput = () => { $("#seuilVal").textContent = Number(s.value).toFixed(2); };
-  s.onchange = () => envoyer({ threshold: Number(s.value) });
-}
-
 function blocHypotheses() {
   const L = t();
   $("#titreHyp").textContent = L.titreHyp;
@@ -391,10 +281,39 @@ function blocCourbe() {
     };
   });
 
+  /*
+   * Le réglage le plus strict a droit à sa marche.
+   *
+   * Son coût marginal n'existe pas — rien de plus strict n'a été mesuré, donc il n'y a
+   * aucun passage à facturer. L'omettre le rendait injoignable depuis la figure alors que
+   * le modèle l'accepte. Il est là, à hauteur nulle et marqué comme non chiffré : c'est un
+   * réglage qu'on peut prendre, pas un prix qu'on connaît.
+   */
+  const dernier = pts[pts.length - 1], avant = pts[pts.length - 2];
+  if (dernier && avant) {
+    marches.push({
+      de: dernier.threshold, a: dernier.threshold + (dernier.threshold - avant.threshold),
+      valeur: 0, morte: true,
+      ici: Math.abs(dernier.threshold - etat.threshold) < 0.001,
+    });
+  }
+
   const repere = { x: etat.threshold, texte: L.iciRepere };
   const fmtSeuil = (v) => v.toFixed(2);
 
-  const figCout = marchesG({ marches, fmt: dollarsCourt, fmtX: fmtSeuil, hauteur: 200, aria: L.figCoutAria });
+  /*
+   * L'escalier est la commande.
+   *
+   * C'était un curseur, deux blocs plus haut, qui réglait un seuil dont le prix se lisait
+   * ici. Or ce prix *est* la question : on ne choisit pas « 0,65 », on choisit de payer
+   * 32 476 $ le vrai positif suivant. Le lecteur pose donc la main sur la marche dont il
+   * accepte le prix, et le reste de l'écran s'aligne dessus.
+   *
+   * Un choix par marche, pas une ligne qu'on tire : le modèle a mesuré treize seuils et
+   * rien entre deux. Une position continue promettrait une précision que personne n'a.
+   */
+  const figCout = marchesG({ marches, fmt: dollarsCourt, fmtX: fmtSeuil, hauteur: 200,
+    aria: L.figCoutAria, choix: true, iciTexte: L.iciRepere });
 
   const figEchange = courbe({
     points: pts, x: (p) => p.threshold, marque: repere, bandes, fmtX: fmtSeuil,
@@ -417,7 +336,8 @@ function blocCourbe() {
   });
 
   $("#courbe").innerHTML = `<div class="feuillet">
-    <div class="quoi">${esc(L.courbeQuoi)}</div>
+    <div class="titre">${esc(L.seuilTitre)}</div>
+    <div class="quoi">${esc(L.seuilQuoi)} ${esc(L.courbeQuoi)}</div>
     <div class="titre-fig">${esc(L.figCoutTitre)}</div>${figCout}
     <div class="titre-fig">${esc(L.figEchangeTitre)}</div>${figEchange}
     <div class="titre-fig">${esc(L.figFileTitre)}</div>${figFile}
@@ -431,6 +351,7 @@ function blocCourbe() {
     <div class="renvoi">${esc(L.contexte(nb(etat.population.operations), etat.population.truePositivesTotal))}</div>
   </div>`;
   brancher($("#courbe"));
+  choisir($("#courbe"), (v) => envoyer({ threshold: Number(v) }), etat.threshold);
 }
 
 /*
@@ -566,13 +487,10 @@ function blocHorizon() {
 
 function dessiner() {
   const L = t();
-  document.documentElement.lang = langue;
   $("#h1").textContent = L.h1;
   $("#provenanceLegende").innerHTML = L.provenance;
   $("#lede").textContent = L.lede;
-  $("#fr").className = langue === "fr" ? "on" : "";
-  $("#en").className = langue === "en" ? "on" : "";
-  blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe(); blocEscalier(); blocHorizon();
+  blocChiffres(); blocRecommandation(); blocHypotheses(); blocCourbe(); blocEscalier(); blocHorizon();
   brancher();
 }
 
@@ -593,15 +511,28 @@ async function chargerEscalier() {
   brancher();
 }
 
+/*
+ * Un envoi à la fois, aucun geste perdu, et l'escalier qui attend.
+ *
+ * Passer la main sur les marches enchaîne les choix ; jeter ceux qui arrivent pendant un
+ * appel laisserait l'écran sur un état antérieur à la main. On garde donc le dernier et on
+ * le part dès que la place est libre. L'escalier de capacité, lui, coûte une seconde de
+ * calcul : le relancer à chaque marche traversée n'apprendrait rien à personne, il part
+ * quand la main s'est arrêtée.
+ */
+let enAttente = null, minuterieEscalier = 0;
 async function envoyer(corps, chemin = "/api/reglage") {
-  if (occupe) return;
+  if (occupe) { enAttente = [corps, chemin]; return; }
   occupe = true;
-  try { etat = await api(chemin, corps ?? {}); dessiner(); chargerEscalier(); }
-  finally { occupe = false; }
-}
-
-for (const l of ["fr", "en"]) {
-  $(`#${l}`).onclick = () => { langue = l; localStorage.setItem("langue", l); dessiner(); };
+  try {
+    etat = await api(chemin, corps ?? {});
+    dessiner();
+    clearTimeout(minuterieEscalier);
+    minuterieEscalier = setTimeout(chargerEscalier, 260);
+  } finally {
+    occupe = false;
+    if (enAttente) { const suite = enAttente; enAttente = null; envoyer(...suite); }
+  }
 }
 
 etat = await api("/api/etat");

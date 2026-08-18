@@ -277,21 +277,31 @@ h2 {
 
 /* ─────────────────────────── les renvois ─────────────────────────── */
 
+/*
+ * Une légende de planche, pas un encadré.
+ *
+ * C'étaient des blocs teintés avec un gros filet vertical à gauche — l'*admonition box*, le
+ * marqueur le plus reconnaissable d'une interface générée. Ils étaient sous chaque figure des
+ * sept écrans, et ils y mettaient un pavé là où il faut une ligne.
+ *
+ * Ici : de la typographie sur le papier. Pas de fond, pas de filet vertical, pas de coin
+ * arrondi. De l'air au-dessus, une largeur de lecture, et une taille qui dit que la phrase
+ * est secondaire — le chiffre qui compte est déjà dans la figure. Le ton (défavorable,
+ * attention) se marque sur le mot, jamais sur un aplat.
+ */
 .renvoi {
-  margin-top: 14px; padding: 13px 16px; border-radius: var(--arrondi-petit);
-  background: var(--surligne); border-left: 3px solid var(--filet-gras);
-  color: var(--encre-pale); font-size: 13.5px; line-height: 1.6;
+  margin: 12px 0 0; padding: 0; background: none; border: 0; border-radius: 0;
+  color: var(--encre-tres-pale); font-size: 13px; line-height: 1.6; max-width: 78ch;
 }
-.renvoi b { color: var(--encre); font-weight: 600; }
-.renvoi.defavorable { background: #fef3f2; border-left-color: var(--defavorable); color: #7a271a; }
-.renvoi.attention { background: #fffaeb; border-left-color: var(--attention); color: #7a2e0e; }
-.renvoi.favorable { background: var(--accent-fond); border-left-color: var(--accent); color: var(--accent-sombre); }
+.renvoi b { color: var(--encre-pale); font-weight: 600; }
+.renvoi.defavorable b, .renvoi.defavorable strong { color: var(--defavorable); }
+.renvoi.attention b, .renvoi.attention strong { color: var(--attention); }
+.renvoi.favorable b, .renvoi.favorable strong { color: var(--accent); }
 
-/* La suite : ce qu'une section vient de montrer, et pourquoi la prochaine existe. */
+/* La légende : ce que la figure au-dessus vient de montrer. Une phrase, deux au plus. */
 .suite {
-  margin: 20px 0 4px; padding: 15px 18px; border-radius: var(--arrondi-petit);
-  background: #f8f9fa; border-left: 3px solid var(--encre);
-  color: var(--encre-pale); font-size: 14px; line-height: 1.65;
+  margin: 14px 0 2px; padding: 0; background: none; border: 0; border-radius: 0;
+  color: var(--encre-pale); font-size: 13.5px; line-height: 1.65; max-width: 82ch;
 }
 .suite b { color: var(--encre); font-weight: 600; }
 .suite em { font-style: normal; color: var(--encre-tres-pale); }
@@ -328,14 +338,23 @@ code { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; background: var(
  * personne ne pouvait deviner qu'ils étaient cliquables. C'est le reproche le plus juste
  * qu'on ait fait à cette interface.
  */
+/*
+ * Le bouton est un objet du relevé, pas un bouton d'application.
+ *
+ * Il était une pastille noire arrondie avec une ombre portée, au milieu d'une page à zéro
+ * arrondi, sans ombre et en filets fins : le seul élément qui venait d'ailleurs. Ici, un
+ * filet, du papier, de l'encre — et l'accent qui n'apparaît qu'au survol, quand la main
+ * s'approche. Le poids visuel se gagne par `.primaire`, pas par défaut.
+ */
 .b {
-  font: 600 13.5px/1 var(--police); cursor: pointer;
-  background: var(--encre); color: var(--papier); border: 1px solid var(--encre);
-  border-radius: var(--arrondi-petit); padding: 0 18px; min-height: 42px;
-  box-shadow: var(--ombre-bouton); transition: .12s;
+  font: 600 13px/1 var(--police); letter-spacing: .01em; cursor: pointer;
+  background: var(--papier); color: var(--encre); border: 1px solid var(--filet-gras);
+  border-radius: 0; padding: 0 16px; min-height: 38px; box-shadow: none; transition: .12s;
 }
-.b:hover { background: #000; }
-.b:active { transform: translateY(1px); }
+.b:hover { border-color: var(--accent); color: var(--accent); background: var(--papier); }
+.b:active { background: var(--accent-fond); }
+.b.primaire { background: var(--encre); color: var(--papier); border-color: var(--encre); }
+.b.primaire:hover { background: var(--accent); border-color: var(--accent); color: var(--papier); }
 .b[disabled] { background: #eef0f2; border-color: #eef0f2; color: var(--encre-tres-pale); cursor: not-allowed; box-shadow: none; }
 .b:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /*
@@ -587,6 +606,46 @@ a:hover { color: var(--encre); }
 /* Posé sur la bande, l'intitulé doit rester lisible sur son propre fond. */
 .graphe .axe-nom.dans { fill: var(--encre); }
 .graphe .axe-nom.dans.bas { fill: var(--encre-pale); }
+
+/* La carte de décision. Le territoire porte le sens par la teinte ET par le mot en légende ;
+   la prise est invisible mais son curseur dit qu'''on peut attraper. */
+.graphe .carte-zone.pour { fill: var(--accent); fill-opacity: .16; }
+.graphe .carte-zone.contre { fill: var(--defavorable); fill-opacity: .12; }
+.graphe .carte-front { stroke: var(--encre); stroke-width: 1.6; }
+.graphe .carte-bande { fill: none; stroke: var(--encre); stroke-width: 1.3; stroke-dasharray: 4 3; }
+.graphe .carte-bande-nom { font: 500 11px/1 var(--police); fill: var(--encre-pale); }
+.graphe .carte-prise { fill: transparent; cursor: grab; touch-action: none; }
+/* Le bloc est réécrit pendant le geste : `:active` porte sur un noeud déjà détaché.
+   Le drapeau vit sur le conteneur, qui, lui, survit. */
+[data-prise-tire] .carte-prise { cursor: grabbing; }
+
+/* Un choix se vise et se prend : le curseur le dit, et le foyer se voit. */
+.graphe [data-choix] { cursor: pointer; }
+.graphe .marche-zone { fill: transparent; }
+.graphe .marche-zone:hover { fill: var(--encre); fill-opacity: .035; }
+.graphe .marche-ici { fill: var(--accent); fill-opacity: .10; }
+.graphe .marche-ici-mot { font: 600 11.5px/1 var(--police); fill: var(--encre-pale); letter-spacing: .04em; text-transform: uppercase; }
+.graphe .dessus.ici { stroke-width: 3.5; }
+.graphe [data-choix]:focus-visible { outline: none; stroke: var(--encre); stroke-width: 2; stroke-dasharray: 3 3; }
+.graphe .carte-guide { stroke: var(--encre); stroke-width: 1; stroke-dasharray: 3 3; opacity: .45; }
+.graphe .carte-ici { fill: var(--encre); stroke: var(--papier); stroke-width: 3; }
+.graphe .carte-cle { font: 600 12px/1 var(--police); }
+.graphe .carte-cle.pour { fill: var(--accent); }
+.graphe .carte-cle.contre { fill: var(--defavorable); }
+.graphe .carte-prise-mot { font: 500 11px/1.3 var(--police); fill: var(--encre-tres-pale); }
+.graphe .axe-titre { font: 500 11.5px/1 var(--police); fill: var(--encre-pale); }
+
+/* Les strates. Tenu ou raté se lit à la position par rapport à la limite ET à la teinte —
+   la colonne change de côté avant de changer de couleur. */
+.graphe .carte-prise:focus-visible { outline: none; stroke: var(--encre); stroke-width: 2; stroke-dasharray: 3 3; }
+.graphe .strate-col.tenu { fill: var(--accent); fill-opacity: .55; }
+.graphe .strate-col.rate { fill: var(--encre-tres-pale); fill-opacity: .38; }
+.graphe .strate-sol { stroke: var(--filet); stroke-width: 1; }
+.graphe .strate-nom { font: 500 12.5px/1 var(--police); fill: var(--encre-pale); }
+.graphe .strate-compte { font: 600 12.5px/1 var(--police); fill: var(--encre); font-variant-numeric: tabular-nums; }
+.graphe .strate-limite { stroke: var(--encre); stroke-width: 1.8; }
+.graphe .strate-poignee { fill: var(--encre); }
+.graphe .strate-etiq { font: 700 12px/1 var(--police); fill: var(--encre); }
 
 /* Les rangs. L'accent ne porte jamais seul : trait épais, point plein, intitulé gras —
    un lecteur qui ne distingue pas les deux verts lit quand même laquelle est suivie. */
