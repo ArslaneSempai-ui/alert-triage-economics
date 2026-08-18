@@ -617,7 +617,7 @@ export function histogramme({ bandes, seuil, fmt = String, fmtX = String, legend
  *          lignes: Array<{nom:string, cellules:Array<boolean|null>, instables?:boolean[], bout?:string}>,
  *          legende?: Array<{texte:string, etat:string}>, aria:string}} o
  */
-export function grille({ colonnes, lignes, legende, aria }) {
+export function grille({ colonnes, lignes, legende, aria, choix = false, iciTexte }) {
   if (!colonnes?.length || !lignes?.length) return "";
   const cols = colonnes.map((c) => (typeof c === "string" ? { nom: c } : c));
   const GAUCHE = 122, DROITE = 54, HAUT = 16, LIGNE = 26, CELL = 18;
@@ -642,9 +642,24 @@ export function grille({ colonnes, lignes, legende, aria }) {
   const hauteur = HAUT + lignes.length * LIGNE + 22 + rangs * RANG_LEG + (rangs ? 6 : 0);
 
   let svg = "";
+  /*
+   * La ligne retenue, marquée sur toute la largeur.
+   *
+   * Quand les lignes *sont* les choix — une version par ligne —, deux listes déroulantes
+   * et un bouton posés à côté demandent au lecteur de refaire à la main le lien avec la
+   * figure qu'il regarde déjà.
+   */
+  lignes.forEach((l, i) => {
+    if (!l.ici) return;
+    const y = HAUT + i * LIGNE;
+    svg += `<rect class="grille-ici" x="${GAUCHE - 116}" y="${arr(y - 4)}" width="${arr(L - GAUCHE + 116 - 8)}" height="${CELL + 8}" />`;
+    if (iciTexte) {
+      svg += `<text class="marche-ici-mot" x="${L - DROITE + 10}" y="${y - 8}">${ech(iciTexte)}</text>`;
+    }
+  });
   lignes.forEach((l, i) => {
     const y = HAUT + i * LIGNE;
-    svg += `<text class="grille-nom" x="${GAUCHE - 10}" y="${y + CELL - 4}" text-anchor="end">${ech(l.nom)}</text>`;
+    svg += `<text class="grille-nom${l.ici ? " ici" : ""}" x="${GAUCHE - 10}" y="${y + CELL - 4}" text-anchor="end">${ech(l.nom)}</text>`;
     l.cellules.forEach((v, j) => {
       const avant = i > 0 ? lignes[i - 1].cellules[j] : null;
       /*
@@ -676,6 +691,16 @@ export function grille({ colonnes, lignes, legende, aria }) {
     if (j % saut && j !== cols.length - 1) return;
     svg += `<text class="grille-num" x="${arr(GAUCHE + j * pas + pas / 2)}" y="${yNum}" text-anchor="middle">${j + 1}</text>`;
   });
+
+  /* En dernier, donc au-dessus : c'est la ligne entière qui se vise, pas une case. */
+  if (choix) {
+    lignes.forEach((l, i) => {
+      if (l.choix === null || l.choix === undefined) return;
+      const y = HAUT + i * LIGNE;
+      svg += `<rect class="grille-zone" x="${GAUCHE - 116}" y="${arr(y - 4)}"
+        width="${arr(L - GAUCHE + 116 - 8)}" height="${CELL + 8}" data-choix="${ech(l.choix)}" />`;
+    });
+  }
 
   for (const c of cles) {
     const y = hauteur - 6 - (rangs - c.rang) * RANG_LEG;
@@ -777,8 +802,16 @@ export function populations({ groupes, seuil, fmtX = String, motRecouvrement, ar
 
   const marques = [x0, ...(seuil && fini(seuil.v) ? [seuil.v] : []), x1];
   for (const v of marques) {
+    if (seuil && fini(seuil.v) && v !== seuil.v && Math.abs(px(v) - px(seuil.v)) < 40) continue;
     const ancrage = v === x0 ? "start" : v === x1 ? "end" : "middle";
     svg += `<text class="grad" x="${px(v)}" y="${sol + 16}" text-anchor="${ancrage}">${ech(fmtX(v))}</text>`;
+  }
+
+  /* La prise, en dernier pour être au-dessus : la barre s'attrape n'importe où entre les
+   * deux populations qu'elle sépare, pas sur son trait. */
+  if (seuil?.saisissable && fini(seuil.v)) {
+    svg += `<rect class="carte-prise" x="${M.gauche}" y="${M.haut}" width="${arr(L - M.gauche - M.droite)}"
+      height="${arr(sol + 6 - M.haut)}" data-x0="${x0}" data-x1="${x1}" data-y0="0" data-y1="1" />`;
   }
 
   return cadre(svg, hauteur, aria) + "</figure>";
@@ -1132,6 +1165,9 @@ export function choisir(racine, onChoix, courant) {
     el.setAttribute("role", "radio");
     el.setAttribute("aria-checked", String(String(courant) === val(el)));
     el.addEventListener("focus", () => { racine.dataset.choixFoyer = val(el); });
+    /* Même précaution que pour la prise : un noeud retiré du document émet `blur`, et
+     * effacer le drapeau là-dessus perdrait le foyer à chaque flèche. */
+    el.addEventListener("blur", () => { if (el.isConnected) delete racine.dataset.choixFoyer; });
     el.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       racine.dataset.choixTire = "1";
@@ -1263,7 +1299,7 @@ export function strates({ strates: liste, seuil, bas, haut, fmtX = String, compt
  *          series: Array<{nom:string, rangs:Array<{rang:number, valeur?:number}|number>, vedette?:boolean}>,
  *          fmt?:(v:number)=>string, aria:string, nomRang?:(r:number)=>string}} o
  */
-export function rangs({ colonnes, series, fmt = String, aria, nomRang }) {
+export function rangs({ colonnes, series, fmt = String, aria, nomRang, choix = false, iciTexte }) {
   if (!colonnes?.length || !series?.length) return "";
   const cols = colonnes.map((c) => (typeof c === "string" ? { titre: c } : c));
   const lig = series.map((s) => ({
@@ -1278,7 +1314,9 @@ export function rangs({ colonnes, series, fmt = String, aria, nomRang }) {
   const large = Math.max(...lig.map((s) => String(s.nom).length));
   const droite = Math.min(190, Math.max(72, large * 7 + 16));
   const gauche = 46;
-  const PAS = 42, HAUT = 26;
+  /* Le mot posé au-dessus de la colonne retenue a besoin de sa ligne : sans elle il se
+   * dessinait au-dessus du cadre, donc nulle part. */
+  const PAS = 42, HAUT = iciTexte ? 48 : 26;
   const hauteur = HAUT + (profond - 1) * PAS + 46;
   const px = (i) => arr(gauche + (cols.length === 1 ? 0 : (i / (cols.length - 1)) * (L - gauche - droite)));
   const py = (r) => arr(HAUT + (r - 1) * PAS);
@@ -1292,10 +1330,34 @@ export function rangs({ colonnes, series, fmt = String, aria, nomRang }) {
       .sort((a, b) => Math.min(...a.rangs.map((r) => r.rang)) - Math.min(...b.rangs.map((r) => r.rang)))[0];
   }
 
+  /* La bande d'une colonne : à mi-chemin de ses voisines, bornée par le cadre. */
+  const bandeX = (i) => {
+    /* Les bornes s'arrêtent au cadre : débordées, la bande recouvrait les rangs à gauche
+     * et les intitulés de séries à droite. */
+    const g = i === 0 ? gauche - 6 : (px(i - 1) + px(i)) / 2;
+    const d = i === cols.length - 1 ? L - droite + 6 : (px(i) + px(i + 1)) / 2;
+    return [arr(g), arr(d - g)];
+  };
+
   let svg = "";
+  /*
+   * La colonne retenue, marquée avant tout le reste.
+   *
+   * Quand les colonnes *sont* les choix — quatre scénarios côte à côte —, un bouton posé
+   * sous la figure demande au lecteur de faire le lien lui-même. La bande le fait à sa
+   * place, et le clic se prend là où le regard est déjà.
+   */
+  cols.forEach((c, i) => {
+    if (!c.ici) return;
+    const [x, w] = bandeX(i);
+    svg += `<rect class="rang-ici" x="${x}" y="${py(1) - 20}" width="${w}" height="${arr(py(profond) - py(1) + 40)}" />`;
+    if (iciTexte) {
+      svg += `<text class="marche-ici-mot" x="${arr(x + w / 2)}" y="${py(1) - 28}" text-anchor="middle">${ech(iciTexte)}</text>`;
+    }
+  });
   cols.forEach((c, i) => {
     svg += `<line class="rang-colonne" x1="${px(i)}" y1="${py(1) - 12}" x2="${px(i)}" y2="${py(profond) + 12}" />`
-      + `<text class="grad" x="${px(i)}" y="${hauteur - 16}" text-anchor="middle">${ech(c.titre)}</text>`;
+      + `<text class="grad${c.ici ? " t-neutre" : ""}" x="${px(i)}" y="${hauteur - 16}" text-anchor="middle">${ech(c.titre)}</text>`;
   });
   for (let r = 1; r <= profond; r++) {
     svg += `<text class="grad" x="${gauche - 14}" y="${py(r) + 4}" text-anchor="end">${ech(nomRang ? nomRang(r) : r)}</text>`;
@@ -1317,6 +1379,15 @@ export function rangs({ colonnes, series, fmt = String, aria, nomRang }) {
     });
     const fin = s.rangs[s.rangs.length - 1];
     svg += `<text class="rang-nom${vu ? " vedette" : ""}" x="${px(cols.length - 1) + 12}" y="${py(fin.rang) + 4}">${ech(s.nom)}</text>`;
+  }
+
+  /* En dernier, donc au-dessus : la colonne entière se vise. */
+  if (choix) {
+    cols.forEach((c, i) => {
+      const [x, w] = bandeX(i);
+      svg += `<rect class="rang-zone" x="${x}" y="${py(1) - 20}" width="${w}"
+        height="${arr(py(profond) - py(1) + 40)}" data-choix="${ech(c.id ?? c.titre)}" />`;
+    });
   }
 
   return cadre(svg, hauteur, aria) + "</figure>";

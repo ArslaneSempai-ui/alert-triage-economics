@@ -623,7 +623,12 @@ a:hover { color: var(--encre); }
 .graphe [data-choix] { cursor: pointer; }
 .graphe .marche-zone { fill: transparent; }
 .graphe .marche-zone:hover { fill: var(--encre); fill-opacity: .035; }
-.graphe .marche-ici { fill: var(--accent); fill-opacity: .10; }
+.graphe .marche-ici, .graphe .rang-ici { fill: var(--accent); fill-opacity: .10; }
+.graphe .rang-zone, .graphe .grille-zone { fill: transparent; }
+.graphe .grille-zone:hover { fill: var(--encre); fill-opacity: .035; }
+.graphe .grille-ici { fill: var(--accent); fill-opacity: .10; }
+.graphe .grille-nom.ici { fill: var(--encre); font-weight: 700; }
+.graphe .rang-zone:hover { fill: var(--encre); fill-opacity: .035; }
 .graphe .marche-ici-mot { font: 600 11.5px/1 var(--police); fill: var(--encre-pale); letter-spacing: .04em; text-transform: uppercase; }
 .graphe .dessus.ici { stroke-width: 3.5; }
 .graphe [data-choix]:focus-visible { outline: none; stroke: var(--encre); stroke-width: 2; stroke-dasharray: 3 3; }

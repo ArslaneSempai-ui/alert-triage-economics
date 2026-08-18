@@ -66,7 +66,14 @@ const PILOTE = `
        * HTMLElement. Les figures-commandes sont en SVG, donc le pilotage tombait dans le
        * vide sans un mot, et le film sortait avec six images identiques.
        * (Pas d'accent grave ici : ce bloc vit dans un gabarit.) */
-      if (el) { if (typeof el.click === "function") el.click(); else el.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
+      if (el) {
+        if (typeof el.click === "function") el.click();
+        else el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        /* Un clic de synthèse n'est pas un geste de pointeur pour le navigateur : il pose
+         * l'anneau de foyer, que personne ne voit à la souris. Le film montrerait un état
+         * que l'écran ne produit pas. */
+        setTimeout(() => el.blur && el.blur(), 0);
+      }
     } else {
       const [sel, val] = etape.split("=");
       const el = await attendre(sel);
