@@ -16,7 +16,7 @@ npm start        # the screen, on localhost:4700
 npm run model    # the cost curve, threshold by threshold
 npm run shadow   # what the next analyst actually buys
 npm run plan     # the quarter the hiring decision is due
-npm test         # types, README figures, and 27 tests
+npm test         # types, README figures, and 47 tests
 ```
 
 Everything runs locally. No API key, nothing leaves the machine, and anyone who clones this
