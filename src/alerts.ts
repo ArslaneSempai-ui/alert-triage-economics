@@ -1,3 +1,4 @@
+import { ASSUMED, type Separation } from "./calibrate.ts";
 /**
  * The alert population.
  *
@@ -68,6 +69,14 @@ export function generatePopulation(
   operations = 400_000,
   truePositiveShare = 0.0012,
   seed = 20260817,
+  /*
+   * How well the detection system separates the two populations.
+   *
+   * Assumed by default — this repository is a demonstration, not a measurement of anybody.
+   * The parameter exists so a visitor who knows their own alert volume and hit rate can
+   * have those four numbers fitted to their institution instead. See `calibrate.ts`.
+   */
+  separation: Separation = ASSUMED,
 ): Population {
   const r = draw(seed);
   const alerts: Alert[] = [];
@@ -80,8 +89,8 @@ export function generatePopulation(
     // True positives score higher on average — but the low tail is thick, and it is that
     // tail which makes choosing a threshold painful.
     const score = truePositive
-      ? clamp(normal(r, 0.62, 0.20))
-      : clamp(normal(r, 0.24, 0.16));
+      ? clamp(normal(r, separation.truePositiveMean, separation.truePositiveSpread))
+      : clamp(normal(r, separation.falsePositiveMean, separation.falsePositiveSpread));
 
     // Keep only what could ever cross a plausible threshold.
     if (score >= 0.30) alerts.push({ score, truePositive });

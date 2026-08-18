@@ -105,6 +105,7 @@ export function build(): void {
 
   let html = readFileSync(root + "src/ui.html", "utf8");
   html = html.replace('href="/registre.css"', 'href="registre.css"');
+  html = html.replace('from "/graphes.js"', 'from "./graphes.js"');
   /*
    * The banner goes under the title, not above it.
    *
@@ -119,6 +120,7 @@ export function build(): void {
   writeFileSync(docs + "/index.html", html);
 
   cpSync(root + "src/registre.css", docs + "/registre.css");
+  cpSync(root + "src/graphes.js", docs + "/graphes.js");
   if (existsSync(root + "images")) cpSync(root + "images", docs + "/images", { recursive: true });
 
   // GitHub Pages runs Jekyll by default, which skips directories beginning with an

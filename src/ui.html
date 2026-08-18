@@ -34,6 +34,7 @@
 </main>
 
 <script type="module">
+import { courbe, barres, escalier as marchesG, brancher } from "/graphes.js";
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 /*
@@ -53,7 +54,7 @@ const T = {
   fr: {
     h1: "Économie du seuil de détection",
     provenance: "Chaque chiffre de cette page est <b>retrouvé</b> dans un texte public, <b>mesuré</b> en faisant tourner le code, <b>supposé</b> parce que personne ici ne peut le connaître, ou <b>choisi</b> par moi. Le README dit lequel, un par un.",
-    lede: "Un seuil de surveillance transactionnelle n'est pas un réglage technique : c'est des heures d'analystes, un effectif et une ligne budgétaire, en face de ce qu'on attrape. Cet écran traduit l'un dans l'autre.",
+    lede: "Un seuil de détection, c'est des heures d'analystes, un effectif et une ligne budgétaire. Cet écran traduit l'un dans l'autre.",
     releve: "Relevé d'exploitation",
     alerts: "alertes par an", hours: "heures d'analystes", etp: "ETP nécessaires",
     cout: "coût annuel", attrapes: "vrais positifs attrapés", rates: "manqués",
@@ -64,7 +65,7 @@ const T = {
     seuilNom: "Seuil de détection",
 
     titreHyp: "Les hypothèses d'exploitation",
-    hypQuoi: "Tout est discutable et tout se modifie. Un modèle dont on ne peut pas contester les hypothèses n'est pas un modèle, c'est une opinion présentée en tableau.",
+    hypQuoi: "Tout est discutable, et tout se modifie.",
     productiveHoursPerDay: "Heures productives par jour",
     workingDaysPerYear: "Jours travaillés par an",
     loadedCostPerAnalyst: "Coût chargé par analyste ($/an)",
@@ -100,7 +101,7 @@ const T = {
     horsHorizon: "pas sur cet horizon", rienADecider: "rien à décider",
     trimPasse: (n) => `il y a ${n} trimestre${n > 1 ? "s" : ""}`,
     titreEscalier: "Ce qu'achète l'analyste suivant",
-    escalierQuoi: "La recommandation est un cran parmi dix : la ressource s'achète par marches, pas à l'unité. Financer une partie d'une marche n'achète rien — pas moins, rien.",
+    escalierQuoi: "La ressource s'achète par marches. Financer une partie d'une marche n'achète rien — pas moins, rien.",
     colAjoutes: "ajoutés", colLargeur: "largeur de la marche", colCouverture: "couverture",
     colPaie: "masse salariale", colAchete: "ce que la marche achète",
     aujourdhui: "aujourd'hui", chacun: "chacun", cas: "cas",
@@ -114,24 +115,44 @@ const T = {
     gratos: "gratuit", nonChiffre: "non chiffré ici", parAn: "par an",
     marge: (o, c, mur, m) => `« Gratuit » est une ligne budgétaire, pas une position de risque. La file se stabilise à ${o} jours ouvrés — <b>${c} jours calendaires</b>, l'unité que compte le 31 CFR 1020.320(b)(3) — contre un mur à ${mur} jours. Il reste ${m} jours de marge, et c'est la marge qui absorbe des congés ou une démission.`,
     calcul: "calcul en cours…",
-    courbeQuoi: "Le coût du vrai positif suivant est le chiffre qui décide. Il reste nul tant qu'on occupe des gens déjà payés, puis il explose — bien avant que le coût total ne paraisse déraisonnable.",
+    courbeQuoi: "Le coût du vrai positif suivant reste nul, puis il explose — bien avant que le coût total ne paraisse déraisonnable.",
+    figCoutTitre: "Le coût du vrai positif suivant, cran par cran",
+    figCoutAria: "Diagramme en marches : sur les crans les plus stricts le vrai positif suivant ne coûte rien, puis le coût saute à plusieurs dizaines de milliers de dollars sur les deux derniers.",
+    figEchangeTitre: "Ce qu'on attrape contre ce que ça coûte",
+    figEchangeAria: "Deux courbes contre le seuil : les vrais positifs attrapés montent puis saturent, tandis que le coût annuel reste plat longtemps puis s'envole.",
+    figFileTitre: "La file d'attente",
+    figFileAria: "L'attente reste sous la journée tant que la charge est loin de 1, puis diverge ; au-delà d'une charge de 1 la file ne se vide jamais et la courbe s'interrompt.",
+    figMarchesTitre: "Combien d'analystes financer avant que quoi que ce soit change",
+    figMarchesAria: "Barres : la largeur de chaque marche grandit pendant que le nombre de cas gagnés diminue.",
+    figPlanTitre: "Besoin contre effectif tenu, trimestre par trimestre",
+    figPlanAria: "Le besoin monte par marches avec les volumes pendant que l'effectif en poste s'érode ; l'écart se referme trimestre après trimestre.",
+    serAttrapes: "Vrais positifs attrapés", serCout: "Coût annuel",
+    serAttente: "Attente moyenne", serCharge: "Charge de la file",
+    serBesoin: "ETP nécessaires", serTenus: "Effectif en poste",
+    bandeDeborde: "hors délai ou file qui déborde", seuilUn: "charge = 1",
+    iciRepere: "réglage actuel", analystes: "analystes",
+    tableauDetail: "Le détail, seuil par seuil",
+    tableauDetailH: "Le détail, trimestre par trimestre",
+    analyste: "analyste",
+    marcheNom: (de, a) => `seuil ${de} → ${a}`,
+    gagnes: (n) => `+${n} cas`,
     contexte: (ops, vp) => `${ops} opérations sur l'année, ${vp} vrais positifs à trouver. Données synthétiques.`,
   },
   en: {
     h1: "The economics of a detection threshold",
     provenance: "Every figure on this page is <b>retrieved</b> from a public source, <b>measured</b> by running the code, <b>assumed</b> because nobody here can know it, or <b>chosen</b> by me. The README says which, one by one.",
-    lede: "A transaction-monitoring threshold isn't a technical setting: it's analyst hours, headcount and a budget line, set against what you catch. This screen converts one into the other.",
+    lede: "A detection threshold is analyst hours, headcount and a budget line. This screen converts one into the other.",
     releve: "Operating statement",
     alerts: "alerts per year", hours: "analyst hours", etp: "FTE required",
     cout: "annual cost", attrapes: "true positives caught", rates: "missed",
 
     seuilTitre: "The detection threshold",
-    seuilQuoi: "Lower means more alerts: you catch more and you pay more. The whole question is where you start paying without catching.",
+    seuilQuoi: "Lower catches more and costs more. The question is where you start paying without catching.",
     strict: "tight — few alerts", large: "loose — many alerts",
     seuilNom: "Detection threshold",
 
     titreHyp: "Operating assumptions",
-    hypQuoi: "All of it is arguable and all of it is editable. A model whose assumptions you can't challenge isn't a model — it's an opinion in a table.",
+    hypQuoi: "All of it is arguable, and all of it is editable.",
     productiveHoursPerDay: "Productive hours per day",
     workingDaysPerYear: "Working days per year",
     loadedCostPerAnalyst: "Loaded cost per analyst ($/yr)",
@@ -157,7 +178,7 @@ const T = {
     horsHorizon: "not on this horizon", rienADecider: "nothing to decide",
     trimPasse: (n) => `${n} quarter${n > 1 ? "s" : ""} ago`,
     titreEscalier: "What the next analyst buys",
-    escalierQuoi: "The recommendation is one notch out of ten: the resource is bought in steps, not in units. Funding part of a step buys nothing — not less, nothing.",
+    escalierQuoi: "The resource is bought in steps. Funding part of a step buys nothing — not less, nothing.",
     colAjoutes: "added", colLargeur: "step width", colCouverture: "coverage",
     colPaie: "payroll", colAchete: "what the step bought",
     aujourdhui: "today", chacun: "each", cas: "cases",
@@ -181,7 +202,27 @@ const T = {
     colAttente: "wait", colCharge: "occupancy",
     delaiRateTitre: "The promised deadline is missed",
     delaiRateQuoi: (a, d, c) => `The backlog clears, but the average wait reaches ${a} days against a promised ${d}. At ${c} occupancy, one absence is enough to lose the team.`,
-    courbeQuoi: "The cost of the next true positive is the number that decides. It stays at zero while you're using people you already pay, then it explodes — long before the total cost looks unreasonable.",
+    courbeQuoi: "The cost of the next true positive stays at zero, then explodes — long before the total cost looks unreasonable.",
+    figCoutTitre: "The cost of the next true positive, notch by notch",
+    figCoutAria: "Step chart: across the strictest notches the next true positive costs nothing, then the cost jumps to tens of thousands of dollars on the last two.",
+    figEchangeTitre: "What you catch against what it costs",
+    figEchangeAria: "Two curves against the threshold: true positives caught rise then saturate, while annual cost stays flat for a long time then takes off.",
+    figFileTitre: "The queue",
+    figFileAria: "Wait stays under a day while load is far from 1, then diverges; past a load of 1 the queue never clears and the curve breaks off.",
+    figMarchesTitre: "How many analysts you must fund before anything changes",
+    figMarchesAria: "Bars: each step gets wider while the number of cases gained falls.",
+    figPlanTitre: "Need against headcount held, quarter by quarter",
+    figPlanAria: "Need climbs in steps with volume while headcount in post erodes; the gap closes quarter after quarter.",
+    serAttrapes: "True positives caught", serCout: "Annual cost",
+    serAttente: "Mean wait", serCharge: "Queue load",
+    serBesoin: "FTE needed", serTenus: "Headcount in post",
+    bandeDeborde: "past deadline or queue overflows", seuilUn: "load = 1",
+    iciRepere: "current setting", analystes: "analysts",
+    tableauDetail: "The detail, threshold by threshold",
+    tableauDetailH: "The detail, quarter by quarter",
+    analyste: "analyst",
+    marcheNom: (de, a) => `threshold ${de} → ${a}`,
+    gagnes: (n) => `+${n} cases`,
     contexte: (ops, vp) => `${ops} operations over the year, ${vp} true positives to find. Synthetic data.`,
   },
 };
@@ -202,6 +243,13 @@ const nb = (n) => Math.round(n).toLocaleString(loc());
  * dollar figure reads the same way to everyone who deals in dollars.
  */
 const dollars = (n) => "$" + Math.round(n).toLocaleString("en-GB");
+/* Sur un axe, « $496,000 » écrase le cran voisin. La forme longue reste dans l'info-bulle. */
+const dollarsCourt = (n) => {
+  const v = Math.abs(n);
+  if (v >= 1e6) return "$" + (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1000) return "$" + Math.round(n / 1000) + "k";
+  return "$" + Math.round(n);
+};
 
 /*
  * A number typed by a human, read tolerantly.
@@ -285,7 +333,7 @@ function blocHypotheses() {
   }).join("");
   $("#assumptions").innerHTML = `<div class="feuillet"><div class="quoi">${esc(L.hypQuoi)}</div>
     <div class="grille">${champs}</div>
-    <button class="b" id="defaut" type="button">${esc(L.defaut)}</button></div>`;
+    <button class="b remise" id="defaut" type="button">${esc(L.defaut)}</button></div>`;
 
   for (const cle of Object.keys(etat.bounds)) {
     $(`#${cle}`).onchange = (e) => envoyer({ [cle]: lire(e.target.value) });
@@ -296,6 +344,7 @@ function blocHypotheses() {
 function blocCourbe() {
   const L = t();
   $("#titreCourbe").textContent = L.titreCourbe;
+  const pts = [...etat.courbe].sort((a, b) => a.threshold - b.threshold);
   const lignes = etat.courbe.map((p) => {
     const m = p.costPerMarginalTruePositive;
     const marginal = m === null ? "—"
@@ -312,15 +361,76 @@ function blocCourbe() {
       <td>${esc(!p.queueHolds ? L.deborde : p.deadlineMet ? L.tient : L.enRetard)}</td></tr>`;
   }).join("");
 
+  /*
+   * Les seuils disqualifiés, en une bande plutôt qu'en douze cellules rouges.
+   *
+   * Un seuil où la file ne se vide pas, ou où le délai réglementaire est manqué, n'est pas
+   * un point de la courbe qu'on pourrait choisir : c'est une zone interdite. Les bornes
+   * tombent à mi-chemin des seuils voisins — le modèle n'a pas mesuré entre les deux, et
+   * faire courir la bande jusqu'au seuil suivant prétendrait le contraire.
+   */
+  const bandes = [];
+  pts.forEach((p, i) => {
+    if (p.queueHolds && p.deadlineMet) return;
+    const de = i === 0 ? p.threshold : (pts[i - 1].threshold + p.threshold) / 2;
+    const a = i === pts.length - 1 ? p.threshold : (p.threshold + pts[i + 1].threshold) / 2;
+    const prec = bandes[bandes.length - 1];
+    if (prec && Math.abs(prec.a - de) < 1e-9) prec.a = a;
+    else bandes.push({ de, a, nom: bandes.length ? "" : L.bandeDeborde });
+  });
+
+  /* Le coût marginal porté par un cran vaut le passage depuis le seuil immédiatement plus
+   * strict : la marche couvre donc l'intervalle entre les deux, pas le point. */
+  const marches = pts.slice(0, -1).map((p, i) => {
+    const m = p.costPerMarginalTruePositive;
+    return {
+      de: p.threshold, a: pts[i + 1].threshold,
+      valeur: Number.isFinite(m) ? m : 0,
+      gratuite: m === 0, morte: !Number.isFinite(m),
+      ici: Math.abs(p.threshold - etat.threshold) < 0.001,
+    };
+  });
+
+  const repere = { x: etat.threshold, texte: L.iciRepere };
+  const fmtSeuil = (v) => v.toFixed(2);
+
+  const figCout = marchesG({ marches, fmt: dollarsCourt, fmtX: fmtSeuil, hauteur: 200, aria: L.figCoutAria });
+
+  const figEchange = courbe({
+    points: pts, x: (p) => p.threshold, marque: repere, bandes, fmtX: fmtSeuil,
+    hauteur: 240, aria: L.figEchangeAria,
+    series: [
+      { cle: (p) => p.truePositivesCaught, nom: L.serAttrapes, aire: true, fmt: nb },
+      { cle: (p) => p.annualCost, nom: L.serCout, ton: "neutre", fmt: dollars, fmtCran: dollarsCourt },
+    ],
+  });
+
+  const figFile = courbe({
+    points: pts, x: (p) => p.threshold, marque: repere, bandes, fmtX: fmtSeuil,
+    hauteur: 220, aria: L.figFileAria,
+    seuils: [{ y: 1, serie: 1, texte: L.seuilUn }],
+    series: [
+      { cle: (p) => p.waitDays, nom: L.serAttente, aire: true,
+        fmt: (v) => v.toFixed(1) + " " + L.jour, fmtCran: (v) => v.toFixed(1) },
+      { cle: (p) => p.load, nom: L.serCharge, ton: "neutre", fmt: pc, fmtCran: (v) => v.toFixed(1) },
+    ],
+  });
+
   $("#courbe").innerHTML = `<div class="feuillet">
     <div class="quoi">${esc(L.courbeQuoi)}</div>
+    <div class="titre-fig">${esc(L.figCoutTitre)}</div>${figCout}
+    <div class="titre-fig">${esc(L.figEchangeTitre)}</div>${figEchange}
+    <div class="titre-fig">${esc(L.figFileTitre)}</div>${figFile}
+    <details><summary>${esc(L.tableauDetail)}</summary>
     <div class="defile"><table><thead><tr>
       <th>${esc(L.colSeuil)}</th><th>${esc(L.colAlertes)}</th><th>${esc(L.colHeures)}</th>
       <th>${esc(L.colEtp)}</th><th>${esc(L.colRecrut)}</th><th>${esc(L.colCout)}</th>
       <th>${esc(L.colAttrapes)}</th><th>${esc(L.colRates)}</th><th>${esc(L.colMarginal)}</th>
-      <th>${esc(L.colCharge)}</th><th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
+      <th>${esc(L.colCharge)}</th><th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead>
+      <tbody>${lignes}</tbody></table></div></details>
     <div class="renvoi">${esc(L.contexte(nb(etat.population.operations), etat.population.truePositivesTotal))}</div>
-  </div></section>`;
+  </div>`;
+  brancher($("#courbe"));
 }
 
 /*
@@ -365,8 +475,22 @@ function blocEscalier() {
       routes.deadlineCost.marginCalendarDays.toFixed(1))}</div>` : ""}
   </div></section>`;
 
+  /* Ce que le tableau ne montre pas d'un coup d'œil : la marche s'élargit — un analyste,
+   * puis dix, puis dix-huit — pendant que ce qu'elle achète se réduit. */
+  const crans = escalier.analyst.rungs;
+  const figMarches = barres({
+    items: crans.slice(1).map((r, i) => ({
+      nom: L.marcheNom(crans[i].threshold.toFixed(2), r.threshold.toFixed(2)),
+      valeur: r.width, ton: "accent",
+      note: L.gagnes(r.gained) + (r.perTruePositive === null ? "" : " · " + dollars(r.perTruePositive) + " " + L.chacun),
+    })),
+    fmt: (v) => v + " " + (v > 1 ? L.analystes : L.analyste),
+    aria: L.figMarchesAria,
+  });
+
   $("#escalier").innerHTML = `<div class="feuillet">
     <div class="quoi">${esc(L.escalierQuoi)}</div>
+    <div class="titre-fig">${esc(L.figMarchesTitre)}</div>${figMarches}
     <div class="defile"><table><thead><tr>
       <th>${esc(L.colAjoutes)}</th><th>${esc(L.colLargeur)}</th><th>${esc(L.colSeuil)}</th>
       <th>${esc(L.colAttrapes)}</th><th>${esc(L.colCouverture)}</th><th>${esc(L.colPaie)}</th>
@@ -408,13 +532,30 @@ function blocHorizon() {
     <td>${r.breaksAt === null ? esc(L.horsHorizon) : q(r.breaksAt)}</td>
     <td>${r.decideBy === null ? esc(L.rienADecider) : q(r.decideBy)}</td></tr>`).join("");
 
+  /* Les deux séries sont des personnes : elles partagent l'axe. Sur deux axes séparés on
+   * pourrait faire dire n'importe quoi à l'écart, et l'écart est tout le sujet. */
+  const dernier = p.quarters.length - 1;
+  const dans = (i) => typeof i === "number" && i >= 0 && i <= dernier;
+  const figPlan = courbe({
+    points: p.quarters, x: (x) => x.index, hauteur: 230, aria: L.figPlanAria,
+    fmtX: (v) => "Q" + (v + 1),
+    series: [
+      { cle: (x) => x.fteNeeded, nom: L.serBesoin, aire: true, fmt: (v) => v.toFixed(0) },
+      { cle: (x) => x.headcount, nom: L.serTenus, partage: true, ton: "neutre", fmt: (v) => v.toFixed(1) },
+    ],
+    bandes: dans(p.breaksAt) ? [{ de: p.breaksAt - 0.5, a: dernier, nom: L.casse }] : [],
+    marque: dans(p.decideBy) ? { x: p.decideBy, texte: L.colDecision } : undefined,
+  });
+
   $("#horizon").innerHTML = `<div class="feuillet">
     <div class="quoi">${esc(L.horizonQuoi((h.quarterlyGrowth * 100).toFixed(0) + " %",
       (h.attritionPerYear * 100).toFixed(0) + " %", h.hiringLeadWeeks))}</div>
+    <div class="titre-fig">${esc(L.figPlanTitre)}</div>${figPlan}
+    <details><summary>${esc(L.tableauDetailH)}</summary>
     <div class="defile"><table><thead><tr>
       <th>${esc(L.colTrim)}</th><th>${esc(L.colOps)}</th><th>${esc(L.colAlertes)}</th>
       <th>${esc(L.colBesoin)}</th><th>${esc(L.colTenus)}</th><th>${esc(L.colCharge)}</th>
-      <th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div>
+      <th>${esc(L.colAttente)}</th><th>${esc(L.colFile)}</th></tr></thead><tbody>${lignes}</tbody></table></div></details>
   </div>${blocStep}
   <section class="feuillet"><div class="corps">
     <div class="titre">${esc(L.croissanceTitre)}</div>
@@ -432,6 +573,7 @@ function dessiner() {
   $("#fr").className = langue === "fr" ? "on" : "";
   $("#en").className = langue === "en" ? "on" : "";
   blocChiffres(); blocRecommandation(); blocReglage(); blocHypotheses(); blocCourbe(); blocEscalier(); blocHorizon();
+  brancher();
 }
 
 /*
@@ -448,6 +590,7 @@ async function chargerEscalier() {
   if (mien !== billet) return;
   escalier = recu;
   blocEscalier(); blocHorizon();
+  brancher();
 }
 
 async function envoyer(corps, chemin = "/api/reglage") {

@@ -1,24 +1,4 @@
-/**
- * The alert population.
- *
- * A transaction-monitoring system scores every operation. Above a threshold it raises an
- * alert that an analyst has to work. Lowering the threshold catches more true positives —
- * and costs more. The whole project exists to price that "more", which nobody computes
- * before moving the setting.
- *
- * Two things simple models get wrong, and they are the only two that matter:
- *
- *   1. The scores of true and false positives **overlap heavily**. That is not a defect
- *      of the system, it is the nature of the problem. If they separated cleanly the job
- *      would not exist.
- *
- *   2. Handling time is not flat. A clear-cut alert is filed in minutes; an ambiguous one
- *      takes an hour. And lowering the threshold adds *ambiguous* alerts specifically, so
- *      cost grows **faster than volume** — a model averaging cost per alert is wrong in
- *      the dangerous direction.
- *
- * The draw is seeded: without a fixed seed two scenarios are not comparable.
- */
+import { ASSUMED } from "./calibrate.js";
 function draw(seed) {
     let state = seed >>> 0;
     return () => {
@@ -39,7 +19,15 @@ const clamp = (x) => Math.min(0.999, Math.max(0.001, x));
  * is perfectly ordinary, a handful deserves a report, and the two populations do not
  * separate cleanly.
  */
-export function generatePopulation(operations = 400_000, truePositiveShare = 0.0012, seed = 20260817) {
+export function generatePopulation(operations = 400_000, truePositiveShare = 0.0012, seed = 20260817, 
+/*
+ * How well the detection system separates the two populations.
+ *
+ * Assumed by default — this repository is a demonstration, not a measurement of anybody.
+ * The parameter exists so a visitor who knows their own alert volume and hit rate can
+ * have those four numbers fitted to their institution instead. See `calibrate.ts`.
+ */
+separation = ASSUMED) {
     const r = draw(seed);
     const alerts = [];
     let truePositivesTotal = 0;
@@ -50,8 +38,8 @@ export function generatePopulation(operations = 400_000, truePositiveShare = 0.0
         // True positives score higher on average — but the low tail is thick, and it is that
         // tail which makes choosing a threshold painful.
         const score = truePositive
-            ? clamp(normal(r, 0.62, 0.20))
-            : clamp(normal(r, 0.24, 0.16));
+            ? clamp(normal(r, separation.truePositiveMean, separation.truePositiveSpread))
+            : clamp(normal(r, separation.falsePositiveMean, separation.falsePositiveSpread));
         // Keep only what could ever cross a plausible threshold.
         if (score >= 0.30)
             alerts.push({ score, truePositive });

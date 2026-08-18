@@ -62,6 +62,13 @@ const serveur = createServer(async (req, res) => {
       return;
     }
 
+    if (url.pathname === "/graphes.js") {
+      const js = readFileSync(new URL("./graphes.js", import.meta.url).pathname, "utf8");
+      res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" });
+      res.end(js);
+      return;
+    }
+
     if (url.pathname === "/registre.css") {
       const css = readFileSync(new URL("./registre.css", import.meta.url).pathname, "utf8");
       res.writeHead(200, { "content-type": "text/css; charset=utf-8", "cache-control": "no-store" });
