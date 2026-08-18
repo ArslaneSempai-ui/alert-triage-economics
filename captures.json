@@ -3,16 +3,55 @@
     {
       "sortie": "images/demo.gif",
       "type": "gif",
-      "taille": [900, 780],
+      "taille": [
+        900,
+        780
+      ],
       "echelle": 1,
-      "duree": 1100,
+      "duree": 320,
       "scenes": [
-        [],
-        ["#threshold=0.60"],
-        ["#threshold=0.50"],
-        ["#threshold=0.45"],
-        ["#threshold=0.40"],
-        ["#threshold=0.35"]
+        [
+          "#threshold=0.95"
+        ],
+        [
+          "#threshold=0.9"
+        ],
+        [
+          "#threshold=0.85"
+        ],
+        [
+          "#threshold=0.8"
+        ],
+        [
+          "#threshold=0.75"
+        ],
+        [
+          "#threshold=0.7"
+        ],
+        [
+          "#threshold=0.65"
+        ],
+        [
+          "#threshold=0.6"
+        ],
+        [
+          "#threshold=0.55"
+        ],
+        [
+          "#threshold=0.5"
+        ],
+        [
+          "#threshold=0.45"
+        ],
+        [
+          "#threshold=0.4"
+        ],
+        [
+          "#threshold=0.35"
+        ],
+        [
+          "#threshold=0.3"
+        ]
       ]
     }
   ]
