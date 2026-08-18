@@ -101,5 +101,56 @@ export function escalier(o: {
   aria: string;
 }): string;
 
+export function populations(o: {
+  groupes: { nom: string; valeurs: number[]; sens?: "haut" | "bas" }[];
+  seuil?: { v: number; etiquette?: string; avant?: string; apres?: string };
+  fmtX?: (v: number) => string;
+  motRecouvrement?: string;
+  aria: string;
+}): string;
+
+export function grille(o: {
+  colonnes: (string | { nom: string })[];
+  lignes: { nom: string; cellules: (boolean | null)[]; bout?: string }[];
+  legende?: { texte: string; etat: "ok" | "ko" | "casse" | "repare" }[];
+  aria: string;
+}): string;
+
+export type BandeHist = {
+  de: number;
+  a: number;
+  valeur: number;
+  /** La part que le seuil ne déplace pas. Hachurée, jamais seulement colorée. */
+  part?: number;
+};
+
+export function histogramme(o: {
+  bandes: BandeHist[];
+  seuil?: { v: number; etiquette?: string; avant?: string; apres?: string };
+  fmt?: (v: number) => string;
+  fmtX?: (v: number) => string;
+  legende?: { texte: string; trame?: boolean }[];
+  hauteur?: number;
+  aria: string;
+}): string;
+
+export type Rang = { rang: number; valeur?: number };
+
+export type SerieRang = {
+  nom: string;
+  rangs: (Rang | number)[];
+  /** Force la mise en avant. Sans ça, c'est la série qui bouge le plus. */
+  vedette?: boolean;
+};
+
+export function rangs(o: {
+  colonnes: (string | { titre: string })[];
+  series: SerieRang[];
+  fmt?: (v: number) => string;
+  aria: string;
+  /** « 1er », « 2e »… Sans ça, le numéro nu. */
+  nomRang?: (r: number) => string;
+}): string;
+
 /** Branche les lectures au survol. Sans effet là où aucune figure n'a d'information de plus. */
 export function brancher(racine?: ParentNode): void;

@@ -528,6 +528,50 @@ a:hover { color: var(--encre); }
 .graphe .point.t-neutre { fill: var(--encre-tres-pale); }
 .graphe .point-actif { fill: var(--papier); stroke: var(--encre); stroke-width: 2.5; }
 
+/* L'histogramme coupé par un seuil. La part hachurée doit rester lisible en gris :
+   c'est la trame qui porte l'information, la couleur ne fait que la doubler. */
+.graphe .zone-seuil { fill: var(--surligne); }
+.graphe .bande-hist { fill: var(--accent-bord); cursor: crosshair; }
+.graphe .bande-part { stroke: var(--defavorable); stroke-width: .8; pointer-events: none; }
+.graphe .bande-part, .graphe .cle-hist.part { fill-opacity: 1; }
+.graphe .repere-seuil { stroke: var(--encre); stroke-width: 1.8; }
+.graphe .etiq-seuil { font: 700 12px/1 var(--police); fill: var(--encre); }
+.graphe .dit-avant { font: 600 11.5px/1 var(--police); fill: var(--defavorable); }
+.graphe .dit-apres { font: 600 11.5px/1 var(--police); fill: var(--accent); }
+.graphe .cle-hist { fill: var(--accent-bord); }
+.graphe .cle-hist.part { stroke: var(--defavorable); stroke-width: .8; }
+.graphe pattern.alerte line { stroke: var(--defavorable); stroke-width: 1.3; }
+
+/* La grille des cas. Plein contre vide porte le sens ; le contour rouge et le mot écrit
+   ne font que le confirmer. Une impression en noir et blanc dit la même chose. */
+.graphe .case-ok { fill: var(--accent-bord); }
+.graphe .case-repare { fill: var(--accent); }
+.graphe .case-ko { fill: var(--papier); stroke: var(--filet); stroke-width: 1; }
+.graphe .case-casse { fill: var(--papier); stroke: var(--defavorable); stroke-width: 1.8; }
+.graphe .case-vide { fill: none; }
+.graphe .case-ok, .graphe .case-ko, .graphe .case-casse, .graphe .case-repare { cursor: crosshair; }
+.graphe .grille-nom { font: 500 12.5px/1 var(--police); fill: var(--encre-pale); }
+.graphe .grille-bout { font: 600 12.5px/1 var(--police); fill: var(--encre); font-variant-numeric: tabular-nums; }
+.graphe .grille-num { font-size: 10.5px; fill: var(--encre-tres-pale); font-variant-numeric: tabular-nums; }
+
+/* Les deux populations. Un carré = un cas : au-dessus de l'axe ce qui a une réponse,
+   en dessous ce qui n'en a pas. La position au-dessus ou en dessous porte le sens ; la
+   teinte ne fait que l'appuyer. */
+.graphe .pop { fill: var(--accent); }
+.graphe .pop.bas { fill: var(--encre-tres-pale); }
+.graphe .pop-nom { font: 600 11.5px/1 var(--police); fill: var(--accent); }
+.graphe .pop-nom.bas { fill: var(--encre-pale); }
+
+/* Les rangs. L'accent ne porte jamais seul : trait épais, point plein, intitulé gras —
+   un lecteur qui ne distingue pas les deux verts lit quand même laquelle est suivie. */
+.graphe .rang-colonne { stroke: var(--filet); stroke-width: 1; }
+.graphe .rang-trace { stroke: var(--encre-tres-pale); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.graphe .rang-trace.vedette { stroke: var(--accent); stroke-width: 3.5; }
+.graphe .rang-point { fill: var(--papier); stroke: var(--encre-tres-pale); stroke-width: 2; cursor: crosshair; }
+.graphe .rang-point.vedette { fill: var(--accent); stroke: none; }
+.graphe .rang-nom { font: 500 12.5px/1 var(--police); fill: var(--encre-pale); }
+.graphe .rang-nom.vedette { font-weight: 700; fill: var(--accent); }
+
 /* Le « vous êtes ici » : c'est le seul trait plein encre de la figure, parce que c'est
  * la seule information qui ne vient pas du modèle mais du lecteur. */
 .graphe .repere { stroke: var(--encre); stroke-width: 1.5; }
@@ -684,3 +728,16 @@ a:hover { color: var(--encre); }
 }
 .bascule label { font-size: 14.5px; color: var(--encre-pale); cursor: pointer; max-width: 68ch; }
 .bascule input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* La carte des chemins : une épine, des écarts, deux boucles. */
+.graphe .arc-epine { stroke: var(--accent); color: var(--accent); }
+.graphe .arc-ecart { stroke: var(--filet-gras); color: var(--filet-gras); }
+.graphe .arc-retour { stroke: var(--defavorable); color: var(--defavorable); }
+.graphe .noeud rect { fill: var(--papier); stroke: var(--filet-gras); }
+.graphe .noeud text { font: 600 12px/1 var(--police); fill: var(--encre-pale); }
+.graphe .noeud.epine rect { fill: var(--accent-fond); stroke: var(--accent-bord); }
+.graphe .noeud.epine text { fill: var(--accent-sombre); }
+.graphe .noeud.fin rect { fill: var(--accent); stroke: var(--accent); }
+.graphe .noeud.fin text { fill: var(--papier); }
+.legende-carte { font: 500 11px/1.5 var(--fixe); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--encre-tres-pale); margin: 10px 0 0; }

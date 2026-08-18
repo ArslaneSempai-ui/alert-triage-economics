@@ -45,8 +45,8 @@
  * fausse.
  */
 let compteur = 0;
-const trames = (id) => `<defs><pattern id="${id}" width="7" height="7" patternUnits="userSpaceOnUse"
-  patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" /></pattern></defs>`;
+const trames = (id, classe = "") => `<defs><pattern id="${id}" class="${classe}" width="7" height="7"
+  patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" /></pattern></defs>`;
 
 /** Le repère interne. Les marges laissent la place aux graduations. */
 const L = 760;
@@ -428,7 +428,7 @@ export function escalier({ marches, fmt = String, fmtX = String, hauteur = 210, 
   let svg = "";
   for (const c of crans(e, 4)) {
     const y = py(c);
-    if (y < M.haut - 1 || y > sol + 1) continue;
+    if (y < ciel - 1 || y > sol + 1) continue;
     svg += `<line class="grille" x1="${M.gauche}" y1="${y}" x2="${L - M.droite}" y2="${y}" />`
       + `<text class="grad" x="${M.gauche - 8}" y="${arr(y + 4)}" text-anchor="end">${ech(fmt(c))}</text>`;
   }
@@ -446,6 +446,351 @@ export function escalier({ marches, fmt = String, fmtX = String, hauteur = 210, 
     if (i % saut && i !== bornes.length - 1) return;
     svg += `<text class="grad" x="${px(v)}" y="${sol + 18}" text-anchor="middle">${ech(fmtX(v))}</text>`;
   });
+
+  return cadre(svg, hauteur, aria) + "</figure>";
+}
+
+/**
+ * L'HISTOGRAMME COUPÉ PAR UN SEUIL.
+ *
+ * Un écran qui annonce « quatre cents dossiers » et n'en montre aucun demande qu'on le
+ * croie. Ici la population est dessinée, le seuil est posé dessus comme une ligne, et le
+ * curseur la déplace : les dossiers traversent sous les yeux du lecteur.
+ *
+ * La seconde série — `part` — n'est pas une décoration. C'est ce que le seuil *ne déplace
+ * pas* : la part de chaque bande qui part à l'humain quelle que soit la position de la
+ * ligne. Sans elle, un lecteur qui tire le curseur d'un bout à l'autre voit deux nombres
+ * bouger à peine et conclut que l'outil est cassé.
+ *
+ * Elle est hachurée, pas seulement colorée : la figure doit tenir en niveaux de gris, et
+ * la légende écrit les deux mots en toutes lettres.
+ *
+ * @param {{bandes: Array<{de:number, a:number, valeur:number, part?:number}>,
+ *          seuil?: {v:number, etiquette?:string, avant?:string, apres?:string},
+ *          fmt?:(v:number)=>string, fmtX?:(v:number)=>string,
+ *          legende?: Array<{texte:string, trame?:boolean}>, hauteur?:number, aria:string}} o
+ */
+export function histogramme({ bandes, seuil, fmt = String, fmtX = String, legende, hauteur = 232, aria }) {
+  if (!bandes?.length) return "";
+  const e = etendue(bandes.map((b) => b.valeur));
+  if (!e) return "";
+  const x0 = bandes[0].de, x1 = bandes[bandes.length - 1].a;
+  const px = (v) => arr(M.gauche + ((v - x0) / ((x1 - x0) || 1)) * (L - M.gauche - M.droite));
+  const sol = hauteur - M.bas - (legende?.length ? 22 : 0);
+  /*
+   * Les annotations vivent au-dessus du cadre, jamais dedans.
+   *
+   * Posées à l'intérieur elles tombaient sur la barre la plus haute — et c'est toujours la
+   * plus haute qu'on annote. Deux lignes réservées coûtent trente pixels et suppriment la
+   * collision au lieu de l'espérer.
+   */
+  const dit = seuil && (seuil.etiquette || seuil.avant || seuil.apres) ? 34 : 0;
+  const ciel = M.haut + dit;
+  const py = (v) => arr(ciel + (1 - v / (e.haut || 1)) * (sol - ciel));
+  const id = `tr${++compteur}`;
+
+  let svg = trames(id, "alerte");
+
+  /* La zone sous le seuil, teintée avant les barres : posée après, elle les voilerait. */
+  if (seuil && fini(seuil.v)) {
+    svg += `<rect class="zone-seuil" x="${px(x0)}" y="${ciel}" width="${arr(px(seuil.v) - px(x0))}"
+      height="${arr(sol - ciel)}" />`;
+  }
+  for (const c of crans(e, 3)) {
+    const y = py(c);
+    if (y < M.haut - 1 || y > sol + 1) continue;
+    svg += `<line class="grille" x1="${M.gauche}" y1="${y}" x2="${L - M.droite}" y2="${y}" />`
+      + `<text class="grad" x="${M.gauche - 8}" y="${arr(y + 4)}" text-anchor="end">${ech(fmt(c))}</text>`;
+  }
+
+  for (const b of bandes) {
+    if (!(b.valeur > 0)) continue;
+    const g = px(b.de), d = px(b.a), large = Math.max(1, d - g - 3);
+    const y = py(b.valeur);
+    const lecture = ech(`<u>${fmtX(b.de)} – ${fmtX(b.a)}</u><br>${fmt(b.valeur)}`
+      + (fini(b.part) ? ` · ${fmt(b.part)}` : ""));
+    svg += `<rect class="bande-hist" x="${arr(g + 1.5)}" y="${y}" width="${arr(large)}"
+      height="${arr(Math.max(1, sol - y))}" data-lecture="${lecture}" />`;
+    if (fini(b.part) && b.part > 0) {
+      const h = Math.max(1, sol - py(b.part));
+      svg += `<rect class="bande-part" fill="url(#${id})" x="${arr(g + 1.5)}" y="${arr(sol - h)}"
+        width="${arr(large)}" height="${arr(h)}" />`;
+    }
+  }
+
+  svg += `<line class="sol" x1="${M.gauche}" y1="${sol}" x2="${L - M.droite}" y2="${sol}" />`;
+
+  if (seuil && fini(seuil.v)) {
+    const x = px(seuil.v);
+    svg += `<line class="repere-seuil" x1="${x}" y1="${ciel - 6}" x2="${x}" y2="${sol + 8}" />`;
+    if (seuil.etiquette) {
+      /* Contre le bord gauche, l'étiquette ancrée à la fin sortirait du cadre. */
+      const colle = x - M.gauche < 90;
+      svg += `<text class="etiq-seuil" x="${arr(x + (colle ? 8 : -8))}" y="${M.haut + 10}"
+        text-anchor="${colle ? "start" : "end"}">${ech(seuil.etiquette)}</text>`;
+    }
+    if (seuil.avant) svg += `<text class="dit-avant" x="${M.gauche}" y="${M.haut + 27}">${ech(seuil.avant)}</text>`;
+    if (seuil.apres) svg += `<text class="dit-apres" x="${L - M.droite}" y="${M.haut + 27}" text-anchor="end">${ech(seuil.apres)}</text>`;
+  }
+
+  for (const v of seuil && fini(seuil.v) ? [x0, seuil.v, x1] : [x0, x1]) {
+    const ancrage = v === x0 ? "start" : v === x1 ? "end" : "middle";
+    svg += `<text class="grad" x="${px(v)}" y="${sol + 18}" text-anchor="${ancrage}">${ech(fmtX(v))}</text>`;
+  }
+
+  if (legende?.length) {
+    let x = M.gauche;
+    for (const c of legende) {
+      svg += `<rect class="cle-hist${c.trame ? " part" : ""}" ${c.trame ? `fill="url(#${id})" ` : ""}x="${x}" y="${hauteur - 21}" width="11" height="9" />`
+        + `<text class="grad" x="${x + 17}" y="${hauteur - 13}">${ech(c.texte)}</text>`;
+      x += 28 + String(c.texte).length * 6.4;
+    }
+  }
+
+  return cadre(svg, hauteur, aria) + "</figure>";
+}
+
+/**
+ * LA GRILLE DES CAS.
+ *
+ * Un banc de régression existe pour dire qu'un taux qui monte peut cacher un cas qui vient
+ * de casser. L'afficher sous forme de taux revient à demander qu'on le croie : il faut
+ * cliquer, comparer, lire une liste. Ici chaque cas est une colonne, chaque version une
+ * ligne, et une régression devient un trou qui apparaît — visible sans rien lire.
+ *
+ * Les quatre états ne se distinguent pas par la couleur seule : plein contre vide porte
+ * déjà l'essentiel, le contour rouge et le libellé écrit font le reste. La casse et la
+ * réparation sont calculées par rapport à la ligne précédente, parce que c'est le passage
+ * d'une version à la suivante qui est la nouvelle, pas l'état.
+ *
+ * Ce que cette figure ne supporte pas : le nombre. À deux mille cas la grille devient une
+ * texture et il faut revenir à des listes. L'appelant décide ; la figure ne ment pas pour
+ * autant, elle devient seulement illisible, ce qui se voit.
+ *
+ * @param {{colonnes: Array<string|{nom:string}>,
+ *          lignes: Array<{nom:string, cellules:Array<boolean|null>, bout?:string}>,
+ *          legende?: Array<{texte:string, etat:string}>, aria:string}} o
+ */
+export function grille({ colonnes, lignes, legende, aria }) {
+  if (!colonnes?.length || !lignes?.length) return "";
+  const cols = colonnes.map((c) => (typeof c === "string" ? { nom: c } : c));
+  const GAUCHE = 122, DROITE = 54, HAUT = 16, LIGNE = 26, CELL = 18;
+  const pas = (L - GAUCHE - DROITE) / cols.length;
+  const large = Math.max(6, Math.min(26, pas - 4));
+  const hauteur = HAUT + lignes.length * LIGNE + 22 + (legende?.length ? 24 : 0);
+
+  let svg = "";
+  lignes.forEach((l, i) => {
+    const y = HAUT + i * LIGNE;
+    svg += `<text class="grille-nom" x="${GAUCHE - 10}" y="${y + CELL - 4}" text-anchor="end">${ech(l.nom)}</text>`;
+    l.cellules.forEach((v, j) => {
+      const avant = i > 0 ? lignes[i - 1].cellules[j] : null;
+      const etat = v === null ? "vide"
+        : v ? (avant === false ? "repare" : "ok")
+        : (avant === true ? "casse" : "ko");
+      const x = arr(GAUCHE + j * pas + (pas - large) / 2);
+      svg += `<rect class="case-${etat}" x="${x}" y="${y}" width="${arr(large)}" height="${CELL}"
+        data-lecture="${ech(`<u>${cols[j]?.nom ?? j + 1}</u><br>${l.nom}`)}" />`;
+    });
+    if (l.bout) {
+      svg += `<text class="grille-bout" x="${L - DROITE + 10}" y="${y + CELL - 4}">${ech(l.bout)}</text>`;
+    }
+  });
+
+  /* Les numéros de colonne, pas les intitulés : « court-01 » à la verticale ne se lit pas,
+   * et le nom complet est dans la lecture au survol. Un sur deux quand ils se serrent. */
+  const saut = pas < 22 ? 2 : 1;
+  const yNum = HAUT + lignes.length * LIGNE + 14;
+  cols.forEach((c, j) => {
+    if (j % saut && j !== cols.length - 1) return;
+    svg += `<text class="grille-num" x="${arr(GAUCHE + j * pas + pas / 2)}" y="${yNum}" text-anchor="middle">${j + 1}</text>`;
+  });
+
+  if (legende?.length) {
+    let x = GAUCHE;
+    for (const c of legende) {
+      svg += `<rect class="case-${c.etat}" x="${x}" y="${hauteur - 22}" width="12" height="10" />`
+        + `<text class="grad" x="${x + 18}" y="${hauteur - 13}">${ech(c.texte)}</text>`;
+      x += 32 + String(c.texte).length * 6.2;
+    }
+  }
+
+  return cadre(svg, hauteur, aria) + "</figure>";
+}
+
+/**
+ * LES DEUX POPULATIONS.
+ *
+ * Une barre de décision affichée seule — « 0,84 » — demande qu'on la croie. Ce qui la
+ * justifie n'est pas un nombre mais une forme : deux populations posées sur le même axe,
+ * et le fait qu'elles se recouvrent. Dans le recouvrement, aucune position ne sépare
+ * proprement, et chaque déplacement de la barre échange une erreur contre l'autre.
+ *
+ * Un point = un cas, pas une densité lissée. Sur vingt-cinq questions, une courbe promet
+ * une précision que l'échantillon n'a pas ; des carrés qu'on peut compter disent le
+ * plancher en même temps que la forme.
+ *
+ * @param {{groupes: Array<{nom:string, valeurs:number[], sens?:"haut"|"bas"}>,
+ *          seuil?: {v:number, etiquette?:string, avant?:string, apres?:string},
+ *          fmtX?:(v:number)=>string, motRecouvrement?:string, aria:string}} o
+ */
+export function populations({ groupes, seuil, fmtX = String, motRecouvrement, aria }) {
+  if (!groupes?.length) return "";
+  const toutes = groupes.flatMap((g) => g.valeurs).filter(fini);
+  if (!toutes.length) return "";
+  const bas = Math.min(...toutes), haut = Math.max(...toutes);
+  const marge = (haut - bas) * 0.08 || 0.01;
+  const x0 = bas - marge, x1 = haut + marge;
+  const NB = 16, CELL = 12, PAS = 14;
+  const px = (v) => arr(M.gauche + ((v - x0) / ((x1 - x0) || 1)) * (L - M.gauche - M.droite));
+  const colonne = (v) => Math.min(NB - 1, Math.max(0, Math.floor(((v - x0) / ((x1 - x0) || 1)) * NB)));
+  const largeCol = (L - M.gauche - M.droite) / NB;
+
+  const piles = groupes.map((g) => {
+    const cols = Array.from({ length: NB }, () => 0);
+    for (const v of g.valeurs) if (fini(v)) cols[colonne(v)]++;
+    return { ...g, cols, plus: Math.max(...cols) };
+  });
+  const enHaut = piles.filter((p) => p.sens !== "bas");
+  const enBas = piles.filter((p) => p.sens === "bas");
+  const hHaut = Math.max(1, ...enHaut.map((p) => p.plus));
+  const hBas = Math.max(1, ...enBas.map((p) => p.plus));
+
+  const dit = seuil && (seuil.avant || seuil.apres) ? 20 : 0;
+  /* Les intitulés de groupe ont leur propre bande. Posés au niveau des carrés, ils
+   * tombaient sur la pile la plus haute — et la plus haute est toujours du côté où on
+   * veut écrire. Dix-huit pixels réservés valent mieux qu'une collision espérée. */
+  const NOM = 18;
+  const ciel = M.haut + (seuil?.etiquette ? 16 : 0) + dit + NOM;
+  const axe = ciel + hHaut * PAS + 6;
+  const sol = axe + hBas * PAS + 6 + NOM;
+  const hauteur = sol + 42;
+
+  let svg = "";
+
+  /* Le recouvrement, teinté avant tout le reste : c'est le fond sur lequel se lit la barre. */
+  if (piles.length === 2) {
+    const a = piles[0].valeurs.filter(fini), b = piles[1].valeurs.filter(fini);
+    const g = Math.max(Math.min(...a), Math.min(...b)), d = Math.min(Math.max(...a), Math.max(...b));
+    if (d > g) {
+      svg += `<rect class="zone-seuil" x="${px(g)}" y="${ciel}" width="${arr(px(d) - px(g))}" height="${arr(sol - ciel)}" />`;
+      if (motRecouvrement) {
+        svg += `<text class="grad" x="${arr((px(g) + px(d)) / 2)}" y="${sol + 34}" text-anchor="middle">${ech(motRecouvrement)}</text>`;
+      }
+    }
+  }
+
+  for (const p of piles) {
+    const versLeBas = p.sens === "bas";
+    p.cols.forEach((n, j) => {
+      const x = arr(M.gauche + j * largeCol + (largeCol - CELL) / 2);
+      for (let k = 0; k < n; k++) {
+        const y = versLeBas ? axe + 2 + k * PAS : axe - 2 - (k + 1) * PAS + 2;
+        svg += `<rect class="pop${versLeBas ? " bas" : ""}" x="${x}" y="${arr(y)}" width="${CELL}" height="${CELL}" />`;
+      }
+    });
+    const y = versLeBas ? sol - 4 : ciel - 6;
+    svg += `<text class="pop-nom${versLeBas ? " bas" : ""}" x="${L - M.droite}" y="${arr(y)}" text-anchor="end">${ech(p.nom)}</text>`;
+  }
+
+  svg += `<line class="sol" x1="${M.gauche}" y1="${axe}" x2="${L - M.droite}" y2="${axe}" />`;
+
+  if (seuil && fini(seuil.v)) {
+    const x = px(seuil.v);
+    svg += `<line class="repere-seuil" x1="${x}" y1="${M.haut + 4}" x2="${x}" y2="${sol + 6}" />`;
+    if (seuil.etiquette) {
+      const colle = x - M.gauche < 90;
+      svg += `<text class="etiq-seuil" x="${arr(x + (colle ? 8 : -8))}" y="${M.haut + 10}"
+        text-anchor="${colle ? "start" : "end"}">${ech(seuil.etiquette)}</text>`;
+    }
+    if (seuil.avant) svg += `<text class="dit-avant" x="${arr(x - 8)}" y="${M.haut + (seuil.etiquette ? 27 : 11)}" text-anchor="end">${ech(seuil.avant)}</text>`;
+    if (seuil.apres) svg += `<text class="dit-apres" x="${arr(x + 8)}" y="${M.haut + (seuil.etiquette ? 27 : 11)}">${ech(seuil.apres)}</text>`;
+  }
+
+  const marques = [x0, ...(seuil && fini(seuil.v) ? [seuil.v] : []), x1];
+  for (const v of marques) {
+    const ancrage = v === x0 ? "start" : v === x1 ? "end" : "middle";
+    svg += `<text class="grad" x="${px(v)}" y="${sol + 16}" text-anchor="${ancrage}">${ech(fmtX(v))}</text>`;
+  }
+
+  return cadre(svg, hauteur, aria) + "</figure>";
+}
+
+/**
+ * LES RANGS.
+ *
+ * Un classement qui bouge. Des barres n'en montrent qu'un état : le lecteur à qui l'on
+ * demande de cliquer quatre scénarios et de se souvenir conclura du premier. Ici les
+ * quatre états sont côte à côte et chaque ligne se suit d'un bout à l'autre — le
+ * croisement est la trouvaille, il faut donc qu'il soit dessiné, pas déduit.
+ *
+ * Ce que la figure ne dit pas : les montants. Un rang n'a pas d'échelle, et deux leviers
+ * séparés par un cheveu s'y lisent comme premier et deuxième. La valeur reste donc
+ * attachée à chaque point, dans la lecture au survol, plutôt que passée sous silence.
+ *
+ * La série mise en avant n'est pas choisie à la main : c'est celle qui bouge le plus. Si
+ * un jour plus rien ne bouge, aucune n'est mise en avant, et la figure dit cela aussi.
+ * L'accent ne porte jamais seul — trait plus épais, points pleins, intitulé gras.
+ *
+ * @param {{colonnes: Array<string|{titre:string}>,
+ *          series: Array<{nom:string, rangs:Array<{rang:number, valeur?:number}|number>, vedette?:boolean}>,
+ *          fmt?:(v:number)=>string, aria:string, nomRang?:(r:number)=>string}} o
+ */
+export function rangs({ colonnes, series, fmt = String, aria, nomRang }) {
+  if (!colonnes?.length || !series?.length) return "";
+  const cols = colonnes.map((c) => (typeof c === "string" ? { titre: c } : c));
+  const lig = series.map((s) => ({
+    ...s,
+    rangs: s.rangs.map((r) => (typeof r === "number" ? { rang: r } : r)),
+  }));
+  const profond = Math.max(...lig.flatMap((s) => s.rangs.map((r) => r.rang ?? 0)));
+  if (!(profond > 0)) return "";
+
+  /* Le nom le plus long décide de la gouttière de droite : mesuré à la louche, mais
+   * une louche large vaut mieux qu'un intitulé coupé. */
+  const large = Math.max(...lig.map((s) => String(s.nom).length));
+  const droite = Math.min(190, Math.max(72, large * 7 + 16));
+  const gauche = 46;
+  const PAS = 42, HAUT = 26;
+  const hauteur = HAUT + (profond - 1) * PAS + 46;
+  const px = (i) => arr(gauche + (cols.length === 1 ? 0 : (i / (cols.length - 1)) * (L - gauche - droite)));
+  const py = (r) => arr(HAUT + (r - 1) * PAS);
+
+  /* Celle qui bouge le plus. À égalité, celle qui a touché la première place. */
+  let vedette = lig.find((s) => s.vedette);
+  if (!vedette) {
+    const bouge = (s) => Math.max(...s.rangs.map((r) => r.rang)) - Math.min(...s.rangs.map((r) => r.rang));
+    const plus = Math.max(...lig.map(bouge));
+    if (plus > 0) vedette = lig.filter((s) => bouge(s) === plus)
+      .sort((a, b) => Math.min(...a.rangs.map((r) => r.rang)) - Math.min(...b.rangs.map((r) => r.rang)))[0];
+  }
+
+  let svg = "";
+  cols.forEach((c, i) => {
+    svg += `<line class="rang-colonne" x1="${px(i)}" y1="${py(1) - 12}" x2="${px(i)}" y2="${py(profond) + 12}" />`
+      + `<text class="grad" x="${px(i)}" y="${hauteur - 16}" text-anchor="middle">${ech(c.titre)}</text>`;
+  });
+  for (let r = 1; r <= profond; r++) {
+    svg += `<text class="grad" x="${gauche - 14}" y="${py(r) + 4}" text-anchor="end">${ech(nomRang ? nomRang(r) : r)}</text>`;
+  }
+
+  for (const s of lig) {
+    const vu = s === vedette;
+    const pts = s.rangs.map((r, i) => `${px(i)},${py(r.rang)}`).join(" ");
+    svg += `<polyline class="rang-trace${vu ? " vedette" : ""}" fill="none" points="${pts}" />`;
+  }
+  /* Les points après tous les traits : un point traversé par la ligne d'à côté se lit mal. */
+  for (const s of lig) {
+    const vu = s === vedette;
+    s.rangs.forEach((r, i) => {
+      const lecture = ech(`<u>${s.nom} · ${cols[i]?.titre ?? ""}</u><br>${nomRang ? nomRang(r.rang) : r.rang}`
+        + (fini(r.valeur) ? ` — ${fmt(r.valeur)}` : ""));
+      svg += `<circle class="rang-point${vu ? " vedette" : ""}" cx="${px(i)}" cy="${py(r.rang)}" r="${vu ? 5 : 4.5}"
+        data-lecture="${lecture}" />`;
+    });
+    const fin = s.rangs[s.rangs.length - 1];
+    svg += `<text class="rang-nom${vu ? " vedette" : ""}" x="${px(cols.length - 1) + 12}" y="${py(fin.rang) + 4}">${ech(s.nom)}</text>`;
+  }
 
   return cadre(svg, hauteur, aria) + "</figure>";
 }
