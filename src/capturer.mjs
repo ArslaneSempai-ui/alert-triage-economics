@@ -50,12 +50,16 @@ const PILOTE = `
      * états, et un lecteur ne saurait pas que la figure se touche.
      */
     if (etape.includes("~")) {
+      /* « sel~x » glisse le long de l'axe, « sel~x,y » sur les deux : une carte de verdict
+       * a deux entrées, et n'en bouger qu'une ne montre pas la frontière. */
       const [sel, f] = etape.split("~");
+      const [fx, fy] = f.split(",");
       const el = await attendre(sel);
       if (el) {
         const b = el.getBoundingClientRect();
         const pt = (t) => new PointerEvent(t, { pointerId: 1, bubbles: true,
-          clientX: b.left + b.width * Number(f), clientY: b.top + b.height / 2 });
+          clientX: b.left + b.width * Number(fx),
+          clientY: b.top + b.height * (fy === undefined ? 0.5 : Number(fy)) });
         el.dispatchEvent(pt("pointerdown"));
         window.dispatchEvent(pt("pointermove"));
         window.dispatchEvent(pt("pointerup"));
