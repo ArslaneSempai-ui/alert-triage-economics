@@ -13,7 +13,7 @@
     "sensitivity": "node src/sensitivity.ts",
     "shadow": "node src/shadow.ts",
     "plan": "node src/plan.ts",
-    "pages": "tsc -p tsconfig.web.json && node src/pages.ts",
+    "pages": "tsc -p tsconfig.web.json && node src/pages.ts && node src/verifier-ecran.mjs . 4",
     "simulate": "node src/montecarlo.ts",
     "captures": "node src/capturer.mjs ."
   },

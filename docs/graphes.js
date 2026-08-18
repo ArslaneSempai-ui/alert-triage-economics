@@ -428,7 +428,7 @@ export function escalier({ marches, fmt = String, fmtX = String, hauteur = 210, 
   let svg = "";
   for (const c of crans(e, 4)) {
     const y = py(c);
-    if (y < ciel - 1 || y > sol + 1) continue;
+    if (y < M.haut - 1 || y > sol + 1) continue;
     svg += `<line class="grille" x1="${M.gauche}" y1="${y}" x2="${L - M.droite}" y2="${y}" />`
       + `<text class="grad" x="${M.gauche - 8}" y="${arr(y + 4)}" text-anchor="end">${ech(fmt(c))}</text>`;
   }
