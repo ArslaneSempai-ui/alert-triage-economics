@@ -57,7 +57,11 @@ const PILOTE = `
      * découpait le sélecteur en deux, ne trouvait rien, et le film sortait en images
      * identiques. On exige donc un tilde suivi d'une fraction, en fin d'étape.
      */
-    if (/~[\d.]+(,[\d.]+)?$/.test(etape)) {
+    /* Deux barres obliques, et c'est volontaire : ce bloc vit dans un gabarit, où une
+     * séquence d'échappement se résout avant d'atteindre le navigateur. Le motif y perdait
+     * sa classe de chiffres, ne trouvait plus rien, et l'étape entière partait dans
+     * querySelector — qui la refuse. Ni accent grave ni échappement simple ici. */
+    if (/~[\\d.]+(,[\\d.]+)?$/.test(etape)) {
       /* « sel~x » glisse le long de l'axe, « sel~x,y » sur les deux : une carte de verdict
        * a deux entrées, et n'en bouger qu'une ne montre pas la frontière. */
       const coupe = etape.lastIndexOf("~");

@@ -1164,14 +1164,19 @@ export function choisir(racine, onChoix, courant) {
     el.setAttribute("tabindex", "0");
     el.setAttribute("role", "radio");
     el.setAttribute("aria-checked", String(String(courant) === val(el)));
-    el.addEventListener("focus", () => { racine.dataset.choixFoyer = val(el); });
-    /* Même précaution que pour la prise : un noeud retiré du document émet `blur`, et
-     * effacer le drapeau là-dessus perdrait le foyer à chaque flèche. */
+    /*
+     * Le foyer ne se repose que pour le clavier.
+     *
+     * Il était noté à chaque prise, souris comprise : le bloc se réécrivant après le clic,
+     * le nouveau porteur était refocalisé et l'anneau de foyer apparaissait — un état
+     * qu'aucun utilisateur à la souris ne produit, et qui se retrouvait dans les films.
+     * Les flèches, elles, en ont besoin : sans lui, la deuxième ne trouve plus personne.
+     */
     el.addEventListener("blur", () => { if (el.isConnected) delete racine.dataset.choixFoyer; });
     el.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       racine.dataset.choixTire = "1";
-      racine.dataset.choixFoyer = val(el);
+      delete racine.dataset.choixFoyer;
       el.dataset.dejaPris = "1";
       onChoix(val(el));
     });
@@ -1185,7 +1190,6 @@ export function choisir(racine, onChoix, courant) {
      */
     el.addEventListener("click", () => {
       if (el.dataset.dejaPris) { delete el.dataset.dejaPris; return; }
-      racine.dataset.choixFoyer = val(el);
       onChoix(val(el));
     });
     /* Passer la main sur la figure fait défiler les choix, comme sur un clavier de piano. */
@@ -1277,6 +1281,166 @@ export function affectation({ lignes, colonnes, fmt = String, motOptimum, aria }
         data-lecture="${ech(`<u>${l.nom} · ${colonnes[j]?.nom ?? ""}</u><br>${fmt(c.valeur)}`)}" />`;
     });
   });
+
+  return cadre(svg, H, aria) + "</figure>";
+}
+
+/**
+ * LA SÉQUENCE — un plan, ses échéances, et ce que l'estimation haute en fait.
+ *
+ * Une file de chantiers portée par une seule équipe : l'ordre décide de ce qui tombe. Un
+ * diagramme de Gantt ordinaire montre le plan qu'on a écrit ; celui-ci montre aussi celui
+ * qu'on n'écrit jamais — la même séquence sur l'estimation pessimiste — parce que c'est la
+ * différence entre les deux qui fait tomber les échéances.
+ *
+ * Chaque ligne porte sa barre, son échéance en trait vertical, et la part qui dépasse en
+ * hachures. Pas de pastille verte ou rouge : la position par rapport au trait dit tout, et
+ * elle le dit sans couleur.
+ *
+ * @param {{lignes: Array<{cle:string, nom:string, debut:number, fin:number, finHaute?:number,
+ *                         echeance:number, retard:number}>,
+ *          fmtX?:(v:number)=>string, motEcheance?:string, motHaut?:string,
+ *          choix?:boolean, aria:string}} o
+ */
+export function sequence({ lignes, fmtX = String, motEcheance, motHaut, choix = false, aria }) {
+  if (!lignes?.length) return "";
+  const G = 96, D = 92, T = 34, RANG = 30, BARRE = 13;
+  const H = T + lignes.length * RANG + 46;
+  const x1 = Math.max(...lignes.map((l) => Math.max(l.finHaute ?? l.fin, l.echeance))) * 1.02;
+  const px = (v) => arr(G + (Math.max(0, v) / (x1 || 1)) * (L - G - D));
+  const id = `tr${++compteur}`;
+
+  let svg = trames(id, "alerte");
+
+  lignes.forEach((l, i) => {
+    const y = T + i * RANG;
+    const milieu = y + BARRE / 2;
+    svg += `<text class="seq-nom" x="${G - 10}" y="${arr(milieu + 4)}" text-anchor="end">${ech(l.nom)}</text>`;
+
+    /* L'estimation haute d'abord, en fond : la barre centrale se pose dessus, et l'écart
+     * entre les deux est ce qu'on ne montre jamais. */
+    if (fini(l.finHaute) && l.finHaute > l.fin) {
+      svg += `<rect class="seq-haute" x="${px(l.debut)}" y="${arr(y)}" width="${arr(px(l.finHaute) - px(l.debut))}" height="${BARRE}" />`;
+    }
+    svg += `<rect class="seq-barre${l.retard > 0 ? " tard" : ""}" x="${px(l.debut)}" y="${arr(y)}"
+      width="${arr(Math.max(1, px(l.fin) - px(l.debut)))}" height="${BARRE}"
+      data-lecture="${ech(`<u>${l.nom}</u><br>${fmtX(l.fin - l.debut)}`)}" />`;
+
+    /*
+     * Ce qui dépasse, hachuré — la part de la *barre*, pas la durée depuis l'échéance.
+     *
+     * Hachurer de l'échéance à la fin peignait aussi le temps où ce chantier n'avait pas
+     * commencé : sur un constat démarré après son échéance, la trame courait sur la moitié
+     * de la figure et laissait croire à un travail long. Un travail entièrement en retard
+     * est hachuré en entier, et c'est exactement ce qu'il est.
+     */
+    if (l.retard > 0) {
+      const g = Math.max(l.debut, l.echeance);
+      svg += `<rect class="seq-depasse" fill="url(#${id})" x="${px(g)}" y="${arr(y)}"
+        width="${arr(Math.max(1, px(l.fin) - px(g)))}" height="${BARRE}" />`;
+    }
+
+    svg += `<line class="seq-echeance" x1="${px(l.echeance)}" y1="${arr(y - 4)}" x2="${px(l.echeance)}" y2="${arr(y + BARRE + 4)}" />`;
+    if (l.retard > 0) {
+      svg += `<text class="seq-tard" x="${arr(px(Math.max(l.fin, l.finHaute ?? l.fin)) + 8)}" y="${arr(milieu + 4)}">${ech(fmtX(l.retard))}</text>`;
+    }
+  });
+
+  svg += `<line class="sol" x1="${G}" y1="${arr(T + lignes.length * RANG + 2)}" x2="${L - D}" y2="${arr(T + lignes.length * RANG + 2)}" />`;
+  for (const v of [0, x1]) {
+    svg += `<text class="grad" x="${px(v)}" y="${arr(T + lignes.length * RANG + 20)}"
+      text-anchor="${v === 0 ? "start" : "end"}">${ech(fmtX(v))}</text>`;
+  }
+
+  /* La légende dit les deux traits, puisque ni l'un ni l'autre n'est évident. */
+  let cx = G;
+  for (const [classe, mot] of [["seq-echeance-cle", motEcheance], ["seq-haute-cle", motHaut]]) {
+    if (!mot) continue;
+    svg += `<rect class="${classe}" x="${arr(cx)}" y="${H - 18}" width="12" height="10" />`
+      + `<text class="grad" x="${arr(cx + 18)}" y="${H - 9}">${ech(mot)}</text>`;
+    cx += 40 + String(mot).length * 6.2;
+  }
+
+  /* En dernier, donc au-dessus : la ligne entière se prend, et la prendre veut dire
+   * « celui-ci, ensuite ». */
+  if (choix) {
+    lignes.forEach((l, i) => {
+      svg += `<rect class="seq-zone" x="${G - 92}" y="${arr(T + i * RANG - 6)}" width="${arr(L - G + 92 - D + 80)}"
+        height="${RANG - 4}" data-choix="${ech(l.cle)}" />`;
+    });
+  }
+
+  return cadre(svg, H, aria) + "</figure>";
+}
+
+/**
+ * LES RUBANS — deux populations d'une statistique, et le seuil qu'on pose entre elles.
+ *
+ * Une figure pour la question « ce seuil sépare-t-il quelque chose ? ». En abscisse, ce
+ * qu'on peut choisir (une taille de fenêtre) ; en ordonnée, la statistique. Deux rubans :
+ * ce que la statistique vaut quand rien ne bouge, et ce qu'elle vaut quand quelque chose
+ * bouge. Le seuil est un trait horizontal que le lecteur monte et descend.
+ *
+ * Là où les rubans se recouvrent, aucun seuil ne sépare — et c'est le seul endroit où la
+ * réponse honnête est « ce contrôle ne peut pas marcher ici ». Un tableau de valeurs ne le
+ * dit jamais ; deux rubans qui se chevauchent le disent sans une phrase.
+ *
+ * @param {{x: {valeurs:number[], nom:string, fmt?:(v:number)=>string, log?:boolean},
+ *          rubans: Array<{nom:string, bas:number[], haut:number[], ton?:string}>,
+ *          seuil: {v:number, etiquette?:string, saisissable?:boolean},
+ *          y: {nom:string, fmt?:(v:number)=>string, max?:number}, aria:string}} o
+ */
+export function rubans({ x, rubans: liste, seuil, y, aria }) {
+  if (!x?.valeurs?.length || !liste?.length) return "";
+  const G = 74, D = 128, T = 26, B = 46;
+  const H = 300;
+  const sol = H - B;
+  const fmtX = x.fmt ?? String, fmtY = y.fmt ?? String;
+
+  const tx = (v) => (x.log ? Math.log(Math.max(v, 1e-9)) : v);
+  const x0 = tx(Math.min(...x.valeurs)), x1 = tx(Math.max(...x.valeurs));
+  const px = (v) => arr(G + ((tx(v) - x0) / ((x1 - x0) || 1)) * (L - G - D));
+
+  const toutes = liste.flatMap((r) => [...r.bas, ...r.haut]).filter(fini);
+  const yMax = y.max ?? Math.max(seuil.v * 1.25, ...toutes) * 1.05;
+  const py = (v) => arr(sol - (Math.min(Math.max(v, 0), yMax) / (yMax || 1)) * (sol - T));
+
+  let svg = "";
+  for (const c of crans({ bas: 0, haut: yMax }, 4)) {
+    const yy = py(c);
+    svg += `<line class="grille" x1="${G}" y1="${yy}" x2="${L - D}" y2="${yy}" />`
+      + `<text class="grad" x="${G - 8}" y="${arr(yy + 4)}" text-anchor="end">${ech(fmtY(c))}</text>`;
+  }
+
+  liste.forEach((r, i) => {
+    const haut = x.valeurs.map((v, j) => `${px(v)},${py(r.haut[j])}`).join(" ");
+    const bas = x.valeurs.map((v, j) => `${px(v)},${py(r.bas[j])}`).reverse().join(" ");
+    svg += `<polygon class="ruban ${r.ton ? "t-" + r.ton : ""}" points="${haut} ${bas}" />`;
+    /* L'intitulé se pose au bout du ruban, jamais dans une légende à part : c'est là que
+     * l'oeil est quand il suit la bande. */
+    const dernier = x.valeurs.length - 1;
+    const milieu = (py(r.haut[dernier]) + py(r.bas[dernier])) / 2;
+    svg += `<text class="ruban-nom ${r.ton ? "t-" + r.ton : ""}" x="${L - D + 8}" y="${arr(milieu + 4)}">${ech(r.nom)}</text>`;
+  });
+
+  svg += `<line class="sol" x1="${G}" y1="${sol}" x2="${L - D}" y2="${sol}" />`;
+  for (const v of [x.valeurs[0], x.valeurs[x.valeurs.length - 1]]) {
+    svg += `<text class="grad" x="${px(v)}" y="${sol + 18}" text-anchor="${v === x.valeurs[0] ? "start" : "end"}">${ech(fmtX(v))}</text>`;
+  }
+  svg += `<text class="axe-titre" x="${arr((G + L - D) / 2)}" y="${H - 8}" text-anchor="middle">${ech(x.nom)}</text>`
+    + `<text class="axe-titre" x="${G - 46}" y="${T - 8}" text-anchor="start">${ech(y.nom)}</text>`;
+
+  const ys = py(seuil.v);
+  svg += `<line class="repere-seuil" x1="${G}" y1="${ys}" x2="${L - D}" y2="${ys}" />`;
+  if (seuil.etiquette) {
+    svg += `<text class="etiq-seuil" x="${L - D - 6}" y="${arr(ys - 6)}" text-anchor="end">${ech(seuil.etiquette)}</text>`;
+  }
+
+  /* La prise couvre le cadre : le trait se prend n'importe où, et il ne bouge qu'en y. */
+  if (seuil.saisissable) {
+    svg += `<rect class="carte-prise" x="${G}" y="${T}" width="${arr(L - G - D)}" height="${arr(sol - T)}"
+      data-x0="0" data-x1="1" data-y0="0" data-y1="${yMax}" />`;
+  }
 
   return cadre(svg, H, aria) + "</figure>";
 }
