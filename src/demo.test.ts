@@ -38,8 +38,28 @@ const suivis = (): Set<string> => {
 test("tout module importé par la démo est présent et suivi par git", (t) => {
   if (!existsSync(page)) return t.skip("docs/index.html absent — lancer `npm run pages`");
   const html = readFileSync(page, "utf8");
-  const imports = [...html.matchAll(/from\s+"(\.\/[^"]+\.js)"/g)].map((m) => m[1]!);
-  if (imports.length === 0) return t.skip("cette démo n'importe aucun module");
+  /*
+   * ─── « RIEN À VÉRIFIER » N'EST PAS « JE N'AI RIEN RECONNU » ───
+   *
+   * Ce motif ne lit que les chemins relatifs, `./x.js`. Une page qui émettrait des chemins
+   * absolus — `/_astro/x.js`, ce que produit un empaqueteur — n'en offrirait aucun, et ce cas
+   * passait alors en `t.skip` : **vert, sans avoir rien regardé**, pendant que des fichiers
+   * auraient dû être suivis par git. Relevé le 22 août 2026 : les dix pages du portfolio
+   * portent 2 à 7 imports relatifs et zéro absolu, donc le trou est latent — mais un vert qui
+   * dépend de la forme des chemins n'est pas un vert.
+   *
+   * On compte donc les deux : tous les imports, et ceux que le motif sait vérifier. Un écart
+   * entre les deux est une panne du contrôle, pas un silence.
+   */
+  const tous = [...html.matchAll(/from\s+"([^"]+\.js)"/g)].map((m) => m[1]!);
+  const imports = tous.filter((c) => c.startsWith("./"));
+  const nonReconnus = [...new Set(tous.filter((c) => !c.startsWith("./")))];
+  assert.deepEqual(nonReconnus, [],
+    `${nonReconnus.length} import(s) sur ${tous.length} dans une forme que ce contrôle ne sait `
+    + `pas vérifier : ${nonReconnus.join(", ")}\n`
+    + `  → élargir le motif, ou dire ici pourquoi ces chemins-là n'ont pas à être suivis.\n`
+    + `  → sans ça le contrôle rend vert en ayant regardé moins qu'il ne le prétend.`);
+  if (tous.length === 0) return t.skip("cette démo n'importe aucun module — zéro import trouvé, motif à jour");
 
   const versionnes = suivis();
   for (const chemin of new Set(imports)) {
@@ -76,7 +96,20 @@ test("le shim répond avec tous les champs que l'écran lit", (t) => {
   if (!existsSync(page)) return t.skip("docs/index.html absent");
   const html = readFileSync(page, "utf8");
   const ui = readFileSync(racine + "src/ui.html", "utf8");
-  if (!html.includes("window.LOCAL =")) return t.skip("cette démo n'a pas de shim");
+  /*
+   * Même piège que pour les imports : un écran qui appelle des routes sans qu'on détecte de
+   * shim n'est pas « une démo sans shim », c'est une démo qu'on ne sait pas lire — ou une
+   * démo cassée. Relevé le 22 août 2026 : les neuf pages qui appellent des routes en ont
+   * toutes un, `rag` en appelle neuf. Le trou est latent, et il ne le restera que tant que la
+   * forme de déclaration ne bouge pas.
+   */
+  if (!html.includes("window.LOCAL =")) {
+    const routes = [...new Set([...html.matchAll(/["'`](\/api\/[a-z-]+)/g)].map((m) => m[1]!))];
+    assert.deepEqual(routes, [],
+      `aucun shim détecté alors que l'écran appelle ${routes.length} route(s) : ${routes.join(", ")}\n`
+      + `  → soit la démo est cassée, soit la forme du shim a changé et ce contrôle ne la lit plus.`);
+    return t.skip("cette démo n'a pas de shim — et n'appelle aucune route");
+  }
 
   /* Le shim est tout ce qui précède le script de l'écran. */
   const shim = shimDe(html);
@@ -99,7 +132,20 @@ test("le shim connaît toutes les routes que l'écran appelle", (t) => {
   if (!existsSync(page)) return t.skip("docs/index.html absent");
   const html = readFileSync(page, "utf8");
   const ui = readFileSync(racine + "src/ui.html", "utf8");
-  if (!html.includes("window.LOCAL =")) return t.skip("cette démo n'a pas de shim");
+  /*
+   * Même piège que pour les imports : un écran qui appelle des routes sans qu'on détecte de
+   * shim n'est pas « une démo sans shim », c'est une démo qu'on ne sait pas lire — ou une
+   * démo cassée. Relevé le 22 août 2026 : les neuf pages qui appellent des routes en ont
+   * toutes un, `rag` en appelle neuf. Le trou est latent, et il ne le restera que tant que la
+   * forme de déclaration ne bouge pas.
+   */
+  if (!html.includes("window.LOCAL =")) {
+    const routes = [...new Set([...html.matchAll(/["'`](\/api\/[a-z-]+)/g)].map((m) => m[1]!))];
+    assert.deepEqual(routes, [],
+      `aucun shim détecté alors que l'écran appelle ${routes.length} route(s) : ${routes.join(", ")}\n`
+      + `  → soit la démo est cassée, soit la forme du shim a changé et ce contrôle ne la lit plus.`);
+    return t.skip("cette démo n'a pas de shim — et n'appelle aucune route");
+  }
   const shim = shimDe(html);
 
   /*
