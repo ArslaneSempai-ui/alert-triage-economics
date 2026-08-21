@@ -1,0 +1,184 @@
+/*
+ * LE GARDIEN DES GARDIENS.
+ *
+ * Six contrôles de cette couche ont été trouvés trop étroits le 21 août 2026, en les auditant
+ * un par un :
+ *
+ *   - deux contrôles « aucun chiffre écrit à la main » qui ne cherchaient que des chiffres, et
+ *     laissaient passer « seven gates » sur une page qui en dessine six ;
+ *   - l'audit de figures qui n'inspectait que `figure.graphe svg`, laissant les tableaux de
+ *     barres en HTML hors du contrôle **et** dans le compte du succès ;
+ *   - `liaison.test.mjs`, qui promet « aucun serveur » et ne balayait que les `.mjs`
+ *     d'`identite` — il n'a jamais vu les onze `server.ts` des dépôts, dont un écoutait sur
+ *     toutes les interfaces ;
+ *   - `registre.test.ts`, intitulé « les couches partagées », qui en comparait deux sur
+ *     quatorze ;
+ *   - `bilan.test.mjs`, qui promet « cette couche » et regardait trois fichiers ;
+ *   - `ecran.test.ts`, qui lisait `ui.html` par convention et serait devenu muet le jour où un
+ *     dépôt renomme sa page.
+ *
+ * Six fois, le défaut n'était pas dans le fichier contrôlé : il était dans **ce que le
+ * contrôle balayait**. Aucun ne tombait, tous étaient verts, et chacun promettait plus large
+ * que ce qu'il regardait.
+ *
+ * Ce fichier existe pour que le septième ne dorme pas six mois. La question qu'il pose est la
+ * seule mécanisable des trois qu'on se pose à la main : **ce contrôle porte-t-il une liste de
+ * fichiers ou de dépôts écrite en dur ?** Une telle liste est suspecte par construction — elle
+ * fige un périmètre au lieu de le lire — et doit donc soit disparaître au profit du disque,
+ * soit porter sa justification écrite.
+ *
+ * Il ne prétend pas juger si un contrôle est assez large : ça, ça se lit. Il garantit qu'on
+ * ait décidé, et qu'on retrouve pourquoi.
+ */
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+
+/*
+ * ─── CE FICHIER A EU LE DÉFAUT QU'IL CHASSE, DEUX FOIS ───
+ *
+ * La première : son cas « un balayage refuse de conclure sur une liste vide » exigeait
+ * `.length` sur la ligne même du `assert.ok` — une **forme**, pas une propriété — et accusait
+ * deux contrôles qui comptent en deux temps et ont bel et bien leur témoin.
+ *
+ * La seconde : il ne tournait que dans `identite`. Il lisait `depots.json`, qui n'existe que
+ * là, et se serait tu partout ailleurs — alors que les douze dépôts portent chacun leur suite.
+ * Un gardien des périmètres dont le périmètre est un seul dossier est exactement la chose
+ * qu'il refuse aux autres. Il est donc recopié dans chaque dépôt et regarde le sien.
+ */
+const ICI = new URL(".", import.meta.url).pathname;
+const MARQUE = "liste-figee:";
+
+/** La liste des dépôts vit dans `identite` ; un dépôt cloné seul n'y a pas accès. */
+const LISTE = new URL("../../identite/depots.json", import.meta.url).pathname;
+
+const tests = readdirSync(ICI, { withFileTypes: true })
+  .filter((e) => e.isFile() && /\.test\.(mjs|ts)$/.test(e.name) && e.name !== "gardiens.test.mjs")
+  .map((e) => e.name).sort();
+
+const reels = new Set(readdirSync(ICI, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name));
+const depots = new Set(
+  existsSync(ICI + "depots.json") ? JSON.parse(readFileSync(ICI + "depots.json", "utf8")).diffusion
+  : existsSync(LISTE) ? JSON.parse(readFileSync(LISTE, "utf8")).diffusion
+  : []);
+
+test("le relevé porte sur des contrôles — sinon il ne prouve rien", () => {
+  assert.ok(tests.length >= 3, `seulement ${tests.length} fichier(s) de test balayé(s) dans ${ICI}`);
+  assert.ok(reels.size >= 8, `${reels.size} fichier(s) connus dans ${ICI} : le relevé ne lit rien`);
+  /*
+   * Les dépôts ne se connaissent que si `identite` est un voisin. Un dépôt cloné seul reste
+   * contrôlable sur ses fichiers ; on dit alors ce qu'on ne peut pas voir, plutôt que de
+   * rendre un vert qui vaudrait pour moins.
+   */
+  if (depots.size === 0) {
+    console.log(`  (${ICI.split("/").filter(Boolean).slice(-2).join("/")} : identite absent, `
+      + `les listes de dépôts ne sont pas reconnues — seules celles de fichiers le sont)`);
+  }
+});
+
+/**
+ * Les listes littérales qui nomment de vrais fichiers de la couche ou de vrais dépôts.
+ *
+ * Deux noms au moins, et deux qui existent : un tableau de chaînes quelconques est un
+ * montage d'essai, pas un périmètre. C'est ce qui distingue `["outil", "autre"]` — de faux
+ * dépôts dans un arbre temporaire — de `["registre.css", "graphes.js"]`, qui décide de ce
+ * qu'un contrôle regarde vraiment.
+ */
+function listesFigees(nom) {
+  const brut = readFileSync(ICI + nom, "utf8");
+  const sansCommentaires = brut.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/^\s*\/\/.*$/gm, "");
+  const trouvees = [];
+  for (const m of sansCommentaires.matchAll(/\[((?:\s*"[^"]+"\s*,?){2,})\]/g)) {
+    const items = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    if (items.filter((x) => reels.has(x) || depots.has(x)).length < 2) continue;
+    const ligne = sansCommentaires.slice(0, m.index).split("\n").length;
+    trouvees.push({ ligne, items });
+  }
+  return { trouvees, brut };
+}
+
+test("toute liste de fichiers ou de dépôts écrite en dur porte sa justification", () => {
+  /*
+   * La marque se cherche dans les douze lignes qui précèdent, commentaires compris — c'est là
+   * qu'on explique une décision, et l'exiger sur la ligne même rendrait le code illisible.
+   */
+  const nus = [];
+  let vues = 0;
+  for (const nom of tests) {
+    const { trouvees, brut } = listesFigees(nom);
+    const lignes = brut.split("\n");
+    for (const { ligne, items } of trouvees) {
+      vues++;
+      const avant = lignes.slice(Math.max(0, ligne - 13), ligne).join("\n");
+      if (!avant.includes(MARQUE)) nus.push(`${nom}:${ligne} → ${items.slice(0, 4).join(", ")}`);
+    }
+  }
+  /*
+   * ─── LE TÉMOIN, ET LA TROISIÈME FOIS QUE CE FICHIER A EU SON PROPRE DÉFAUT ───
+   *
+   * Il exigeait `vues > 0` : au moins une liste figée trouvée, sinon « le motif est périmé ».
+   * Vrai dans `identite`, où cinq existent. Faux partout ailleurs — neuf dépôts sur dix n'en
+   * portent aucune, ce qui est le bon état, et le contrôle les accusait tous.
+   *
+   * Un témoin ne doit pas exiger que le défaut existe : il doit prouver que **le détecteur
+   * voit**. On le lui montre donc sur un échantillon fabriqué ici même, dont on connaît la
+   * réponse. Zéro liste figée devient alors ce que c'est : un dépôt propre.
+   */
+  const echantillon = `const x = [${[...reels].slice(0, 2).map((f) => `"${f}"`).join(", ")}];`;
+  const vu = [...echantillon.matchAll(/\[((?:\s*"[^"]+"\s*,?){2,})\]/g)]
+    .map((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]))
+    .filter((items) => items.filter((x) => reels.has(x) || depots.has(x)).length >= 2);
+  assert.equal(vu.length, 1,
+    `le détecteur ne reconnaît plus une liste figée qu'on lui montre : ${echantillon}\n`
+    + `  → le motif de recherche est périmé, et un zéro rendu par ce cas ne prouverait rien.`);
+  assert.deepEqual(nus, [],
+    `${nus.length} liste(s) figée(s) sans justification :\n  ${nus.join("\n  ")}\n`
+    + `  → soit la déduire du disque, soit écrire au-dessus un commentaire « ${MARQUE} <raison> ».\n`
+    + `  → six contrôles trop étroits ont été trouvés le 21 août 2026, tous verts, tous`
+    + ` promettant plus large que ce qu'ils regardaient.`);
+});
+
+test("les contrôles qui déduisent leur liste du disque le font vraiment", () => {
+  /*
+   * L'autre moitié : un contrôle peut prétendre déduire et lire un seul fichier. On exige que
+   * ceux qui balaient un dossier passent par `readdirSync` — et qu'ils refusent de conclure
+   * sur une liste vide, ce qui est le défaut jumeau : une boucle sur zéro élément passe
+   * exactement comme un portefeuille sain.
+   */
+  const sansTemoin = [];
+  for (const nom of tests) {
+    const brut = readFileSync(ICI + nom, "utf8");
+    if (!/readdirSync\(/.test(brut)) continue;
+    /*
+     * La propriété, pas la forme. La première version de ce cas exigeait `.length` sur la
+     * ligne même du `assert.ok`, et accusait `ecran.test.ts` et `liaison.test.ts` qui
+     * comptent en deux temps — `const n = ecrans().length;` puis `assert.ok(n >= 1, …)`.
+     * Un gardien qui impose une écriture plutôt qu'un résultat est exactement le défaut qu'il
+     * est venu chasser, et il l'a eu dès sa première exécution.
+     */
+    if (!/assert\.ok\([^;]*?(?:>=|>)\s*\d/s.test(brut)) sansTemoin.push(nom);
+  }
+  assert.deepEqual(sansTemoin, [],
+    `${sansTemoin.join(", ")} balaie(nt) un dossier sans exiger que le relevé soit non vide :\n`
+    + `  → ajouter un cas qui tombe quand la liste est vide. Un zéro non prouvé se lit comme`
+    + ` un succès.`);
+});
+
+test("aucun contrôle ne s'est mis à lire le vrai arbre des dépôts sans le dire", () => {
+  /*
+   * Un contrôle qui écrit dans `~/Documents` depuis un cas d'essai peut abîmer douze dépôts.
+   * `diffuser.test.mjs` porte `horsDuVrai()` pour ça ; ce cas vérifie que tout fichier qui
+   * remonte au-dessus d'`identite` porte la même précaution ou ne fait que lire.
+   */
+  const risques = [];
+  for (const nom of tests) {
+    const brut = readFileSync(ICI + nom, "utf8");
+    const remonte = /new URL\("\.\.\/\.\.\//.test(brut) || /VOISINS/.test(brut);
+    const ecrit = /writeFileSync\(|cpSync\(|rmSync\(/.test(brut);
+    if (remonte && ecrit && !/horsDuVrai|tmpdir\(\)/.test(brut)) risques.push(nom);
+  }
+  assert.deepEqual(risques, [],
+    `${risques.join(", ")} remonte(nt) au-dessus d'identite et écrit(vent) sans garde-fou`);
+});
