@@ -106,6 +106,58 @@ function shimDe(html: string): string {
   return html.slice(debut < 0 ? 0 : debut, fin < 0 ? html.length : fin);
 }
 
+test("la page publiée ne révèle aucun chemin ni adresse de la machine qui l'a construite", (t) => {
+  /*
+   * ─── CE QU'UNE PAGE DIT SANS LE DIRE ───
+   *
+   * Le 22 août 2026, la démo publique de la recherche documentaire posait
+   * `~/Documents/rag/corpus` dans un champ : le chemin local du corpus, et le nom du dépôt
+   * qu'on garde privé, lisibles par quiconque ouvrait la page. Elle ne servait à rien là-bas —
+   * le shim rend `demo_fixe` pour cette route sans jamais lire la valeur — et la page portait
+   * déjà, deux cents lignes plus haut, un espace réservé neutre pour le même champ. Une ligne
+   * d'essai local partie en production.
+   *
+   * Ce n'était le secret de personne, et c'est le point : ce genre de fuite n'a pas besoin
+   * d'être grave pour être gênant. Elle dit qui a construit la page, comment son disque est
+   * rangé, et le nom de ce qu'il ne publie pas.
+   *
+   * Les motifs cherchés sont ceux qu'une page publiée n'a aucune raison de porter. Les liens
+   * vers `localhost` et la boucle locale en font partie : dans une démo statique ils ne
+   * mènent nulle part chez le lecteur, et ils trahissent un montage de développement.
+   */
+  if (!existsSync(page)) return t.skip("docs/index.html absent — lancer `npm run pages`");
+  const html = readFileSync(page, "utf8");
+
+  const MOTIFS: [string, RegExp][] = [
+    ["chemin d'un compte système", /\/(?:Users|home)\/[A-Za-z0-9._-]+/g],
+    ["chemin de dossier personnel", /~\/[A-Za-z0-9._\/-]+/g],
+    ["dossier temporaire", /\/(?:private\/)?tmp\/[A-Za-z0-9._-]+/g],
+    ["adresse de boucle locale", /\b(?:127\.0\.0\.1|localhost)(?::\d+)?/g],
+    ["adresse de réseau privé", /\b(?:192\.168|10\.\d+|172\.(?:1[6-9]|2\d|3[01]))\.\d+\.\d+/g],
+    ["nom d'hôte local", /\b[A-Za-z0-9-]+\.local\b/g],
+  ];
+
+  /*
+   * Le témoin, avant le verdict : on montre au détecteur une page fabriquée qui porte
+   * exactement ce qu'il cherche. Un zéro rendu par un motif périmé ne se distingue pas d'un
+   * zéro rendu par une page propre.
+   */
+  const fabriquee = "<p>/Users/quelquun/Documents/x ~/Documents/y http://127.0.0.1:8000 machine.local</p>";
+  const vus = MOTIFS.filter(([, r]) => new RegExp(r.source).test(fabriquee)).length;
+  assert.ok(vus >= 4,
+    `le détecteur ne reconnaît que ${vus} motif(s) sur une page fabriquée qui les porte tous : `
+    + `les motifs sont périmés, et un zéro ne prouverait rien`);
+
+  const fuites: string[] = [];
+  for (const [quoi, motif] of MOTIFS) {
+    for (const m of html.matchAll(motif)) fuites.push(`${quoi} : ${m[0]}`);
+  }
+  assert.deepEqual([...new Set(fuites)], [],
+    `la page publiée révèle la machine qui l'a construite :\n  ${[...new Set(fuites)].join("\n  ")}\n`
+    + `  → remplacer par une valeur relative ou un espace réservé neutre.\n`
+    + `  → ${MOTIFS.length} motif(s) cherchés sur ${html.length} octets de page.`);
+});
+
 test("le shim répond avec tous les champs que l'écran lit", (t) => {
   if (!existsSync(page)) return t.skip("docs/index.html absent");
   const html = readFileSync(page, "utf8");
