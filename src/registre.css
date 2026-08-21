@@ -308,7 +308,13 @@ h2 {
 
 /* ─────────────────────────── tableaux ─────────────────────────── */
 
-.defile { overflow-x: auto; margin: 4px -4px 0; padding: 0 4px; }
+/* Le rembourrage laisse la place à l'ombre de défilement et à l'anneau de focus. Il était
+   compensé par des marges négatives de -4px, pour que la figure aille bord à bord — ce qui
+   marche tant que le parent a du rembourrage pour absorber le débordement. `figure.graphe`
+   n'en a pas : l'élément sortait de 8px et la page défilait horizontalement, sur toutes les
+   démos publiées et pas seulement celle qui l'a révélé. Huit pixels de largeur ne valent pas
+   une barre de défilement parasite. */
+.defile { overflow-x: auto; margin: 4px 0 0; padding: 0 4px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th {
   text-align: right; font: 600 11.5px/1.3 var(--police); letter-spacing: .05em;
