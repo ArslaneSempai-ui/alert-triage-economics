@@ -177,6 +177,26 @@ writeFileSync(temp + "index.html", readFileSync(temp + "index.html", "utf8") + A
  * Une panne qui n'arrive qu'une fois sur trois est pire qu'une panne franche : on la met sur
  * le compte du hasard, et on cesse de croire le contrôle qui la signale.
  */
+/*
+ * UN JETON, PARCE QUE « QUELQUE CHOSE RÉPOND » N'EST PAS « NOTRE SERVEUR RÉPOND ».
+ *
+ * L'attente demandait `index.html` sur le port tiré et concluait que le serveur était prêt
+ * dès qu'on lui répondait. Or si un serveur abandonné occupe déjà ce port, python n'arrive
+ * pas à s'y lier et meurt — mais la requête réussit quand même, servie par l'autre. La
+ * vérification auditait alors la page de quelqu'un d'autre, et son verdict portait sur un
+ * dossier temporaire qui n'était pas le sien.
+ *
+ * C'est arrivé le 21 août 2026 : `derive` a été déclaré fautif avec quatre défauts qui
+ * étaient ceux du montage d'essai de `verifier-ecran.test.mjs`, encore servi par un serveur
+ * abandonné. Relancé seul, `derive` passait. Une panne qui n'arrive que lorsqu'un autre
+ * processus traîne est pire qu'une panne franche : on accuse le mauvais dépôt.
+ *
+ * On écrit donc un jeton dans notre copie et on attend de le relire. Un serveur qui répond
+ * sans le connaître n'est pas le nôtre.
+ */
+const JETON = `jeton-${process.pid}-${Date.now()}`;
+writeFileSync(temp + "jeton.txt", JETON);
+
 let port = 0, serveur = null;
 for (let essai = 0; essai < 20 && !serveur; essai++) {
   port = 8600 + Math.floor(Math.random() * 900);
@@ -187,7 +207,9 @@ for (let essai = 0; essai < 20 && !serveur; essai++) {
   const vivant = (() => {
     try {
       execFileSync("bash", ["-c",
-        `for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:${port}/index.html && exit 0; sleep 0.1; done; exit 1`]);
+        `for i in $(seq 1 30); do `
+        + `[ "$(curl -sf http://127.0.0.1:${port}/jeton.txt)" = "${JETON}" ] && exit 0; `
+        + `sleep 0.1; done; exit 1`]);
       return true;
     } catch { return false; }
   })();
@@ -259,12 +281,25 @@ try {
       soucis.push(`la section #${id} est vide`);
     }
   }
+  /*
+   * `process.exitCode`, PAS `process.exit()` — le `finally` en dépend.
+   *
+   * `process.exit()` termine immédiatement : les blocs `finally` ne s'exécutent pas. Le
+   * serveur python et le dossier temporaire fuyaient donc à **chaque exécution en échec**, et
+   * uniquement en échec — ce qui les rendait invisibles tant que tout passait.
+   *
+   * Relevé le 21 août 2026 : cent quarante-huit serveurs abandonnés vivants sur cette
+   * machine, dont cent dix-huit liés à toutes les interfaces parce qu'ils avaient été lancés
+   * avant le correctif du matin. Le plus ancien tournait depuis le 18 août. Corriger le code
+   * ne ferme pas les processus déjà lancés : c'est une leçon à part entière.
+   */
   if (soucis.length) {
     console.error("l'écran construit ne s'affiche pas correctement :");
     for (const s of soucis) console.error(`  ${s}`);
-    process.exit(1);
+    process.exitCode = 1;
+  } else {
+    console.log(`écran vérifié — ${figures} figure(s) rendues, ${auditees} inspectée(s)`);
   }
-  console.log(`écran vérifié — ${figures} figure(s) rendues, ${auditees} inspectée(s)`);
 } finally {
   serveur.kill();
   rmSync(temp, { recursive: true, force: true });
