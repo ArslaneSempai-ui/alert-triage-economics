@@ -22,7 +22,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const racine = new URL("..", import.meta.url).pathname;
@@ -105,6 +105,49 @@ function shimDe(html: string): string {
   const fin = html.indexOf("</" + "script>", i);
   return html.slice(debut < 0 ? 0 : debut, fin < 0 ? html.length : fin);
 }
+
+test("la page contrôlée est celle que les sources produisent aujourd'hui", (t) => {
+  /*
+   * ─── LA CIBLE, PAS LA PORTÉE ───
+   *
+   * Le 22 août 2026, seize contrôles d'une page de vente ont lu pendant des heures un fichier
+   * figé à 22 h 30 pendant que la source était éditée. Six fois « tous les contrôles passent »
+   * a voulu dire « l'ancienne page passe toujours ». Ce n'est pas un contrôle trop étroit ni
+   * un motif qui rate un cas : c'est la **cible** qui était fausse, et aucun élargissement de
+   * portée ne l'aurait attrapé.
+   *
+   * La même forme existe ici : `npm test` ne lance pas `npm run pages`. Relevé le même jour,
+   * sept pages sur dix étaient plus anciennes qu'une de leurs sources.
+   *
+   * Un avertissement ne suffirait pas — un vert rendu après cette ligne ne vaut rien, donc on
+   * s'arrête.
+   *
+   * liste-figee: les fichiers qui **produisent** la page. Elle ne se déduit pas du disque :
+   * `verifier-ecran.mjs` et `capturer.mjs` vivent dans le même dossier et ne produisent rien,
+   * ils contrôlent. Les inscrire ferait refuser la suite à chaque diffusion de la couche, et
+   * un garde-fou qui crie sans raison finit désactivé.
+   */
+  const PRODUISENT = ["ui.html", "gabarit.html", "pages.ts", "registre.css", "graphes.js"];
+  if (!existsSync(page)) return t.skip("docs/index.html absent — lancer `npm run pages`");
+
+  const quand = (f: string) => statSync(f).mtimeMs;
+  const datePage = quand(page);
+  const sources = PRODUISENT
+    .map((f) => racine + "src/" + f)
+    .filter((f) => existsSync(f));
+
+  assert.ok(sources.length > 0,
+    `aucune des sources déclarées n'existe dans ${racine}src/ : la liste est périmée, et un `
+    + `vert rendu ici ne dirait rien`);
+
+  const plusRecentes = sources.filter((f) => quand(f) > datePage)
+    .map((f) => f.split("/").pop()!);
+  assert.deepEqual(plusRecentes, [],
+    `la page contrôlée est plus ancienne que ${plusRecentes.join(", ")} — lancer \`npm run pages\`.\n`
+    + `  → tout ce que les cas suivants diront porte sur une page que personne n'a reconstruite.\n`
+    + `  → la date suffit à décider : une reconstruction inutile coûte une commande, un vert sur`
+    + ` l'ancienne page coûte le travail qu'on croit vérifié.`);
+});
 
 test("la page publiée ne révèle aucun chemin ni adresse de la machine qui l'a construite", (t) => {
   /*
