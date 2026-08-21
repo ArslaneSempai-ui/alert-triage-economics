@@ -166,6 +166,68 @@ test("les contrôles qui déduisent leur liste du disque le font vraiment", () =
     + ` un succès.`);
 });
 
+test("la commande de test ne laisse tomber aucun fichier de contrôle", () => {
+  /*
+   * ─── LE VERT VIDE LE PLUS COMPLET : UN FICHIER QUI NE TOURNE JAMAIS ───
+   *
+   * `gardiens.test.mjs` a été écrit, diffusé et commité dans dix dépôts le 21 août 2026, et il
+   * n'a été exécuté dans aucun : leur commande était `node --test src/*.test.ts`, et ce motif
+   * n'attrape pas `.mjs`. Un fichier non exécuté ne produit ni sortie ni erreur — il est
+   * indiscernable d'un fichier qui passe. Quarante contrôles ont dormi ainsi, et c'était
+   * précisément le fichier chargé de vérifier que les autres regardent quelque chose.
+   *
+   * Un motif de fichiers dans une commande est une liste écrite en dur, et elle se
+   * désynchronise du disque en silence — la même famille que tout ce que ce fichier garde.
+   * On la compare donc au disque à chaque exécution.
+   *
+   * liste-figee: les fichiers qu'un lanceur a le droit de ne pas prendre. Les quatre de
+   * `identite` sont des **gabarits destinés aux dépôts** : ils lisent le `docs/`, le `src/` ou
+   * le `README` du dépôt où ils sont recopiés, et n'ont pas d'objet à la source. Vérifié le
+   * 22 août 2026 en les lançant : `demo.test.ts` ne trouve rien à faire, `ecran.test.ts` et
+   * `registre.test.ts` échouent faute de dépôt autour d'eux.
+   */
+  const EXCLUS = {
+    "demo.test.ts": "gabarit : lit le docs/ du dépôt où il est recopié, sans objet à la source",
+    "ecran.test.ts": "gabarit : lit les .html du dépôt, absents de la source",
+    "registre.test.ts": "gabarit : compare le src/ du dépôt à la source, sans objet à la source",
+  };
+
+  const pkgChemin = existsSync(ICI + "package.json") ? ICI + "package.json" : ICI + "../package.json";
+  if (!existsSync(pkgChemin)) return;   /* un dossier sans paquet n'a pas de lanceur à juger */
+  const cmd = JSON.parse(readFileSync(pkgChemin, "utf8")).scripts?.test ?? "";
+  const motifs = [...cmd.matchAll(/node --test ([^&|;]+)/g)].flatMap((m) => m[1].trim().split(/\s+/));
+  assert.ok(motifs.length > 0, `le script de test ne lance pas node --test : ${cmd}`);
+
+  /* Ce que le motif prend, calculé sur les noms plutôt que par le shell. */
+  const enRegex = (m) => new RegExp("^" + m.split("/").pop()
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
+  const pris = new Set();
+  for (const m of motifs) {
+    for (const e of readdirSync(ICI, { withFileTypes: true })) {
+      if (e.isFile() && enRegex(m).test(e.name)) pris.add(e.name);
+    }
+  }
+
+  /*
+   * ─── ET CE CONTRÔLE NE POUVAIT PAS SE VOIR LUI-MÊME ───
+   *
+   * `tests` exclut `gardiens.test.mjs` : les autres cas de ce fichier examinent les *autres*
+   * contrôles, et s'y inclure n'aurait pas de sens. Mais ici c'est le contraire — le fichier
+   * qui a réellement été laissé de côté par les lanceurs, c'est celui-ci. Première version de
+   * ce cas : rétrécir le motif d'un dépôt à `src/*.test.ts` ne le faisait pas tomber, parce
+   * qu'il ne se comptait pas parmi les fichiers à lancer. Un gardien aveugle à sa propre
+   * absence est la forme la plus achevée du vert vide.
+   */
+  const tousLesFichiers = readdirSync(ICI, { withFileTypes: true })
+    .filter((e) => e.isFile() && /\.test\.(mjs|ts)$/.test(e.name)).map((e) => e.name).sort();
+  const laisses = tousLesFichiers.filter((f) => !pris.has(f) && !(f in EXCLUS));
+  assert.deepEqual(laisses, [],
+    `${laisses.join(", ")} ne sont lancés par aucun motif de « ${cmd} » :\n`
+    + `  → élargir le motif, ou déclarer le fichier dans EXCLUS avec sa raison.\n`
+    + `  → un fichier de contrôle non exécuté ne produit ni sortie ni erreur : il ressemble`
+    + ` exactement à un fichier qui passe.`);
+});
+
 test("aucun contrôle ne s'est mis à lire le vrai arbre des dépôts sans le dire", () => {
   /*
    * Un contrôle qui écrit dans `~/Documents` depuis un cas d'essai peut abîmer douze dépôts.
