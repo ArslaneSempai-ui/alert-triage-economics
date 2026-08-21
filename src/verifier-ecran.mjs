@@ -36,6 +36,32 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
  *
  * Ni accent grave ni séquence d'échappement ici : ce bloc vit dans un gabarit.
  */
+/*
+ * POURQUOI LE BLOC CI-DESSOUS NE PORTE PAS D'APOSTROPHE.
+ *
+ * Il est fait de littéraux entre guillemets simples, et `bilan.test.mjs` les recompose pour
+ * vérifier que le script injecté parse — une virgule oubliée ici n'est visible nulle part
+ * ailleurs. Une apostrophe française dans un commentaire ferme le littéral aux yeux de cet
+ * extracteur, et le test accuse alors un script parfaitement valide. Les explications longues
+ * vivent donc ici, au-dessus, et le bloc ne porte que des notes sans apostrophe.
+ *
+ * UN ÉLÉMENT QUI SORT DE SON PARENT — et non la page qui défile.
+ *
+ * Le contrôle `documentElement.scrollWidth` existait déjà quand `.defile` a reçu
+ * `margin: 4px -4px 0`. Il n'a rien vu, et il avait raison : mesuré le 21 août 2026 sur
+ * `cycle/docs/index.html`, ancien et nouveau CSS servis côte à côte, de 320 px à 1100 px de
+ * large, le document ne défile **jamais** — les conteneurs parents absorbent le débordement.
+ * Ce qui existait bel et bien, c'est cinq éléments sortant de 8 px de leur `figure.graphe` ou
+ * de leur `details`, à toutes les largeurs, et retombant à 0 après correction.
+ *
+ * Le symptôme cherché n'était donc pas le bon. Un contrôle écrit sur « la page défile »
+ * serait resté vert sur le défaut même qui l'a commandé — la forme la plus coûteuse du vert
+ * vide, celle qu'on croit avoir fermée.
+ *
+ * Ce qu'on regarde : la boîte de l'enfant dépasse celle du parent. On saute les parents qui
+ * défilent ou qui coupent — chez eux le dépassement est le mécanisme, pas la panne — et les
+ * enfants sortis du flux, dont la position ne se compare pas à celle du parent.
+ */
 const AUDIT = '<' + 'script>\n'
   + 'window.addEventListener("load", function () { setTimeout(function () {\n'
   + '  var soucis = [];\n'
@@ -74,6 +100,24 @@ const AUDIT = '<' + 'script>\n'
   + '    var st = getComputedStyle(el);\n'
   + '    if (st.overflowX === "auto" || st.overflowX === "scroll") continue;\n'
   + '    soucis.push("contenu coupe sans defilement : " + el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (typeof el.className === "string" && el.className.trim() ? "." + el.className.trim().split(/\\s+/).join(".") : "") + " (" + el.scrollWidth + "px dans " + el.clientWidth + "px)");\n'
+  + '    break;\n'
+  + '  }\n'
+  /* Boite de lenfant hors de celle du parent : voir la note au-dessus de AUDIT. */
+  + '  var horsCadre = document.querySelectorAll("body *:not(svg):not(svg *)");\n'
+  + '  for (var p = 0; p < horsCadre.length; p++) {\n'
+  + '    var enf = horsCadre[p], par = enf.parentElement;\n'
+  + '    if (!par || par === document.body || par === document.documentElement) continue;\n'
+  + '    var sp = getComputedStyle(par);\n'
+  + '    if (sp.overflowX !== "visible" || sp.overflowY !== "visible") continue;\n'
+  + '    var se = getComputedStyle(enf);\n'
+  + '    if (se.position === "absolute" || se.position === "fixed") continue;\n'
+  + '    var re = enf.getBoundingClientRect(), rp = par.getBoundingClientRect();\n'
+  + '    if (re.width === 0 || rp.width === 0) continue;\n'
+  + '    var sortie = Math.round(Math.max(0, rp.left - re.left) + Math.max(0, re.right - rp.right));\n'
+  + '    if (sortie <= 1) continue;\n'
+  + '    var quoi = function (e) { return e.tagName.toLowerCase() + (e.id ? "#" + e.id : "")\n'
+  + '      + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\\s+/).join(".") : ""); };\n'
+  + '    soucis.push("element hors de son parent : " + quoi(enf) + " sort de " + sortie + "px de " + quoi(par));\n'
   + '    break;\n'
   + '  }\n'
   + '  document.documentElement.setAttribute("data-figures-auditees", String(figures.length));\n'
