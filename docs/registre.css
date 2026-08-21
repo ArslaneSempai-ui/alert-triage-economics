@@ -311,9 +311,23 @@ h2 {
 /* Le rembourrage laisse la place à l'ombre de défilement et à l'anneau de focus. Il était
    compensé par des marges négatives de -4px, pour que la figure aille bord à bord — ce qui
    marche tant que le parent a du rembourrage pour absorber le débordement. `figure.graphe`
-   n'en a pas : l'élément sortait de 8px et la page défilait horizontalement, sur toutes les
-   démos publiées et pas seulement celle qui l'a révélé. Huit pixels de largeur ne valent pas
-   une barre de défilement parasite. */
+   n'en a pas : l'élément sortait de 8px hors de sa figure.
+
+   MESURÉ le 21 août 2026, parce que la première version de ce commentaire affirmait autre
+   chose. Sur `cycle/docs/index.html`, ancienne et nouvelle feuille servies côte à côte, de
+   320px à 1100px de large : cinq éléments sortent de 8px de leur `figure.graphe` ou de leur
+   `details`, à toutes les largeurs, et retombent à 0px une fois les marges retirées. En
+   revanche `documentElement.scrollWidth - clientWidth` vaut **0 partout, avant comme après** :
+   la page ne défilait pas horizontalement. Les conteneurs parents absorbent les 8px.
+
+   La distinction n'est pas de la pédanterie. Écrit « la page défile », le contrôle qu'on en
+   déduit guette un symptôme qui ne s'est jamais produit — et reste vert sur le défaut même
+   qui l'a commandé. C'est ce qui est arrivé : `verifier-ecran.mjs` testait déjà
+   `documentElement.scrollWidth` avant ce bogue et n'a rien vu, à juste titre. Le contrôle qui
+   l'attrape compare la boîte de l'enfant à celle du parent, et il a fallu la mesure pour
+   savoir lequel écrire.
+
+   Huit pixels de largeur ne valent pas un élément qui sort de son cadre. */
 .defile { overflow-x: auto; margin: 4px 0 0; padding: 0 4px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th {
