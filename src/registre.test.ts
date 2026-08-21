@@ -13,7 +13,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 
 const racine = new URL("..", import.meta.url).pathname;
 const css = () => readFileSync(racine + "src/registre.css", "utf8");
@@ -78,10 +78,48 @@ test("les couches partagées sont bien celles d'identite", () => {
    * oubliée dans un dépôt est un contrôle qui passe au vert sur un fichier que personne ne
    * regarde — c'est déjà arrivé avec la démo du RAG, deux versions en retard.
    */
+  /*
+   * ─── ÉLARGI le 21 août 2026 : deux fichiers sur quatorze ───
+   *
+   * Ce cas s'intitulait déjà « les couches partagées » et n'en comparait que deux :
+   * `registre.css` et `graphes.js`. Les douze autres — dont `capturer.mjs`,
+   * `verifier-ecran.mjs`, `interval.ts`, `cli.ts` — pouvaient diverger dans un dépôt sans que
+   * son `npm test` en dise un mot. `diffuser --check` l'aurait vu, mais lui ne tourne que
+   * depuis `identite`, et personne ne le lance depuis un dépôt.
+   *
+   * C'est le motif de la journée, rencontré trois fois : le défaut n'est pas dans le fichier,
+   * il est dans le **périmètre du gardien**. Un contrôle dont le titre promet la couche et
+   * dont le corps regarde deux fichiers est un vert qui ne veut rien dire.
+   *
+   * La liste ne se code plus en dur : elle se déduit du disque — tout fichier de code présent
+   * des deux côtés est une copie de la couche, par définition. Ce qui reste déclaré, c'est
+   * l'exception, et elle porte sa raison et sa date.
+   */
   const source = new URL("../../identite/", import.meta.url).pathname;
   if (!existsSync(source + "registre.css")) return; // dépôt cloné seul : rien à comparer
-  for (const f of ["registre.css", "graphes.js"]) {
-    assert.equal(readFileSync(racine + "src/" + f, "utf8"), readFileSync(source + f, "utf8"),
-      `src/${f} a divergé de identite/${f} — recopier plutôt que corriger sur place`);
-  }
+
+  /** Les gabarits : partagés d'origine, adaptés ensuite, donc divergents par construction. */
+  const ADAPTES: Record<string, string> = {
+    "baselines.ts": "chaque outil compare à la référence triviale de SON domaine (depuis le 2026-08-19)",
+  };
+
+  const partages = readdirSync(source, { withFileTypes: true })
+    .filter((e) => e.isFile() && /\.(ts|mjs|js|css)$/.test(e.name) && !/\.test\.mjs$/.test(e.name))
+    .map((e) => e.name)
+    .filter((nom) => !(nom in ADAPTES) && existsSync(racine + "src/" + nom))
+    .sort();
+
+  /*
+   * Le témoin, avant le verdict. Une boucle sur une liste vide passe toujours, et rendrait ce
+   * cas vert dans un dépôt qui aurait perdu toute la couche.
+   */
+  assert.ok(partages.length >= 5,
+    `seulement ${partages.length} fichier(s) partagé(s) trouvé(s) entre identite/ et src/ : `
+    + `ce n'est pas un dépôt en ordre, c'est un relevé qui ne lit rien`);
+
+  const divergents = partages.filter(
+    (f) => readFileSync(racine + "src/" + f, "utf8") !== readFileSync(source + f, "utf8"));
+  assert.deepEqual(divergents, [],
+    `${divergents.join(", ")} ont divergé d'identite sur ${partages.length} fichier(s) comparé(s) `
+    + `— recopier avec \`node diffuser.mjs\` plutôt que corriger sur place`);
 });
