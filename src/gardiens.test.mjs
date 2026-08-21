@@ -228,6 +228,72 @@ test("la commande de test ne laisse tomber aucun fichier de contrôle", () => {
     + ` exactement à un fichier qui passe.`);
 });
 
+test("aucune classe ni identifiant n'est cherché sans être posé quelque part", () => {
+  /*
+   * ─── UNE CLASSE LUE ET JAMAIS POSÉE ───
+   *
+   * Le 22 août 2026, la démo de tri KYC était cassée au premier clic : `brancher()` lisait
+   * `bloc.querySelector(".motif-champ")` pour récupérer le motif tapé par l'analyste, et
+   * aucun élément ne portait cette classe — l'input existait mais s'appelait `champ`.
+   * `champ.value` levait, et le JavaScript de la page mourait au premier geste du visiteur.
+   * Vingt-cinq dossiers sur vingt-cinq, soixante-quinze boutons sur soixante-quinze.
+   *
+   * Le défaut a une signature mécanique : **la classe apparaissait exactement une fois dans
+   * tout le dépôt, dans le sélecteur qui la cherche**. Le code demandait une chose que rien
+   * ne produit. Ça ne se devine pas, ça se compte — et un comptage se met dans un gardien.
+   *
+   * Trois précautions, sans lesquelles ce cas serait le rouge vide suivant :
+   *
+   *   - une classe posée **dynamiquement** compte comme posée : `classList.add("x")`,
+   *     `className = "… x …"`, un `class="…"` dans un gabarit. La règle ne demande pas où
+   *     elle est posée, seulement qu'elle le soit ailleurs que dans la lecture.
+   *   - les sélecteurs **construits** — concaténés, interpolés — ne s'analysent pas
+   *     statiquement. Ils sont comptés à part et annoncés, jamais ignorés en silence.
+   *   - les **commentaires sont retirés** avant de compter. Première version de ce cas : il
+   *     ne tirait pas sur `motif-champ` cassé, parce que la note que j'avais écrite pour
+   *     expliquer la panne mentionnait la classe et suffisait à la faire passer pour posée.
+   *     Une note qui parle d'une classe ne la pose pas.
+   */
+  const LECTURE = /(?:querySelectorAll|querySelector|getElementById|closest|matches)\(\s*([`"'])(.*?)\1\s*\)/g;
+  const CONSTRUIT = /(?:querySelectorAll|querySelector|getElementById|closest|matches)\(\s*(?:[`"'][^`"']*[`"']\s*\+|[A-Za-z_$])/g;
+
+  const sansCommentaires = (t) => t
+    .replace(/\/\*[\s\S]*?\*\//g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/^\s*\/\/.*$/gm, " ");
+
+  let corpus = "";
+  for (const e of readdirSync(ICI, { withFileTypes: true })) {
+    if (!e.isFile() || !/\.(ts|mjs|js|html)$/.test(e.name)) continue;
+    corpus += sansCommentaires(readFileSync(ICI + e.name, "utf8")) + "\n";
+  }
+
+  const construits = (corpus.match(CONSTRUIT) ?? []).length;
+  const jetons = new Map();
+  for (const m of corpus.matchAll(LECTURE)) {
+    if (m[2].includes("${")) continue;              /* interpolé : compté ci-dessus */
+    for (const t of m[2].matchAll(/[.#]([A-Za-z_][\w-]*)/g)) jetons.set(t[1], true);
+  }
+  if (jetons.size === 0) return;                    /* un dépôt sans sélecteur littéral */
+  assert.ok(jetons.size >= 3,
+    `seulement ${jetons.size} jeton(s) de sélecteur lus dans ${ICI} : le motif est périmé`);
+
+  const jamaisPoses = [];
+  for (const t of jetons.keys()) {
+    const partout = (corpus.match(new RegExp("\\b" + t.replace(/[-]/g, "\\-") + "\\b", "g")) ?? []).length;
+    let dansLecture = 0;
+    for (const m of corpus.matchAll(LECTURE)) {
+      dansLecture += (m[2].match(new RegExp("\\b" + t.replace(/[-]/g, "\\-") + "\\b", "g")) ?? []).length;
+    }
+    if (partout - dansLecture === 0) jamaisPoses.push(t);
+  }
+
+  assert.deepEqual(jamaisPoses, [],
+    `${jamaisPoses.join(", ")} : cherché(s) par un sélecteur et posé(s) nulle part.\n`
+    + `  → ${jetons.size} jeton(s) examiné(s), ${construits} sélecteur(s) construits non analysables.\n`
+    + `  → le code demande une chose que rien ne produit : le sélecteur rendra null, et la`
+    + ` première lecture de la valeur lèvera.`);
+});
+
 test("aucun contrôle ne s'est mis à lire le vrai arbre des dépôts sans le dire", () => {
   /*
    * Un contrôle qui écrit dans `~/Documents` depuis un cas d'essai peut abîmer douze dépôts.
