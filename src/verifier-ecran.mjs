@@ -62,12 +62,38 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
  * défilent ou qui coupent — chez eux le dépassement est le mécanisme, pas la panne — et les
  * enfants sortis du flux, dont la position ne se compare pas à celle du parent.
  */
+/*
+ * DEUX FORMES DE FIGURE, ET UNE SEULE ÉTAIT AUDITÉE.
+ *
+ * L'audit ne regardait que `figure.graphe svg`. Or les tableaux de barres du portfolio sont
+ * dessinés en HTML et CSS, pas en SVG : ce sont des `figure.graphe.barres` qui portent
+ * `role="img"` et leur `aria-label` sur la figure elle-même — le motif d'accessibilité correct
+ * pour un graphique non-SVG. Elles échappaient donc au contrôle *et* gonflaient le compte des
+ * figures rendues, ce qui rendait cinq dépôts rouges sur onze le 21 août 2026 alors que rien
+ * n'était cassé.
+ *
+ * Mesuré ce jour-là sur les neuf dépôts qui portent des figures : toute figure est une
+ * `figure.graphe`, `.barres` et `graphe > svg` se répartissent exactement le total dans
+ * chacun, aucune figure n'est sans nom accessible, et aucune n'est à la fois sans SVG et sans
+ * `role="img"`. Le défaut était dans le contrôle, pas dans les pages.
+ *
+ * Chaque forme est donc auditée selon sa nature, et une figure qui n'est ni l'une ni l'autre
+ * est signalée plutôt que comptée.
+ */
 const AUDIT = '<' + 'script>\n'
   + 'window.addEventListener("load", function () { setTimeout(function () {\n'
+  /* Deux formes de figure, voir la note au-dessus de AUDIT. */
   + '  var soucis = [];\n'
-  + '  var figures = document.querySelectorAll("figure.graphe svg");\n'
+  + '  var figures = document.querySelectorAll("figure");\n'
+  + '  var auditees = 0;\n'
   + '  for (var i = 0; i < figures.length; i++) {\n'
-  + '    var nom = figures[i].getAttribute("aria-label") || "";\n'
+  + '    var fig = figures[i], dessin = fig.querySelector("svg");\n'
+  + '    if (!dessin && fig.getAttribute("role") !== "img") {\n'
+  + '      soucis.push("figure ni dessinee ni annoncee : figure." + (fig.className || "sans-classe"));\n'
+  + '      continue;\n'
+  + '    }\n'
+  + '    auditees++;\n'
+  + '    var nom = dessin ? (dessin.getAttribute("aria-label") || "") : (fig.getAttribute("aria-label") || "");\n'
   + '    if (!nom.trim()) soucis.push("une figure sans nom accessible");\n'
   + '  }\n'
   + '  var prises = document.querySelectorAll(".carte-prise");\n'
@@ -120,7 +146,8 @@ const AUDIT = '<' + 'script>\n'
   + '    soucis.push("element hors de son parent : " + quoi(enf) + " sort de " + sortie + "px de " + quoi(par));\n'
   + '    break;\n'
   + '  }\n'
-  + '  document.documentElement.setAttribute("data-figures-auditees", String(figures.length));\n'
+  + '  document.documentElement.setAttribute("data-figures-vues", String(figures.length));\n'
+  + '  document.documentElement.setAttribute("data-figures-auditees", String(auditees));\n'
   + '  document.documentElement.setAttribute("data-audit", soucis.length ? soucis.join(" | ") : "ok");\n'
   + '}, 250); });\n'
   + '<' + '/script>\n';
@@ -193,7 +220,19 @@ try {
     .filter((l) => l.includes(":CONSOLE:") && /Uncaught|Error:/.test(l))
     .map((l) => l.replace(/^.*:CONSOLE:\d+\]\s*/, "").replace(/, source:.*$/, "").trim());
 
-  const figures = (dom.match(/<figure/g) ?? []).length;
+  /*
+   * LES DEUX NOMBRES VIENNENT DU MÊME INSTRUMENT — ce qui n'était pas le cas.
+   *
+   * `figures` se comptait par `dom.match(/<figure/g)` sur le HTML **sérialisé**, qui contient
+   * aussi les `<script>` de la page ; `auditees` se comptait par `querySelectorAll` dans le
+   * DOM **vivant**. Comparer les deux revient à comparer deux mesures prises avec deux
+   * appareils différents. Mesuré le 21 août 2026 : `cycle` rend six figures et la regex en
+   * comptait sept — la septième est la chaîne `return \`<figure` dans le script de la page.
+   *
+   * Les deux se lisent maintenant sur le relevé publié par l'audit, donc sur le même DOM au
+   * même instant. Si l'audit ne rend pas de verdict, `data-audit` absent le dit déjà.
+   */
+  const figures = Number(dom.match(/data-figures-vues="(\d+)"/)?.[1] ?? NaN);
   /*
    * Combien de figures ont VRAIMENT été inspectées, et non combien la page en porte.
    *
