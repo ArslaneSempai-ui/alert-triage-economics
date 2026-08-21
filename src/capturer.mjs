@@ -21,7 +21,7 @@
  * Le dépôt décrit ce qu'il veut dans `captures.json`.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, statSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -117,7 +117,17 @@ const PILOTE = `
  * sans la moindre erreur affichée.
  */
 function servir(racine, port) {
-  const p = spawn("python3", ["-m", "http.server", String(port), "--directory", racine],
+  /*
+   * `--bind 127.0.0.1`, et pas seulement dans l'URL qu'on interroge.
+   *
+   * `python3 -m http.server` sans adresse de liaison écoute sur **toutes les interfaces** —
+   * c'est écrit dans son aide : « default: all interfaces ». Le temps d'une capture, le site
+   * construit était donc servi à tout le réseau local, sur un port tiré au hasard entre 8600
+   * et 9499. Sur un réseau de confiance ce n'est rien ; dans un café, c'est le contenu d'un
+   * dépôt privé offert à qui balaie les ports. La boucle d'attente juste en dessous parlait
+   * déjà à `127.0.0.1`, ce qui donnait toutes les apparences d'un serveur local.
+   */
+  const p = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", racine],
     { stdio: "ignore", detached: false });
   execFileSync("bash", ["-c", `for i in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:${port}/index.html && exit 0; sleep 0.1; done; exit 1`]);
   return p;
@@ -144,6 +154,21 @@ writeFileSync(temp + "index.html", readFileSync(temp + "index.html", "utf8") + P
 const port = 8700 + (process.pid % 200);
 const serveur = servir(temp, port);
 mkdirSync(racine + "images", { recursive: true });
+
+/*
+ * L'état de chaque cible AVANT le tir, pour pouvoir dire ensuite laquelle a bougé.
+ *
+ * On relève l'empreinte de modification plutôt qu'une heure de départ : comparer à une
+ * horloge suppose que le disque et le processus s'accordent, alors que comparer un fichier
+ * à lui-même ne suppose rien. Une cible absente vaut `0`, ce qui la rend forcément
+ * différente de tout fichier écrit.
+ */
+const avant = new Map(plan.images.map((i) => {
+  const c = racine + i.sortie;
+  return [i.sortie, existsSync(c) ? statSync(c).mtimeMs : 0];
+}));
+const ecrites = [];
+const manquantes = [];
 
 for (const image of plan.images) {
   const [large, haut] = image.taille;
@@ -202,9 +227,36 @@ im.crop((0, haut, im.width, bas)).save(sys.argv[1])
 `, cible], { stdio: "inherit" });
     }
   }
-  console.log(`  ${image.sortie}`);
+  /*
+   * CE QUI A ÉTÉ ÉCRIT, PAS CE QU'ON AVAIT PRÉVU D'ÉCRIRE.
+   *
+   * Chrome sans tête rend **0 quoi qu'il arrive** : page inaccessible, page qui lève, page
+   * vide — il photographie l'échec et s'en va content. Mesuré le 21 août 2026 sur une URL
+   * morte : code de sortie 0, PNG de 16 ko de la page « ce site est inaccessible ». Rien
+   * dans `tirer()` ne pouvait donc distinguer une capture d'un constat d'échec, et le bilan
+   * final annonçait `plan.images.length` — le nombre de lignes du plan, jamais celui des
+   * fichiers produits.
+   *
+   * C'est exactement la panne que ce script existe pour empêcher, retournée contre lui :
+   * neuf README montraient un écran disparu sous un commit qui affirmait les avoir
+   * rafraîchis. Un bilan qui compte l'intention refait la même promesse.
+   *
+   * Ce qui se vérifie ici est modeste et vrai : le fichier existe, et il a changé pendant
+   * cette exécution. Qu'il montre le bon écran ne se mécanise pas — c'est pourquoi ces
+   * images se refont plutôt qu'elles ne se relisent.
+   */
+  const apres = existsSync(cible) ? statSync(cible).mtimeMs : 0;
+  if (apres === 0) manquantes.push(`${image.sortie} : aucun fichier écrit`);
+  else if (apres === avant.get(image.sortie)) manquantes.push(`${image.sortie} : inchangée depuis avant le tir`);
+  else { ecrites.push(image.sortie); console.log(`  ${image.sortie}`); }
 }
 
 serveur.kill();
 rmSync(temp, { recursive: true, force: true });
-console.log(`${plan.images.length} image(s) — ${racine}`);
+if (manquantes.length) {
+  console.error(`\n${manquantes.length} image(s) sur ${plan.images.length} n'ont pas été produites :`);
+  for (const m of manquantes) console.error(`  ${m}`);
+  console.error(`  → les README garderaient leurs anciennes images sans que rien ne le dise.`);
+  process.exit(1);
+}
+console.log(`${ecrites.length} image(s) écrite(s) sur ${plan.images.length} — ${racine}`);
