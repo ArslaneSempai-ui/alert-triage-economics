@@ -45,6 +45,35 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
  * extracteur, et le test accuse alors un script parfaitement valide. Les explications longues
  * vivent donc ici, au-dessus, et le bloc ne porte que des notes sans apostrophe.
  *
+ * CLIQUER NE DOIT PAS LEVER — et c'est tout ce qu'on peut affirmer.
+ *
+ * L'audit vérifiait `typeof bouton.onclick === "function"`. C'est un détail d'implémentation
+ * déguisé en propriété du comportement : mesuré le 22 août 2026, `onclick` égale `boutons`
+ * dans les onze pages, cent quarante-six en tout, et un moteur qui délègue ses écouteurs à la
+ * racine les aurait tous fait passer pour morts. Un contrôle qui échoue sur du code juste est
+ * un **rouge vide**, et il laissait par ailleurs passer le vrai défaut : un `onclick` qui
+ * lève satisfait `typeof … === "function"`.
+ *
+ * La correction évidente — cliquer et exiger que la page change — a été écrite, essayée, et
+ * retirée : elle rendait **huit dépôts sur dix rouges**. Trois familles de faux positifs,
+ * mesurées plutôt que supposées :
+ *
+ *   - les gestionnaires asynchrones : **zéro bouton**, hypothèse réfutée, 250 ms de plus n'y
+ *     changent rien ;
+ *   - l'idempotence : six boutons de remise à zéro sur une page déjà à zéro. Ils ne changent
+ *     rien parce qu'il n'y a rien à changer, et c'est correct ;
+ *   - la cascade : une exception au premier clic tue le JavaScript de la page, et les
+ *     soixante-quatorze boutons suivants paraissent morts.
+ *
+ * Ce qui reste vrai dans toutes ces situations : **cliquer ne doit pas lever**. Un bouton
+ * idempotent passe, un bouton branché par délégation passe, un bouton d'un moteur qu'on n'a
+ * pas encore choisi passe. Celui qui casse la page tombe.
+ *
+ * Et ce n'est pas une précaution théorique : la première exécution de cette forme a trouvé une
+ * démo publiée dont **les soixante-quinze boutons levaient au premier clic** — un décalage de
+ * nom de classe dans `triage/src/ui.html`, vingt-cinq dossiers sur vingt-cinq. Aucun contrôle
+ * ne le voyait, parce qu'aucun ne cliquait.
+ *
  * UN ÉLÉMENT QUI SORT DE SON PARENT — et non la page qui défile.
  *
  * Le contrôle `documentElement.scrollWidth` existait déjà quand `.defile` a reçu
@@ -105,13 +134,7 @@ const AUDIT = '<' + 'script>\n'
   + '  for (var k = 0; k < choix.length; k++) {\n'
   + '    if (choix[k].getAttribute("tabindex") === null) { soucis.push("des choix que rien ne branche"); break; }\n'
   + '  }\n'
-  + '  var boutons = document.querySelectorAll("button");\n'
-  + '  for (var m = 0; m < boutons.length; m++) {\n'
-  + '    if (boutons[m].disabled) continue;\n'
-  + '    if (typeof boutons[m].onclick !== "function") {\n'
-  + '      soucis.push("bouton sans action : " + (boutons[m].id || boutons[m].textContent.trim().slice(0, 24)));\n'
-  + '    }\n'
-  + '  }\n'
+
   + '  if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) {\n'
   + '    soucis.push("la page deborde horizontalement de " + (document.documentElement.scrollWidth - document.documentElement.clientWidth) + " px");\n'
   + '  }\n'
@@ -146,6 +169,19 @@ const AUDIT = '<' + 'script>\n'
   + '    soucis.push("element hors de son parent : " + quoi(enf) + " sort de " + sortie + "px de " + quoi(par));\n'
   + '    break;\n'
   + '  }\n'
+  /* Le clic vient en dernier : il modifie la page. Voir la note au-dessus de AUDIT. */
+  + '  var boutons = document.querySelectorAll("button");\n'
+  + '  var leves = [];\n'
+  + '  window.addEventListener("error", function (ev) { leves.push(String(ev.message)); });\n'
+  + '  for (var m = 0; m < boutons.length; m++) {\n'
+  + '    var b = boutons[m];\n'
+  + '    if (b.disabled) continue;\n'
+  + '    var nomB = b.id || b.textContent.trim().slice(0, 24);\n'
+  + '    var combien = leves.length;\n'
+  + '    try { b.click(); } catch (e) { leves.push(String(e && e.message)); }\n'
+  + '    if (leves.length > combien) soucis.push("clic qui leve : " + nomB + " — " + leves[leves.length - 1]);\n'
+  + '  }\n'
+  + '  document.documentElement.setAttribute("data-boutons", String(boutons.length));\n'
   + '  document.documentElement.setAttribute("data-figures-vues", String(figures.length));\n'
   + '  document.documentElement.setAttribute("data-figures-auditees", String(auditees));\n'
   + '  document.documentElement.setAttribute("data-audit", soucis.length ? soucis.join(" | ") : "ok");\n'
