@@ -26,45 +26,79 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const ui = new URL("./ui.html", import.meta.url).pathname;
+/**
+ * LES ÉCRANS DE CE DÉPÔT — TOUS, ET NON `ui.html` PAR CONVENTION.
+ *
+ * Ce fichier lisait `./ui.html` en dur. Les dix outils l'appellent ainsi aujourd'hui, donc le
+ * contrôle passait — mais son titre promet « l'écran », et le jour où un dépôt en ajoute un
+ * second, ou renomme le sien, la page nouvelle ne serait regardée par rien et le vert
+ * resterait. La vitrine nomme déjà le sien `gabarit.html`.
+ *
+ * Élargi le 21 août 2026, avec cinq autres gardiens du même défaut : ce qui était surveillé
+ * était plus étroit que ce qui était promis. La liste se déduit donc du dossier — tout `.html`
+ * du `src/` où ce test se trouve est un écran de ce dépôt.
+ */
+const SRC = new URL(".", import.meta.url).pathname;
 
-/** Le contenu du `<script type="module">` de l'écran. Il n'y en a qu'un, et c'est voulu. */
-function script(): string {
-  const html = readFileSync(ui, "utf8");
+function ecrans(): string[] {
+  return readdirSync(SRC, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(".html"))
+    .map((e) => e.name).sort();
+}
+
+/** Le contenu du `<script type="module">` d'un écran. Il n'y en a qu'un par page, et c'est voulu. */
+function script(nom: string): string {
+  const html = readFileSync(SRC + nom, "utf8");
   const ouvre = html.indexOf('<script type="module">');
-  assert.notEqual(ouvre, -1, "ui.html n'a pas de <script type=\"module\">");
+  assert.notEqual(ouvre, -1, `${nom} n'a pas de <script type="module">`);
   const debut = ouvre + '<script type="module">'.length;
   const fin = html.indexOf("</script>", debut);
-  assert.notEqual(fin, -1, "le <script> de ui.html n'est pas refermé");
+  assert.notEqual(fin, -1, `le <script> de ${nom} n'est pas refermé`);
   assert.equal(
     html.indexOf('<script type="module">', fin), -1,
-    "ui.html a plus d'un script module : ce test n'en vérifierait qu'un",
+    `${nom} a plus d'un script module : ce test n'en vérifierait qu'un`,
   );
   return html.slice(debut, fin);
 }
 
-test("le script de l'écran parse comme un module", () => {
+test("le relevé porte sur des écrans — sinon il ne prouve rien", () => {
+  /* Une boucle sur zéro écran passe exactement comme un dépôt sain. C'est le piège qu'on
+     ferme en premier, et il est réel : ce fichier lisait `ui.html` par convention, donc un
+     dépôt qui renomme sa page aurait rendu le contrôle muet plutôt que rouge. */
+  const n = ecrans().length;
+  assert.ok(n >= 1, `aucun .html trouvé dans ${SRC} : ce test ne vérifie rien`);
+});
+
+test("le script de chaque écran parse comme un module", () => {
   const dossier = mkdtempSync(join(tmpdir(), "ecran-"));
-  const fichier = join(dossier, "ui.mjs");
   try {
-    writeFileSync(fichier, script());
-    // `--check` parse et s'arrête là : aucun import n'est résolu, rien n'est exécuté.
-    execFileSync(process.execPath, ["--check", fichier], { stdio: "pipe" });
-  } catch (e) {
-    const erreur = e as { stderr?: Buffer };
-    assert.fail(`le script de ui.html ne parse pas :\n${erreur.stderr?.toString() ?? String(e)}`);
+    for (const nom of ecrans()) {
+      const fichier = join(dossier, nom.replace(/\.html$/, "") + ".mjs");
+      try {
+        writeFileSync(fichier, script(nom));
+        // `--check` parse et s'arrête là : aucun import n'est résolu, rien n'est exécuté.
+        execFileSync(process.execPath, ["--check", fichier], { stdio: "pipe" });
+      } catch (e) {
+        const erreur = e as { stderr?: Buffer };
+        assert.fail(`le script de ${nom} ne parse pas :\n${erreur.stderr?.toString() ?? String(e)}`);
+      }
+    }
   } finally {
     rmSync(dossier, { recursive: true, force: true });
   }
 });
 
-test("aucun nom importé n'est redéclaré dans l'écran", () => {
-  const src = script();
+test("aucun nom importé n'est redéclaré dans un écran", () => {
+  for (const ecran of ecrans()) verifierRedeclarations(ecran);
+});
+
+function verifierRedeclarations(ecran: string): void {
+  const src = script(ecran);
   /*
    * La vérification précédente suffit à faire échouer le test, mais son message parle de
    * syntaxe. Celle-ci nomme le coupable, parce que la première fois la cause a mis un
@@ -77,7 +111,7 @@ test("aucun nom importé n'est redéclaré dans l'écran", () => {
     const declare = new RegExp(`^\\s*(?:export\\s+)?(?:function|const|let|var)\\s+${nom}\\b`, "m");
     assert.equal(
       declare.test(src.replace(ligne[0], "")), false,
-      `« ${nom} » est importé de graphes.js et redéclaré dans ui.html : renommer à l'import`,
+      `« ${nom} » est importé de graphes.js et redéclaré dans ${ecran} : renommer à l'import`,
     );
   }
-});
+}
