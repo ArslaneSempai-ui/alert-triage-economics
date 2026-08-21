@@ -98,7 +98,22 @@ test("aucun nom importé n'est redéclaré dans un écran", () => {
 });
 
 function verifierRedeclarations(ecran: string): void {
-  const src = script(ecran);
+  /*
+   * ─── UNE DÉCLARATION COMMENTÉE N'EST PAS UNE DÉCLARATION ───
+   *
+   * Démontré le 22 août 2026 avec un symbole inventé. Un commentaire de bloc dont une ligne
+   * commence par `const empile = 1;` faisait tomber ce cas sur un écran correct : le motif
+   * s'ancre en début de ligne, et à l'intérieur d'un bloc la ligne commence bien par le
+   * mot-clé. La forme `//` est immunisée d'elle-même — le marqueur casse l'ancrage — ce qui
+   * explique pourquoi un premier essai avec `//` n'avait rien montré et pourquoi je l'avais
+   * rapporté comme non concluant plutôt que comme négatif.
+   *
+   * On retire donc les commentaires de bloc, **et pas les commentaires de ligne** : `//`
+   * apparaît dans toute URL, et un retrait jusqu'à la fin de ligne couperait des chaînes.
+   * Ce qui n'est pas couvert est écrit plutôt que tu : une déclaration cachée derrière une
+   * URL sur la même ligne échapperait encore.
+   */
+  const src = script(ecran).replace(/\/\*[\s\S]*?\*\//g, " ");
   /*
    * La vérification précédente suffit à faire échouer le test, mais son message parle de
    * syntaxe. Celle-ci nomme le coupable, parce que la première fois la cause a mis un

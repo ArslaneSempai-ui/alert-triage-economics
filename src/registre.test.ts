@@ -16,7 +16,24 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 
 const racine = new URL("..", import.meta.url).pathname;
-const css = () => readFileSync(racine + "src/registre.css", "utf8");
+/*
+ * ─── LE SEUL FAUX VERT DE LA FAMILLE, ET C'ÉTAIT ICI ───
+ *
+ * Démontré le 22 août 2026 : en retirant `background: none` du corps de `.renvoi` et en le
+ * laissant dans un commentaire CSS au même endroit, **ce fichier passait au vert**. La règle
+ * de dessin n'était plus appliquée, et le contrôle qui existe pour la tenir disait qu'elle
+ * l'était.
+ *
+ * Les trois autres cas de cette famille trouvés la même nuit produisaient des faux rouges —
+ * gênants, mais visibles. Celui-ci était le seul à rendre vert sur du CSS qui ne fait plus ce
+ * qu'on lui demande, et c'est exactement l'encadré teinté que ces règles refusent qui serait
+ * revenu sans un mot.
+ *
+ * CSS n'a pas de commentaire de ligne : les retirer est complet, sans le risque que pose `//`
+ * ailleurs.
+ */
+const css = () => readFileSync(racine + "src/registre.css", "utf8")
+  .replace(/\/\*[\s\S]*?\*\//g, " ");
 const graphes = () => readFileSync(racine + "src/graphes.js", "utf8");
 
 /** Le corps d'une règle CSS, pour un sélecteur donné exactement. */
