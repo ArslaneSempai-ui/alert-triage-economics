@@ -51,7 +51,21 @@ test("tout module importé par la démo est présent et suivi par git", (t) => {
    * On compte donc les deux : tous les imports, et ceux que le motif sait vérifier. Un écart
    * entre les deux est une panne du contrôle, pas un silence.
    */
-  const tous = [...html.matchAll(/from\s+"([^"]+\.js)"/g)].map((m) => m[1]!);
+  /*
+   * ─── UN COMMENTAIRE QUI PARLE D'UN IMPORT N'EN EST PAS UN ───
+   *
+   * Démontré le 22 août 2026 par un symbole inventé : un commentaire HTML contenant
+   * `from "./zzz-temoin-fantome.js"` faisait échouer ce cas sur une page parfaitement
+   * correcte — « ./zzz-temoin-fantome.js est importé mais absent de docs/ ». L'effet est un
+   * **faux rouge** et non un vert vide, donc il se voit ; mais une note explicative ajoutée à
+   * une page publiée casserait la vérification, et personne ne comprendrait pourquoi.
+   *
+   * On retire donc les commentaires HTML avant de chercher les imports. La limite est écrite
+   * plutôt que tue : les commentaires JavaScript à l'intérieur du script ne sont pas retirés,
+   * parce que `//` apparaît dans toute URL et qu'un retrait naïf couperait des chaînes.
+   */
+  const htmlSansNotes = html.replace(/<!--[\s\S]*?-->/g, " ");
+  const tous = [...htmlSansNotes.matchAll(/from\s+"([^"]+\.js)"/g)].map((m) => m[1]!);
   const imports = tous.filter((c) => c.startsWith("./"));
   const nonReconnus = [...new Set(tous.filter((c) => !c.startsWith("./")))];
   assert.deepEqual(nonReconnus, [],
