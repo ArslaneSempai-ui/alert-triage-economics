@@ -887,3 +887,32 @@ a:hover { color: var(--encre); }
 .graphe .noeud.fin text { fill: var(--papier); }
 .legende-carte { font: 500 11px/1.5 var(--fixe); letter-spacing: .06em; text-transform: uppercase;
   color: var(--encre-tres-pale); margin: 10px 0 0; }
+
+/* --- Liste repliable — le comportement est dans `replier()` de graphes.js. ---
+   La flèche est dessinée en CSS et pas écrite dans le HTML : un chevron posé en
+   contenu se retrouve lu à voix haute par le lecteur d'écran au milieu du titre. */
+.pliable { border-bottom: 1px solid var(--filet); }
+.pliable > .tete {
+  width: 100%; appearance: none; background: none; border: 0; cursor: pointer;
+  font: inherit; color: var(--encre); text-align: left;
+  display: flex; align-items: center; gap: 10px; padding: 12px 2px;
+}
+.pliable > .tete:hover { background: var(--surligne); }
+/* `:focus-visible` et non `:focus` : le contour au clic de souris est du bruit, son
+   absence au clavier est une impasse. Décalé vers l'intérieur, sinon la bordure du
+   rang voisin le recouvre. */
+.pliable > .tete:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pliable > .tete::before {
+  content: ""; flex: 0 0 auto; width: 8px; height: 8px;
+  border-right: 1.5px solid var(--encre-pale); border-bottom: 1.5px solid var(--encre-pale);
+  transform: rotate(-45deg); transition: transform 0.15s ease;
+}
+.pliable.ouvert > .tete::before { transform: rotate(45deg); }
+.pliable > .corps { display: none; padding: 2px 0 16px 18px; }
+/* `display` et non une hauteur nulle : un repli fait à coups de `max-height: 0` laisse
+   le contenu dans l'ordre de tabulation et dans l'arbre d'accessibilité — on tabule
+   dans des boutons qu'on ne voit pas. */
+.pliable.ouvert > .corps { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .pliable > .tete::before { transition: none; }
+}

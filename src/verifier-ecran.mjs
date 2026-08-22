@@ -135,6 +135,29 @@ const AUDIT = '<' + 'script>\n'
   + '    if (choix[k].getAttribute("tabindex") === null) { soucis.push("des choix que rien ne branche"); break; }\n'
   + '  }\n'
 
+  /*
+   * Les listes repliables. Aucun clic ici : les tetes sont des boutons, donc deja
+   * couvertes par le controle « clic qui leve ». Ce qui manquait est plus simple et plus
+   * frequent — le balisage publie sans que `replier` ait ete appele. La page a des rangs,
+   * ils ne repondent pas, et rien ne le disait. On lit donc `aria-expanded`, que seule la
+   * primitive pose, et on confronte la classe a ce que la page montre vraiment : un repli
+   * ferme dont le corps reste visible signale un style absent, pas un script absent.
+   */
+  + '  var plis = document.querySelectorAll(".pliable");\n'
+  + '  for (var q = 0; q < plis.length; q++) {\n'
+  + '    var tete = plis[q].querySelector(":scope > .tete");\n'
+  + '    var corps = plis[q].querySelector(":scope > .corps");\n'
+  + '    if (!tete || !corps) { soucis.push("un rang repliable sans tete ou sans corps"); continue; }\n'
+  + '    if (tete.getAttribute("aria-expanded") === null) { soucis.push("une liste repliable que rien ne branche"); break; }\n'
+  + '    if (!document.getElementById(tete.getAttribute("aria-controls") || "")) soucis.push("un rang repliable dont le renvoi ne designe rien");\n'
+  /* Un rang dans un conteneur masque mesure invisible sans que rien soit casse : on ne
+     confronte la classe a la vue que si le rang lui-meme est a l ecran. */
+  + '    if (plis[q].offsetParent === null) continue;\n'
+  + '    if (plis[q].classList.contains("ouvert") !== (corps.offsetParent !== null)) {\n'
+  + '      soucis.push("un rang repliable dont le corps contredit sa classe");\n'
+  + '    }\n'
+  + '  }\n'
+
   + '  if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) {\n'
   + '    soucis.push("la page deborde horizontalement de " + (document.documentElement.scrollWidth - document.documentElement.clientWidth) + " px");\n'
   + '  }\n'

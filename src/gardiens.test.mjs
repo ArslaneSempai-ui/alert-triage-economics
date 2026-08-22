@@ -261,10 +261,14 @@ test("aucune classe ni identifiant n'est cherché sans être posé quelque part"
     .replace(/\/\*[\s\S]*?\*\//g, " ").replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/^\s*\/\/.*$/gm, " ");
 
-  let corpus = "";
+  let corpus = "", brut = "", styles = "";
   for (const e of readdirSync(ICI, { withFileTypes: true })) {
-    if (!e.isFile() || !/\.(ts|mjs|js|html)$/.test(e.name)) continue;
-    corpus += sansCommentaires(readFileSync(ICI + e.name, "utf8")) + "\n";
+    if (!e.isFile()) continue;
+    if (/\.css$/.test(e.name)) { styles += readFileSync(ICI + e.name, "utf8") + "\n"; continue; }
+    if (!/\.(ts|mjs|js|html)$/.test(e.name)) continue;
+    const t = readFileSync(ICI + e.name, "utf8");
+    brut += t + "\n";                               /* la déclaration vit dans un commentaire */
+    corpus += sansCommentaires(t) + "\n";
   }
 
   const construits = (corpus.match(CONSTRUIT) ?? []).length;
@@ -277,6 +281,33 @@ test("aucune classe ni identifiant n'est cherché sans être posé quelque part"
   assert.ok(jetons.size >= 3,
     `seulement ${jetons.size} jeton(s) de sélecteur lus dans ${ICI} : le motif est périmé`);
 
+  /*
+   * ─── LE CONTRAT OFFERT ───
+   *
+   * Une primitive de la couche partagée interroge les classes qu'elle pose chez qui
+   * l'emploie. Tant qu'aucune page du dépôt ne s'en sert, ses sélecteurs sont
+   * légitimement posés nulle part *ici* — et le défaut que ce cas traque n'existe pas :
+   * une primitive dont la liste est vide ne lit rien et ne lève rien. C'est arrivé le
+   * 22 août 2026 avec `replier`, diffusé avant son premier emploi ; les dix dépôts sont
+   * passés au rouge d'un coup, et c'était le gardien qui avait raison sur les faits.
+   *
+   * L'exemption est donc nominative et écrite, jamais déduite — comme `liste-figee:`.
+   * Et elle ne dispense de rien toute seule : une classe déclarée offerte doit être
+   * stylée quelque part dans le dépôt. Sans ça la marque deviendrait le trou par lequel
+   * une vraie faute de frappe passerait, ce qui est exactement le défaut d'origine.
+   */
+  const declares = [];
+  for (const m of brut.matchAll(/contrat-offert:\s*([A-Za-z_][\w-]*(?:[ ,]+[A-Za-z_][\w-]*)*)/g)) {
+    for (const t of m[1].split(/[ ,]+/).filter(Boolean)) declares.push(t);
+  }
+  const fantomes = declares.filter((t) =>
+    !new RegExp("[.#]" + t.replace(/-/g, "\\-") + "\\b").test(styles));
+  assert.deepEqual(fantomes, [],
+    `${fantomes.join(", ")} : déclaré(s) « contrat-offert » mais stylé(s) nulle part.\n`
+    + `  → une déclaration qui ne correspond à aucune règle de style est une faute de frappe,`
+    + ` pas un contrat, et elle ne dispense de rien.`);
+  const offerts = new Set(declares);
+
   const jamaisPoses = [];
   for (const t of jetons.keys()) {
     const partout = (corpus.match(new RegExp("\\b" + t.replace(/[-]/g, "\\-") + "\\b", "g")) ?? []).length;
@@ -284,12 +315,13 @@ test("aucune classe ni identifiant n'est cherché sans être posé quelque part"
     for (const m of corpus.matchAll(LECTURE)) {
       dansLecture += (m[2].match(new RegExp("\\b" + t.replace(/[-]/g, "\\-") + "\\b", "g")) ?? []).length;
     }
-    if (partout - dansLecture === 0) jamaisPoses.push(t);
+    if (partout - dansLecture === 0 && !offerts.has(t)) jamaisPoses.push(t);
   }
 
   assert.deepEqual(jamaisPoses, [],
     `${jamaisPoses.join(", ")} : cherché(s) par un sélecteur et posé(s) nulle part.\n`
-    + `  → ${jetons.size} jeton(s) examiné(s), ${construits} sélecteur(s) construits non analysables.\n`
+    + `  → ${jetons.size} jeton(s) examiné(s), ${construits} sélecteur(s) construits non analysables,`
+    + ` ${offerts.size} déclaré(s) « contrat-offert ».\n`
     + `  → le code demande une chose que rien ne produit : le sélecteur rendra null, et la`
     + ` première lecture de la valeur lèvera.`);
 });
