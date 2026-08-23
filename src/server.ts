@@ -53,8 +53,49 @@ function etat() {
   };
 }
 
+/**
+ * IS THIS REQUEST COMING FROM A PAGE THIS SERVER DID NOT SERVE?
+ *
+ * Listening on the loopback puts the tool out of reach of the NETWORK, not out of reach of
+ * the BROWSER. Any page the user happens to open can POST to `localhost`: in simple form
+ * there is no preflight, and the absence of CORS headers only stops the attacker READING
+ * the reply — the state has already changed by then.
+ *
+ * COMPARED TO THE REQUEST'S OWN HOST, NOT TO A WRITTEN LIST. The first shape anyone reaches
+ * for is `origin === "http://localhost:4670"`, and it refuses this server's OWN screen the
+ * moment someone serves it under another name — a port chosen with PORT=, a demo machine, a
+ * proxy. A guard that refuses legitimate use is removed at the first complaint, and it takes
+ * the hole with it. A page served BY this server necessarily carries the same host as the
+ * request it makes; a hostile page carries another.
+ *
+ * No `Origin` at all is allowed through: that is curl, a test, a same-origin form. Browsers
+ * send it on every cross-origin request, which is the case this guards.
+ */
+function origineEtrangere(req: IncomingMessage): boolean {
+  const origine = req.headers.origin;
+  if (!origine) return false;
+  try {
+    return new URL(origine).host !== req.headers.host;
+  } catch {
+    /* An Origin that does not parse is not one this server served. */
+    return true;
+  }
+}
+
 const serveur = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+
+  /*
+   * Only the methods that change something. A cross-origin GET cannot be read back without
+   * CORS headers, and refusing it would break embedding this screen, which is legitimate.
+   */
+  if (req.method !== "GET" && req.method !== "HEAD" && origineEtrangere(req)) {
+    return json(res, {
+      erreur: "origine_etrangere",
+      dit: "cette requête vient d'une page que ce serveur n'a pas servie",
+    }, 403);
+  }
+
   try {
     if (url.pathname === "/") {
       const html = readFileSync(fileURLToPath(new URL("./ui.html", import.meta.url)), "utf8");
