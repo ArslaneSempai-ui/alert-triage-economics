@@ -175,7 +175,7 @@ The cost on one side of this model buys compliance with a specific obligation, a
 worth naming rather than leaving as an abstraction.
 
 <!-- figures:citations -->
-5 of the 9 sections in the shared regulations file apply to this tool. The other 4 are cited by sibling tools and are left out here rather than listed under a heading claiming these are the rules this one rests on.
+5 of the 10 sections in the shared regulations file apply to this tool. The other 5 are cited by sibling tools and are left out here rather than listed under a heading claiming these are the rules this one rests on.
 
 | Citation | Requires | Figure | Retrieved |
 |---|---|---|---|
