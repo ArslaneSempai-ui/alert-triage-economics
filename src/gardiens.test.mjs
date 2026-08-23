@@ -439,3 +439,61 @@ test("aucun fichier n'emploie .pathname sur une URL de fichier", () => {
     + "valeur de repli. Les deux arrivent, et annoncer seulement le silencieux envoie chercher "
     + "un chiffre faux là où il y a un plantage.");
 });
+
+test("aucune date de relevé n'est postérieure à aujourd'hui", (t) => {
+  /*
+   * LA SEULE VÉRIFICATION DE FOND POSSIBLE SUR UNE DATE.
+   *
+   * Le contrôle qui gardait ce champ n'en vérifiait que le FORMAT — `^\d{4}-\d{2}-\d{2}$`.
+   * Une date fausse au bon format passait donc sans un mot, et c'est exactement ce qui a
+   * failli arriver le 24 août 2026 : une entrée ajoutée ce jour-là aurait hérité de la
+   * constante partagée `RETRIEVED = "2026-08-17"` et annoncé un relevé d'une semaine plus
+   * tôt. Le fichier interdit pourtant de citer de mémoire.
+   *
+   * Une date absente se voit ; une date fausse se fait valider. On ne peut pas prouver
+   * qu'une source a été ouverte le jour dit, mais on peut refuser l'impossible : une date
+   * postérieure à aujourd'hui, ou antérieure à l'existence de ces outils.
+   */
+  const fichier = ICI + "regulations.ts";
+  if (!existsSync(fichier)) {
+    return t.skip("ce dépôt ne porte pas regulations.ts — rien à vérifier ici");
+  }
+  const PLANCHER = "2020-01-01";
+  /*
+   * LA DATE DU JOUR EN HEURE LOCALE, ET UN JOUR DE JEU. Deux raisons mesurées.
+   *
+   * `toISOString()` rend la date UTC. Mesuré ici même : à 00 h 30 en heure locale avec trois
+   * heures d'avance sur UTC, « aujourd'hui » valait la veille, et une citation relevée le
+   * jour même était déclarée venue du futur. Le premier essai de cette garde a tiré sur une
+   * entrée parfaitement datée.
+   *
+   * Et une date n'est connue qu'au jour près, alors que les fuseaux s'étalent sur vingt-six
+   * heures : une source ouverte depuis un autre fuseau peut légitimement porter la date de
+   * demain. Le jeu d'un jour absorbe ça sans rien laisser passer d'absurde — une date de la
+   * semaine prochaine reste refusée.
+   */
+  const jour = (d) => d.toLocaleDateString("sv-SE");
+  const demain = new Date(Date.now() + 86_400_000);
+  const aujourdhui = jour(demain);
+
+  /** Impossible : dans le futur, ou avant que ces outils existent. */
+  const impossible = (d, jour = aujourdhui) =>
+    !/^\d{4}-\d{2}-\d{2}$/.test(d) || d > jour || d < PLANCHER;
+
+  /* Le témoin, avant le verdict : une garde qui ne démontre pas qu'elle discrimine est une
+     constante déguisée. Elle doit dire oui et non sur des cas choisis. */
+  assert.equal(impossible("2026-08-24", "2026-08-24"), false, "le jour même est valide");
+  assert.equal(impossible("2026-08-31", "2026-08-24"), true, "la semaine prochaine est refusée");
+  assert.equal(impossible("2019-12-31"), true, "avant le plancher doit être refusé");
+  assert.equal(impossible("pas-une-date"), true, "une non-date doit être refusée");
+
+  const dates = [...readFileSync(fichier, "utf8").matchAll(/retrieved:\s*"([^"]*)"/g)]
+    .map((m) => m[1]);
+  assert.ok(dates.length >= 3,
+    `seulement ${dates.length} date(s) de relevé lue(s) : le motif est périmé`);
+  const fautives = [...new Set(dates.filter((d) => impossible(d)))];
+  assert.deepEqual(fautives, [],
+    `${fautives.join(", ")} : date de relevé impossible. Une citation ne peut pas avoir été `
+    + `relevée dans le futur, et une date au bon format n'est pas une date vraie — c'est `
+    + `précisément ce qu'un contrôle de forme laisse passer.`);
+});
