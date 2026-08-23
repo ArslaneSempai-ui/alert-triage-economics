@@ -22,6 +22,8 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, statSync, realpathSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 
@@ -148,6 +150,47 @@ const PILOTE = `
  * et comme elles étaient identiques, Pillow les a fondues en une seule : un GIF d'une image,
  * sans la moindre erreur affichée.
  */
+/*
+ * UN SERVEUR DOIT POUVOIR ÊTRE RETROUVÉ APRÈS LA MORT DE CELUI QUI L'A OUVERT.
+ *
+ * `finally` ne tourne pas sur un `SIGKILL` : un outil interrompu — un `pkill`, une passe
+ * dépassée, une fenêtre fermée — laisse son serveur derrière lui, pour toujours. Relevé le
+ * 23 août 2026 sur cette machine : **neuf** `http.server` vivants, dont trois nés de ce
+ * script et vieux d'un jour et seize heures.
+ *
+ * Le registre est le seul moyen de les retrouver ensuite : au démarrage on inscrit qui on
+ * est, à l'arrêt on se raye, et on ferme ce qui traîne depuis plus d'une heure. Une capture
+ * ne dure jamais une heure ; ce qui reste au-delà est un orphelin.
+ */
+const REGISTRE = join(tmpdir(), "serveurs-portfolio.json");
+
+function lireRegistre() {
+  try { return JSON.parse(readFileSync(REGISTRE, "utf8")); } catch { return []; }
+}
+function ecrireRegistre(v) {
+  try { writeFileSync(REGISTRE, JSON.stringify(v)); } catch { /* le registre est un confort */ }
+}
+function vivant(pid) {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+/** Se rayer du registre : l'arrêt normal ne doit rien laisser derrière lui. */
+function rayer(pid) {
+  ecrireRegistre(lireRegistre().filter((e) => e.pid !== pid));
+}
+
+/** Ferme les serveurs inscrits que personne n'a rayés, et rend ce qu'elle a fermé. */
+export function ramasserOrphelins(maxAgeMs = 3_600_000, maintenant = Date.now()) {
+  const garde = [], fermes = [];
+  for (const e of lireRegistre()) {
+    if (!vivant(e.pid)) continue;
+    if (maintenant - e.depuis < maxAgeMs) { garde.push(e); continue; }
+    try { process.kill(e.pid); fermes.push(e); } catch { garde.push(e); }
+  }
+  ecrireRegistre(garde);
+  return { fermes, restants: garde.length };
+}
+
 function servir(racine, port) {
   /*
    * `--bind 127.0.0.1`, et pas seulement dans l'URL qu'on interroge.
@@ -161,6 +204,8 @@ function servir(racine, port) {
    */
   const p = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", racine],
     { stdio: "ignore", detached: false });
+  ecrireRegistre([...lireRegistre().filter((e) => e.pid !== p.pid),
+    { pid: p.pid, port, depuis: Date.now(), outil: "capturer", racine }]);
   execFileSync("bash", ["-c", `for i in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:${port}/index.html && exit 0; sleep 0.1; done; exit 1`]);
   return p;
 }
@@ -241,6 +286,14 @@ if (lance) {
   writeFileSync(temp + "index.html", readFileSync(temp + "index.html", "utf8") + PILOTE);
 
   const port = 8700 + (process.pid % 200);
+  /* On ramasse avant d'ouvrir le nôtre : si une exécution précédente a été tuée, son
+     serveur sert encore un dossier temporaire à qui passe sur la boucle locale. */
+  const orphelins = ramasserOrphelins();
+  if (orphelins.fermes.length) {
+    console.error(`${orphelins.fermes.length} serveur(s) orphelin(s) fermé(s) — `
+      + orphelins.fermes.map((e) => `${e.outil}:${e.port}`).join(", ")
+      + " (une exécution tuée ne passe pas par son `finally`)");
+  }
   const serveur = servir(temp, port);
   mkdirSync(racine + "images", { recursive: true });
 
@@ -275,6 +328,7 @@ if (lance) {
     for (const m of pilotageMort) console.error(`  ${m}`);
     console.error("  → l'étape est sautée en silence et l'image montre le mauvais état.");
     serveur.kill();
+  rayer(serveur.pid);
     rmSync(temp, { recursive: true, force: true });
     process.exit(1);
   }
@@ -363,6 +417,7 @@ if (lance) {
   }
 
   serveur.kill();
+  rayer(serveur.pid);
   rmSync(temp, { recursive: true, force: true });
   if (manquantes.length) {
     console.error(`\n${manquantes.length} image(s) sur ${plan.images.length} n'ont pas été produites :`);

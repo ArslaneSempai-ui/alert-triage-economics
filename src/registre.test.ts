@@ -13,7 +13,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const racine = fileURLToPath(new URL("..", import.meta.url));
@@ -143,7 +143,35 @@ test("les couches partagées sont bien celles d'identite", (t) => {
 
   const divergents = partages.filter(
     (f) => readFileSync(racine + "src/" + f, "utf8") !== readFileSync(source + f, "utf8"));
+
+  /*
+   * LE MESSAGE DOIT DISTINGUER LES DEUX CAUSES, SINON IL ENVOIE LA MOITIÉ DE SES LECTEURS
+   * AU MAUVAIS REMÈDE.
+   *
+   * « Recopier plutôt que corriger sur place » est le bon conseil quand c'est le dépôt qui a
+   * dérivé. C'est le mauvais quand c'est `identite` qui a avancé et que la diffusion est en
+   * retard : recopier à la main ferait exactement ce que le message veut empêcher. Les deux
+   * situations se lisent pareil — un fichier qui diffère — et ne se réparent pas pareil.
+   *
+   * L'horodatage tranche : si la source est plus récente que la copie, c'est une diffusion
+   * en retard. Signalé le 23 août 2026 par une autre session, sur trois dépôts d'un coup.
+   */
+  const cause = (f: string) => {
+    try {
+      return statSync(source + f).mtimeMs > statSync(racine + "src/" + f).mtimeMs
+        ? "source plus récente" : "copie plus récente";
+    } catch { return "horodatage illisible"; }
+  };
+  const enRetard = divergents.filter((f) => cause(f) === "source plus récente");
   assert.deepEqual(divergents, [],
-    `${divergents.join(", ")} ont divergé d'identite sur ${partages.length} fichier(s) comparé(s) `
-    + `— recopier avec \`node diffuser.mjs\` plutôt que corriger sur place`);
+    `${divergents.map((f) => `${f} (${cause(f)})`).join(", ")} `
+    + `ont divergé d'identite sur ${partages.length} fichier(s) comparé(s). `
+    + (enRetard.length === divergents.length
+        ? "La SOURCE a avancé : lancer `node diffuser.mjs` depuis identite. "
+          + "Ne pas recopier à la main — ce serait la dérive locale que ce cas interdit."
+        : enRetard.length
+          ? `${enRetard.length} par diffusion en retard (\`node diffuser.mjs\`), `
+            + `${divergents.length - enRetard.length} par dérive locale (recopier, ne pas corriger sur place).`
+          : "La COPIE a avancé : c'est une dérive locale — recopier depuis identite "
+            + "plutôt que corriger ici, sinon la correction ne voyagera pas."));
 });
