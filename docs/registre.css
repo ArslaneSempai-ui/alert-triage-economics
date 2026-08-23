@@ -48,7 +48,13 @@
 
   --encre: #14161a;
   --encre-pale: #5c574c;
-  --encre-tres-pale: #8b8578;
+  /* 4,65:1 sur le papier, mesuré au navigateur — et non 3,51:1.
+     Ce jeton habille trente-cinq règles, dont une bonne moitié porte du texte :
+     légendes, méta, notes de barre, mentions « vide ». À #8b8578 elles étaient toutes
+     sous le seuil de 4,5, dans les douze dépôts à la fois, et aucun contrôle ne le
+     disait — il a fallu mesurer une page rendue pour le voir. La teinte est conservée,
+     la valeur assombrie du strict nécessaire, avec une marge plutôt que la limite. */
+  --encre-tres-pale: #767166;
   --filet: #e0dbcd;
   --filet-gras: #c9c2b0;
 
@@ -369,7 +375,10 @@ code { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; background: var(
 .b {
   font: 600 13px/1 var(--police); letter-spacing: .01em; cursor: pointer;
   background: var(--papier); color: var(--encre); border: 1px solid var(--filet-gras);
-  border-radius: 0; padding: 0 16px; min-height: 38px; box-shadow: none; transition: .12s;
+  /* 44 px et non 38 : c'est le gabarit tactile que le contrat de ces dépôts impose, et
+     tous les boutons de la couche étaient six pixels en dessous — donc les douze pages à
+     la fois. Mesuré sur une page rendue, pas déduit de la feuille. */
+  border-radius: 0; padding: 0 16px; min-height: 44px; box-shadow: none; transition: .12s;
 }
 .b:hover { border-color: var(--accent); color: var(--accent); background: var(--papier); }
 .b:active { background: var(--accent-fond); }

@@ -5,6 +5,7 @@ import { evaluate, sweep, recommend, ASSUMPTIONS, THRESHOLDS } from "./model.ts"
 import { shadowPrice, cheapestRouteToNextStep } from "./shadow.ts";
 import { plan, costOfTakingTheStep, decisionUnderGrowth, HORIZON } from "./plan.ts";
 import type { Assumptions } from "./model.ts";
+import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.PORT ?? 4700);
 const pop = generatePopulation();
@@ -56,21 +57,21 @@ const serveur = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   try {
     if (url.pathname === "/") {
-      const html = readFileSync(new URL("./ui.html", import.meta.url).pathname, "utf8");
+      const html = readFileSync(fileURLToPath(new URL("./ui.html", import.meta.url)), "utf8");
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       res.end(html);
       return;
     }
 
     if (url.pathname === "/graphes.js") {
-      const js = readFileSync(new URL("./graphes.js", import.meta.url).pathname, "utf8");
+      const js = readFileSync(fileURLToPath(new URL("./graphes.js", import.meta.url)), "utf8");
       res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" });
       res.end(js);
       return;
     }
 
     if (url.pathname === "/registre.css") {
-      const css = readFileSync(new URL("./registre.css", import.meta.url).pathname, "utf8");
+      const css = readFileSync(fileURLToPath(new URL("./registre.css", import.meta.url)), "utf8");
       res.writeHead(200, { "content-type": "text/css; charset=utf-8", "cache-control": "no-store" });
       res.end(css);
       return;

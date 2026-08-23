@@ -14,8 +14,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-const racine = new URL("..", import.meta.url).pathname;
+const racine = fileURLToPath(new URL("..", import.meta.url));
 /*
  * ─── LE SEUL FAUX VERT DE LA FAMILLE, ET C'ÉTAIT ICI ───
  *
@@ -89,7 +90,7 @@ test("aucune bande disqualifiée ne repose sur sa seule couleur", () => {
     "une clé de légende sans texte : la pastille porterait seule");
 });
 
-test("les couches partagées sont bien celles d'identite", () => {
+test("les couches partagées sont bien celles d'identite", (t) => {
   /*
    * Ces règles ne valent que si le fichier contrôlé est celui que l'écran sert. Une copie
    * oubliée dans un dépôt est un contrôle qui passe au vert sur un fichier que personne ne
@@ -112,8 +113,14 @@ test("les couches partagées sont bien celles d'identite", () => {
    * des deux côtés est une copie de la couche, par définition. Ce qui reste déclaré, c'est
    * l'exception, et elle porte sa raison et sa date.
    */
-  const source = new URL("../../identite/", import.meta.url).pathname;
-  if (!existsSync(source + "registre.css")) return; // dépôt cloné seul : rien à comparer
+  const source = fileURLToPath(new URL("../../identite/", import.meta.url));
+  /* Un `return` muet ici, et l'acheteur qui clone seul obtient un vert sur un cas qui n'a
+     rien comparé — le vert vide dans sa forme la plus pure : le contrôle passe parce qu'il
+     s'est arrêté avant de regarder. Un saut nommé est un résultat ; un saut muet est un
+     mensonge poli. */
+  if (!existsSync(source + "registre.css")) {
+    return t.skip("dépôt cloné seul — identite n'est pas là, aucune couche n'a été comparée");
+  }
 
   /** Les gabarits : partagés d'origine, adaptés ensuite, donc divergents par construction. */
   const ADAPTES: Record<string, string> = {

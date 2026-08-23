@@ -15,6 +15,7 @@ import { simulate, summarise, UNCERTAINTY } from "./montecarlo.ts";
 import { THRESHOLDS } from "./model.ts";
 import { INVENTORY, CITED } from "./inventory.ts";
 import { markdown } from "./provenance.ts";
+import { fileURLToPath } from "node:url";
 
 const pop = generatePopulation();
 const points = sweep(pop);
@@ -198,4 +199,4 @@ const citations = table(
   CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
 );
 
-run(new URL("../README.md", import.meta.url).pathname, { finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });
+run(fileURLToPath(new URL("../README.md", import.meta.url)), { finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });

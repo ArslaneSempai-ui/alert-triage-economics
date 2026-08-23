@@ -34,6 +34,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 /*
  * ─── CE FICHIER A EU LE DÉFAUT QU'IL CHASSE, DEUX FOIS ───
@@ -47,11 +48,11 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
  * Un gardien des périmètres dont le périmètre est un seul dossier est exactement la chose
  * qu'il refuse aux autres. Il est donc recopié dans chaque dépôt et regarde le sien.
  */
-const ICI = new URL(".", import.meta.url).pathname;
+const ICI = fileURLToPath(new URL(".", import.meta.url));
 const MARQUE = "liste-figee:";
 
 /** La liste des dépôts vit dans `identite` ; un dépôt cloné seul n'y a pas accès. */
-const LISTE = new URL("../../identite/depots.json", import.meta.url).pathname;
+const LISTE = fileURLToPath(new URL("../../identite/depots.json", import.meta.url));
 
 const tests = readdirSync(ICI, { withFileTypes: true })
   .filter((e) => e.isFile() && /\.test\.(mjs|ts)$/.test(e.name) && e.name !== "gardiens.test.mjs")
@@ -112,7 +113,15 @@ test("toute liste de fichiers ou de dépôts écrite en dur porte sa justificati
     for (const { ligne, items } of trouvees) {
       vues++;
       const avant = lignes.slice(Math.max(0, ligne - 13), ligne).join("\n");
-      if (!avant.includes(MARQUE)) nus.push(`${nom}:${ligne} → ${items.slice(0, 4).join(", ")}`);
+      if (!avant.includes(MARQUE)) {
+        /* Une sélection dit ce qu'elle écarte, sinon elle se fait passer pour la liste.
+           Quatre éléments sur douze, présentés sans le reste, font croire que le défaut est
+           petit — et on corrige quatre lignes sur douze. */
+        const montres = items.slice(0, 4);
+        const reste = items.length - montres.length;
+        nus.push(`${nom}:${ligne} → ${montres.join(", ")}`
+          + (reste > 0 ? ` (+${reste} autre${reste > 1 ? "s" : ""})` : ""));
+      }
     }
   }
   /*
@@ -341,4 +350,61 @@ test("aucun contrôle ne s'est mis à lire le vrai arbre des dépôts sans le di
   }
   assert.deepEqual(risques, [],
     `${risques.join(", ")} remonte(nt) au-dessus d'identite et écrit(vent) sans garde-fou`);
+});
+
+test("aucun fichier n'emploie .pathname sur une URL de fichier", () => {
+  /*
+   * ─── LE CHEMIN QUI N'EXISTE PAS ───
+   *
+   * Un `new URL(...)` suivi de `.pathname` garde l'encodage pour-cent. Un dossier
+   * contenant une espace, un accent ou un dièse rend alors un chemin qui n'existe pas — et
+   * le `catch` qui suit presque toujours rend une valeur de repli, donc la panne est
+   * silencieuse et le contrôle qui s'appuie dessus devient vert sans avoir rien lu.
+   * `fileURLToPath` est la seule conversion correcte.
+   *
+   * L'exemple ci-dessus ne cite plus l'appel fautif tel quel, et ce n'est pas de la
+   * coquetterie : la correction automatique de ce défaut a réécrit **l'exemple dans ce
+   * commentaire**, qui s'est mis à affirmer que la bonne API était la cassée. Une note qui
+   * cite le défaut qu'elle explique se fait corriger avec lui.
+   *
+   * `url.pathname` sur une requête HTTP est juste et ne doit pas être touché : la règle ne
+   * tire que si l'expression mentionne `import.meta.url`, ce qui est la signature d'une URL
+   * de fichier.
+   *
+   * ─── ET POURQUOI CETTE GARDE VIT ICI ───
+   *
+   * `figures.ts`, `interval.ts`, `provenance.ts` et `cli.ts` voyagent à l'octet près entre
+   * les douze dépôts. Les GARDES qui les protègent, elles, ne voyageaient pas : la règle
+   * ci-dessous n'existait que dans un seul dépôt, et les autres l'ignoraient. Un module
+   * partagé sans sa garde partagée, c'est la moitié du dispositif qui se recopie.
+   */
+  const NU = (t) => t
+    /* Commentaires et chaînes retirés EN PRÉSERVANT LES NUMÉROS DE LIGNE : sans ça le
+       rapport désigne la mauvaise ligne, et on cherche un défaut là où il n'est pas. */
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => "\n".repeat(m.split("\n").length - 1))
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/`(?:[^`\\]|\\.)*`/g, (m) => "`" + "\n".repeat(m.split("\n").length - 1) + "`")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''");
+
+  const fautifs = [];
+  let lus = 0;
+  for (const e of readdirSync(ICI, { withFileTypes: true })) {
+    if (!e.isFile() || !/\.(ts|mjs|js)$/.test(e.name)) continue;
+    lus++;
+    const lignes = NU(readFileSync(ICI + e.name, "utf8")).split("\n");
+    lignes.forEach((l, i) => {
+      if (/import\.meta\.url[^;\n]*\)\s*\.pathname/.test(l)) {
+        fautifs.push(`${e.name}:${i + 1}`);
+      }
+    });
+  }
+  /* Avant de croire un zéro : la liste n'était pas vide. */
+  assert.ok(lus >= 5, `seulement ${lus} fichier(s) de code lus dans ${ICI}`);
+  assert.deepEqual(fautifs, [],
+    `${fautifs.join(", ")} : .pathname sur une URL de fichier — employer fileURLToPath. `
+    + "Un chemin accentué ou espacé devient un chemin qui n'existe pas : la lecture lève, "
+    + "parfois bruyamment (le processus meurt), parfois sans un mot quand un `catch` rend une "
+    + "valeur de repli. Les deux arrivent, et annoncer seulement le silencieux envoie chercher "
+    + "un chiffre faux là où il y a un plantage.");
 });

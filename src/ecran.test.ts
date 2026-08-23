@@ -30,6 +30,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "n
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * LES ÉCRANS DE CE DÉPÔT — TOUS, ET NON `ui.html` PAR CONVENTION.
@@ -43,7 +44,7 @@ import { join } from "node:path";
  * était plus étroit que ce qui était promis. La liste se déduit donc du dossier — tout `.html`
  * du `src/` où ce test se trouve est un écran de ce dépôt.
  */
-const SRC = new URL(".", import.meta.url).pathname;
+const SRC = fileURLToPath(new URL(".", import.meta.url));
 
 function ecrans(): string[] {
   return readdirSync(SRC, { withFileTypes: true })

@@ -20,8 +20,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-const SRC = new URL(".", import.meta.url).pathname;
+const SRC = fileURLToPath(new URL(".", import.meta.url));
 
 /** Les sources de ce dépôt, tests exclus — un test peut légitimement parler de `0.0.0.0`. */
 function sources(): string[] {
