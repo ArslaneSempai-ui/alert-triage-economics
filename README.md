@@ -175,6 +175,8 @@ The cost on one side of this model buys compliance with a specific obligation, a
 worth naming rather than leaving as an abstraction.
 
 <!-- figures:citations -->
+5 of the 9 sections in the shared regulations file apply to this tool. The other 4 are cited by sibling tools and are left out here rather than listed under a heading claiming these are the rules this one rests on.
+
 | Citation | Requires | Figure | Retrieved |
 |---|---|---|---|
 | [31 CFR 1020.320(a)(2)](https://www.law.cornell.edu/cfr/text/31/1020.320) | A bank must report a suspicious transaction conducted or attempted by, at or through it once the amount involved or aggregated reaches the threshold. | $5,000 | 2026-08-17 |

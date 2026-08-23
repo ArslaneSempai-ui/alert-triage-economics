@@ -194,9 +194,25 @@ const finding = reco
     `the calculation.`
   : "**The finding.** No threshold fits the headcount in post.";
 
-const citations = table(
-  ["Citation", "Requires", "Figure", "Retrieved"],
-  CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
-);
+/*
+ * THE TABLE DECLARES WHAT IT LEAVES OUT.
+ *
+ * `CITED` is a selection: the shared regulations file is copied into five repositories and
+ * holds every section any of them cites, and only some of them apply to queue economics.
+ * The reason is written in `inventory.ts` and it is a good one — but it was written for
+ * whoever edits the code, and the READER saw a table with no hint that it was a subset.
+ * A figure that results from a selection carries the count of what was set aside, or it is
+ * not a figure, it is a sample presented as a census.
+ *
+ * Generated, so the two numbers cannot drift apart the day a section is added.
+ */
+const citations =
+  `${CITED.length} of the ${ALL.length} sections in the shared regulations file apply to this ` +
+  `tool. The other ${ALL.length - CITED.length} are cited by sibling tools and are left out ` +
+  `here rather than listed under a heading claiming these are the rules this one rests on.\n\n` +
+  table(
+    ["Citation", "Requires", "Figure", "Retrieved"],
+    CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
+  );
 
 run(fileURLToPath(new URL("../README.md", import.meta.url)), { finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });

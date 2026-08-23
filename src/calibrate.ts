@@ -241,49 +241,134 @@ const FAUX = new Set(["0", "false", "no", "n", "non", "faux", "fp", "negative", 
  * Every line that cannot be read is reported with its number and a reason. A parser that
  * silently drops what it does not understand produces a smaller, cleaner, wrong population.
  */
+/**
+ * The refusal message for an unterminated quote.
+ *
+ * It names the escape, because a refusal a reader cannot act on is a refusal they work
+ * around by deleting the guard. Written once so the two places that refuse say the same
+ * thing.
+ */
+const QUOTE_NON_FERMEE =
+  'unterminated quote \u2014 write a literal " inside a quoted cell as ""';
+
 export function readScoredCases(text: string): Reading {
-  const lignes = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  /*
+   * THE LINE NUMBER IS THE LINE NUMBER IN THE FILE, and it was not.
+   *
+   * The promise above says every unreadable line is reported with its number. Two faults
+   * cumulated to break it, and the second grew as it went:
+   *
+   *   - blank lines were dropped BEFORE numbering, so `n + 1` counted non-blank lines;
+   *   - the out-of-range pass indexed `rows` — already filtered — while `rows.splice()`
+   *     inside the same loop shifted every later index by one more.
+   *
+   * A reader following the number looked at the wrong line, and further off the more
+   * errors their file had. Anything that removes lines shifts everything after it: the
+   * same fault as a comment stripper that collapses a block into one space. **Keep the
+   * source index, always.**
+   */
+  const brutes = text.split(/\r?\n/);
   const ignored: Reading["ignored"] = [];
   const rows: ScoredCase[] = [];
-  if (lignes.length === 0) return { rows, ignored, rescaled: false };
+  /** The file line each accepted row came from, so later passes can still name it. */
+  const source: number[] = [];
 
-  const decouper = (l: string) => l.split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, ""));
+  /*
+   * SPLITTING WITH STATE, because `[,;\t]` on a raw line reads the wrong column in silence.
+   *
+   * A comma inside a quoted cell shifts every column after it. If the shift happens to put
+   * a number where the score is expected, the file parses, the run succeeds, and the tool
+   * reports on a column nobody chose. That is worse than a crash: a crash is noticed.
+   *
+   * Quotes are honoured, `""` is a literal quote inside a quoted cell, and a line whose
+   * quote is never closed is REFUSED BY NAME rather than split anyway — with the escape
+   * spelled out, because a refusal a reader cannot act on gets worked around by deleting
+   * the guard.
+   */
+  const decouper = (l: string): string[] | null => {
+    const cellules: string[] = [];
+    let cellule = "", dansGuillemets = false, i = 0;
+    while (i < l.length) {
+      const c = l[i]!;
+      if (dansGuillemets) {
+        if (c === '"') {
+          if (l[i + 1] === '"') { cellule += '"'; i += 2; continue; }
+          dansGuillemets = false; i++; continue;
+        }
+        cellule += c; i++; continue;
+      }
+      if (c === '"') { dansGuillemets = true; i++; continue; }
+      if (c === "," || c === ";" || c === "\t") { cellules.push(cellule.trim()); cellule = ""; i++; continue; }
+      cellule += c; i++;
+    }
+    if (dansGuillemets) return null;
+    cellules.push(cellule.trim());
+    return cellules;
+  };
 
-  let colScore = 0, colIssue = 1, debut = 0;
-  const tete = decouper(lignes[0]!).map((c) => c.toLowerCase());
+  /** The first line that is not blank, with its true number. */
+  let entete: { cellules: string[]; ligne: number } | null = null;
+  let debut = 0;
+  for (let n = 0; n < brutes.length; n++) {
+    if (brutes[n]!.trim() === "") continue;
+    const cellules = decouper(brutes[n]!);
+    if (cellules === null) {
+      ignored.push({ line: n + 1, reason: QUOTE_NON_FERMEE });
+      debut = n + 1;
+      continue;
+    }
+    entete = { cellules, ligne: n };
+    debut = n + 1;
+    break;
+  }
+  if (entete === null) return { rows, ignored, rescaled: false };
+
+  let colScore = 0, colIssue = 1;
+  const tete = entete.cellules.map((c) => c.toLowerCase());
   const estEntete = tete.some((c) => /score|confidence|risk|proba/.test(c));
   if (estEntete) {
-    const s = tete.findIndex((c) => /score|confidence|risk|proba/.test(c));
-    const i = tete.findIndex((c) => /outcome|result|true|label|reportable|escalat|sar|issue|verdict/.test(c));
-    colScore = s;
-    colIssue = i >= 0 ? i : (s === 0 ? 1 : 0);
-    debut = 1;
+    const sc = tete.findIndex((c) => /score|confidence|risk|proba/.test(c));
+    const is = tete.findIndex((c) => /outcome|result|true|label|reportable|escalat|sar|issue|verdict/.test(c));
+    colScore = sc;
+    colIssue = is >= 0 ? is : (sc === 0 ? 1 : 0);
+  } else {
+    /* No header: the first line is data and must be read as such. */
+    debut = entete.ligne;
   }
 
-  for (let n = debut; n < lignes.length; n++) {
-    const cellules = decouper(lignes[n]!);
+  for (let n = debut; n < brutes.length; n++) {
+    const l = brutes[n]!;
+    if (l.trim() === "") continue;
+    const cellules = decouper(l);
+    if (cellules === null) { ignored.push({ line: n + 1, reason: QUOTE_NON_FERMEE }); continue; }
     const brut = Number(cellules[colScore]);
     const issue = (cellules[colIssue] ?? "").toLowerCase();
     if (!Number.isFinite(brut)) { ignored.push({ line: n + 1, reason: "score is not a number" }); continue; }
     if (!VRAI.has(issue) && !FAUX.has(issue)) { ignored.push({ line: n + 1, reason: `outcome “${cellules[colIssue] ?? ""}” not understood` }); continue; }
     rows.push({ score: brut, truePositive: VRAI.has(issue) });
+    source.push(n + 1);
   }
 
   /*
    * Les scores en pourcentage.
    *
-   * Beaucoup d'exports sortent sur 0–100. On ne le devine que si *aucune* valeur ne tombe
-   * dans [0, 1] : un jeu qui mélangerait les deux échelles serait recalé plutôt que
-   * réparé de travers.
+   * Beaucoup d'exports sortent sur 0-100. On ne le devine que si *aucune* valeur ne tombe
+   * dans [0, 1] : un jeu qui melangerait les deux echelles serait recale plutot que
+   * repare de travers.
    */
   const rescaled = rows.length > 0 && rows.every((r) => r.score > 1) && rows.every((r) => r.score <= 100);
   if (rescaled) for (const r of rows) r.score /= 100;
 
   for (let i = rows.length - 1; i >= 0; i--) {
     const s = rows[i]!.score;
-    if (s < 0 || s > 1) { ignored.push({ line: i + 1 + debut, reason: `score ${s} outside 0–1` }); rows.splice(i, 1); }
+    if (s < 0 || s > 1) {
+      ignored.push({ line: source[i]!, reason: `score ${s} outside 0-1` });
+      rows.splice(i, 1);
+      source.splice(i, 1);
+    }
   }
 
+  ignored.sort((a, b) => a.line - b.line);
   return { rows, ignored, rescaled };
 }
 

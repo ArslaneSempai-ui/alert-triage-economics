@@ -2,10 +2,17 @@
  * Every number this tool puts on a page, and where it came from.
  *
  * The uncomfortable line in the table below is the one about the population. This
- * repository's headline figures — 4,154 alerts, 3 FTE, 81 % coverage, $1,442 a case — are
+ * repository's headline figures — 4,154 alerts, 8 analysts in post, 81 % coverage, $1,442
+ * a case — are
  * **measured**, in that running the code produces them and a stranger gets the same
  * answers. They are measured on a population whose shape I chose: how rare a genuine case
  * is, how much the two score distributions overlap, how long an ambiguous alert takes.
+ *
+ * (Those four are the generated blocks' own figures, and one of them had already rusted:
+ * this sentence said "3 FTE" while `ASSUMPTIONS.analystsInPost` is 8 and the published
+ * headline says "1 FTE out of 8". A figure typed into a comment is a figure nothing
+ * re-derives — including, and especially, in the comment that argues about what "measured"
+ * is allowed to mean. Check them against `npm run figures -- --check` before trusting them.)
  *
  * Measured on chosen inputs is not the same as measured, and a table that renders both in
  * the same typeface says it is. The distinction that survives is narrower and worth
