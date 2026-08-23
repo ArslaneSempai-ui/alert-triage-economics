@@ -378,6 +378,39 @@ test("aucun fichier n'emploie .pathname sur une URL de fichier", () => {
    * ci-dessous n'existait que dans un seul dépôt, et les autres l'ignoraient. Un module
    * partagé sans sa garde partagée, c'est la moitié du dispositif qui se recopie.
    */
+  /*
+   * LE MOTIF LARGE, ET SA SEULE EXCEPTION.
+   *
+   * La première version exigeait `import.meta.url` **sur la même ligne**. Une URL de fichier
+   * tenue dans une variable — `new URL(cheminDuFichier).pathname` — ou construite par
+   * concaténation y échappait. Relevé par une autre session sur quatre cas mesurés, et c'est
+   * la même faiblesse que celle qui m'avait laissé passer un argument à parenthèses
+   * imbriquées : **un motif calé sur l'idiome courant rate ce qui ne lui ressemble pas.**
+   *
+   * L'exception est réelle et doit rester : sur une URL de RÉSEAU, `.pathname` est correct.
+   * On la reconnaît à son schéma ou à la requête dont elle vient. Aucune occurrence de cette
+   * forme n'existe aujourd'hui dans les douze dépôts — les serveurs construisent l'URL sur
+   * une ligne et lisent `url.pathname` sur une autre — mais la forme en ligne est légitime
+   * et un rouge injuste apprend à ignorer les rouges.
+   */
+  const SUSPECT = (l) =>
+    /new URL\([^)]*\)\s*\.pathname/.test(l) && !/https?:\/\/|\breq\b|\brequest\b/.test(l);
+
+  /* Les quatre cas mesurés, éprouvés ici même : une garde qui ne démontre pas qu'elle
+     discrimine est une constante déguisée. */
+  const CAS = [
+    ['new URL("./a.ts", import.meta.url).pathname', true],
+    ["new URL(urlDuFichier).pathname", true],
+    ["new URL(base + nom).pathname", true],
+    ['const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);', false],
+    ['if (url.pathname === "/") return;', false],
+    ['res.end(new URL(req.url, "http://x").pathname);', false],
+  ];
+  for (const [ligne, attendu] of CAS) {
+    assert.equal(SUSPECT(ligne), attendu,
+      `le motif ${attendu ? "devrait" : "ne devrait pas"} tirer sur : ${ligne}`);
+  }
+
   const NU = (t) => t
     /* Commentaires et chaînes retirés EN PRÉSERVANT LES NUMÉROS DE LIGNE : sans ça le
        rapport désigne la mauvaise ligne, et on cherche un défaut là où il n'est pas. */
@@ -394,9 +427,7 @@ test("aucun fichier n'emploie .pathname sur une URL de fichier", () => {
     lus++;
     const lignes = NU(readFileSync(ICI + e.name, "utf8")).split("\n");
     lignes.forEach((l, i) => {
-      if (/import\.meta\.url[^;\n]*\)\s*\.pathname/.test(l)) {
-        fautifs.push(`${e.name}:${i + 1}`);
-      }
+      if (SUSPECT(l)) fautifs.push(`${e.name}:${i + 1}`);
     });
   }
   /* Avant de croire un zéro : la liste n'était pas vide. */
