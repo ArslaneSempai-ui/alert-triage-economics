@@ -164,11 +164,41 @@ const PILOTE = `
  */
 const REGISTRE = join(tmpdir(), "serveurs-portfolio.json");
 
+/*
+ * « ABSENT » ET « ILLISIBLE » NE SE RAPPORTENT PAS PAREIL, ET LA DIFFÉRENCE EST DESTRUCTRICE.
+ *
+ * Ce `catch { return []; }` traitait les deux comme un registre vide. Or `ramasserOrphelins`
+ * réécrit ensuite ce qu'elle a gardé : sur un fichier illisible, elle lisait `[]`, ne gardait
+ * rien, et **écrasait le registre par un tableau vide**. Tous les serveurs inscrits devenaient
+ * introuvables pour toujours — par la fonction dont c'est le seul rôle de les retrouver.
+ *
+ * Ce n'était pas théorique : cette machine a porté des serveurs orphelins de treize jours que
+ * personne ne savait retrouver.
+ */
 function lireRegistre() {
-  try { return JSON.parse(readFileSync(REGISTRE, "utf8")); } catch { return []; }
+  try {
+    const v = JSON.parse(readFileSync(REGISTRE, "utf8"));
+    return Array.isArray(v) ? { entrees: v, lisible: true } : { entrees: [], lisible: false,
+      pourquoi: `${REGISTRE} ne contient pas une liste` };
+  } catch (e) {
+    /* Le premier passage n'a pas de fichier : c'est normal, et c'est LISIBLE — un registre
+       vide est un fait, pas une panne. Tout le reste est une panne, et se nomme. */
+    if (e.code === "ENOENT") return { entrees: [], lisible: true };
+    return { entrees: [], lisible: false, pourquoi: `${REGISTRE} : ${e.message}` };
+  }
 }
+
+/*
+ * Le registre n'est pas « un confort » : c'est le seul moyen de retrouver un serveur après la
+ * mort de celui qui l'a ouvert. Une écriture qui échoue en silence laisse donc un orphelin
+ * qu'aucun outil ne pourra plus nommer. Elle ne tue pas la capture, mais elle se dit.
+ */
 function ecrireRegistre(v) {
-  try { writeFileSync(REGISTRE, JSON.stringify(v)); } catch { /* le registre est un confort */ }
+  try { writeFileSync(REGISTRE, JSON.stringify(v)); return true; } catch (e) {
+    process.stderr.write(`  REGISTRE NON ÉCRIT — ${REGISTRE} : ${e.message}\n`
+      + `  Un serveur ouvert maintenant ne sera pas retrouvable après la mort de ce script.\n`);
+    return false;
+  }
 }
 function vivant(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
@@ -176,13 +206,25 @@ function vivant(pid) {
 
 /** Se rayer du registre : l'arrêt normal ne doit rien laisser derrière lui. */
 function rayer(pid) {
-  ecrireRegistre(lireRegistre().filter((e) => e.pid !== pid));
+  const r = lireRegistre();
+  /* Ne rien écrire par-dessus un registre illisible : on effacerait ce qu'on ne sait pas lire. */
+  if (!r.lisible) return;
+  ecrireRegistre(r.entrees.filter((e) => e.pid !== pid));
 }
 
 /** Ferme les serveurs inscrits que personne n'a rayés, et rend ce qu'elle a fermé. */
 export function ramasserOrphelins(maxAgeMs = 3_600_000, maintenant = Date.now()) {
+  const r = lireRegistre();
+  if (!r.lisible) {
+    /* LE REFUS PLUTÔT QUE L'ÉCRASEMENT. Rendre « zéro orphelin » sur un registre qu'on n'a pas
+       pu lire serait un vert vide, et réécrire par-dessus perdrait tout le monde. */
+    process.stderr.write(`  REGISTRE ILLISIBLE — ${r.pourquoi}\n`
+      + `  Aucun orphelin n'a été cherché, et le registre n'est PAS réécrit.\n`
+      + `  Regardez le fichier, ou effacez-le si vous acceptez d'oublier ce qu'il portait.\n`);
+    return { fermes: [], restants: null, illisible: r.pourquoi };
+  }
   const garde = [], fermes = [];
-  for (const e of lireRegistre()) {
+  for (const e of r.entrees) {
     if (!vivant(e.pid)) continue;
     if (maintenant - e.depuis < maxAgeMs) { garde.push(e); continue; }
     try { process.kill(e.pid); fermes.push(e); } catch { garde.push(e); }
@@ -204,7 +246,15 @@ function servir(racine, port) {
    */
   const p = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", racine],
     { stdio: "ignore", detached: false });
-  ecrireRegistre([...lireRegistre().filter((e) => e.pid !== p.pid),
+  /* S'INSCRIRE MÊME SI LE REGISTRE EST ILLISIBLE, et le dire. Ce qu'il portait est déjà
+     perdu — refuser de s'inscrire ajouterait un orphelin de plus à ceux qu'on ne retrouve
+     pas. On repart donc d'un registre qui ne contient que nous, en l'annonçant. */
+  const avant = lireRegistre();
+  if (!avant.lisible) {
+    process.stderr.write(`  REGISTRE ILLISIBLE — ${avant.pourquoi}\n`
+      + `  Ce serveur s'inscrit quand même ; ce que le fichier portait avant est perdu.\n`);
+  }
+  ecrireRegistre([...avant.entrees.filter((e) => e.pid !== p.pid),
     { pid: p.pid, port, depuis: Date.now(), outil: "capturer", racine }]);
   execFileSync("bash", ["-c", `for i in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:${port}/index.html && exit 0; sleep 0.1; done; exit 1`]);
   return p;
