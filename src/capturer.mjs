@@ -21,7 +21,7 @@
  * Le dépôt décrit ce qu'il veut dans `captures.json`.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, statSync, realpathSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, statSync, realpathSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -246,13 +246,21 @@ function servir(racine, port) {
    */
   const p = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", racine],
     { stdio: "ignore", detached: false });
-  /* S'INSCRIRE MÊME SI LE REGISTRE EST ILLISIBLE, et le dire. Ce qu'il portait est déjà
-     perdu — refuser de s'inscrire ajouterait un orphelin de plus à ceux qu'on ne retrouve
-     pas. On repart donc d'un registre qui ne contient que nous, en l'annonçant. */
+  /* S'INSCRIRE MÊME SI LE REGISTRE EST ILLISIBLE, et le dire. Ce qu'il portait n'est plus
+     lisible — refuser de s'inscrire ajouterait un orphelin de plus à ceux qu'on ne retrouve
+     déjà pas. On repart donc d'un registre qui ne contient que nous.
+     MAIS ON GARDE LA PIÈCE À CONVICTION : le fichier abîmé est déplacé à côté au lieu d'être
+     écrasé. Sans ça on saurait qu'il était illisible et jamais POURQUOI — et la prochaine
+     fois qu'un serveur devient introuvable, la seule trace de la cause aurait disparu. */
   const avant = lireRegistre();
   if (!avant.lisible) {
+    const preuve = `${REGISTRE.replace(/\.json$/, "")}.corrompu-${p.pid}.json`;
+    let garde = null;
+    try { renameSync(REGISTRE, preuve); garde = preuve; } catch { /* rien à déplacer */ }
     process.stderr.write(`  REGISTRE ILLISIBLE — ${avant.pourquoi}\n`
-      + `  Ce serveur s'inscrit quand même ; ce que le fichier portait avant est perdu.\n`);
+      + (garde ? `  Le fichier abîmé est gardé ici : ${garde}\n`
+               : `  Il n'a pas pu être mis de côté ; ce qu'il portait est perdu.\n`)
+      + `  Ce serveur s'inscrit dans un registre neuf.\n`);
   }
   ecrireRegistre([...avant.entrees.filter((e) => e.pid !== p.pid),
     { pid: p.pid, port, depuis: Date.now(), outil: "capturer", racine }]);
