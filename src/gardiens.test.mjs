@@ -44,7 +44,7 @@ import { fileURLToPath } from "node:url";
  * deux contrôles qui comptent en deux temps et ont bel et bien leur témoin.
  *
  * La seconde : il ne tournait que dans `identite`. Il lisait `depots.json`, qui n'existe que
- * là, et se serait tu partout ailleurs — alors que les douze dépôts portent chacun leur suite.
+ * là, et se serait tu partout ailleurs — alors que tous les dépôts du portfolio portent chacun leur suite.
  * Un gardien des périmètres dont le périmètre est un seul dossier est exactement la chose
  * qu'il refuse aux autres. Il est donc recopié dans chaque dépôt et regarde le sien.
  */
@@ -362,7 +362,7 @@ test("aucune classe ni identifiant n'est cherché sans être posé quelque part"
 
 test("aucun contrôle ne s'est mis à lire le vrai arbre des dépôts sans le dire", () => {
   /*
-   * Un contrôle qui écrit dans `~/Documents` depuis un cas d'essai peut abîmer douze dépôts.
+   * Un contrôle qui écrit dans `~/Documents` depuis un cas d'essai peut abîmer tous les dépôts.
    * `diffuser.test.mjs` porte `horsDuVrai()` pour ça ; ce cas vérifie que tout fichier qui
    * remonte au-dessus d'`identite` porte la même précaution ou ne fait que lire.
    */
