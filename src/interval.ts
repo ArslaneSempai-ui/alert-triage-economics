@@ -170,16 +170,38 @@ export function pairedVerdict(gains: number, regressions: number) {
   const discordant = gains + regressions;
   if (discordant === 0) return { discordant, decidable: false, note: "no case changed verdict" };
 
-  // Two-sided exact binomial against p = 0.5.
-  const choose = (n: number, k: number) => {
-    let r = 1;
-    for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
-    return r;
-  };
+  /*
+   * BINOMIALE EXACTE À DEUX QUEUES CONTRE p = 0,5 — EN ENTIERS, PAS EN FLOTTANTS.
+   *
+   * La formule était juste ; l'arithmétique ne l'était pas. `Math.pow(2, discordant)` vaut
+   * **Infinity dès 1024 paires discordantes**, et les coefficients binomiaux débordaient avec
+   * lui. Selon lequel des deux débordait le premier, `p` sortait `0` ou `NaN` — et `NaN < 0.05`
+   * vaut `false`, donc le verdict tombait sur « cet échantillon ne distingue pas les deux
+   * versions » **sans qu'aucun calcul n'ait abouti**.
+   *
+   * Mesuré : à 548 gains contre 481 régressions, p exact vaut 0,0396 — l'échantillon distingue
+   * bel et bien — et l'outil répondait « il ne distingue pas ». À 560 contre 470, p exact vaut
+   * 0,0055, même réponse. **La faute penche du côté prudent, ce qui la rend plus difficile à
+   * voir** : elle refuse une trouvaille qu'on a, elle n'en invente pas. Personne ne conteste un
+   * outil qui dit « je ne peux pas conclure ».
+   *
+   * Mille paires discordantes ne sont pas une hypothèse : une passe mesure des milliers
+   * d'extractions, et les cas où deux paliers divergent se comptent en centaines.
+   *
+   * `BigInt` porte les deux côtés exactement. La seule division flottante est la dernière, et
+   * elle porte dix-huit décimales — largement plus que ce qu'un seuil à 0,05 demande.
+   */
   const extreme = Math.min(gains, regressions);
-  let tail = 0;
-  for (let i = 0; i <= extreme; i++) tail += choose(discordant, i);
-  const p = Math.min(1, 2 * tail / Math.pow(2, discordant));
+  let tail = 0n;
+  let c = 1n;                                   /* C(discordant, i), construit sans division */
+  const n = BigInt(discordant);
+  for (let i = 0; i <= extreme; i++) {
+    if (i > 0) c = (c * (n - BigInt(i) + 1n)) / BigInt(i);
+    tail += c;
+  }
+  const ECHELLE = 1_000_000_000_000_000_000n;
+  const brut = (2n * tail * ECHELLE) / (1n << n);
+  const p = Math.min(1, Number(brut) / 1e18);
 
   return {
     discordant,
