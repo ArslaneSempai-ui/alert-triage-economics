@@ -266,8 +266,20 @@ test("aucune classe ni identifiant n'est cherché sans être posé quelque part"
   const LECTURE = /(?:querySelectorAll|querySelector|getElementById|closest|matches)\(\s*([`"'])(.*?)\1\s*\)/g;
   const CONSTRUIT = /(?:querySelectorAll|querySelector|getElementById|closest|matches)\(\s*(?:[`"'][^`"']*[`"']\s*\+|[A-Za-z_$])/g;
 
+  /*
+   * LES RETOURS À LA LIGNE SE PRÉSERVENT, MÊME QUAND PERSONNE N'EN DÉPEND ENCORE.
+   *
+   * Ce relevé-ci ne rapporte que des noms de jeton, donc écraser un bloc de commentaire par
+   * une espace ne le gênait pas. Mais une autre session a payé exactement ça sur deux de ses
+   * règles : **530 lignes de décalage** sur un fichier réel, et un diagnostic qu'on ne peut
+   * pas localiser ne se corrige pas, il s'ignore. Le jour où quelqu'un ajoute un numéro de
+   * ligne ici — ce que fait déjà le relevé des listes figées, vingt lignes plus haut — le
+   * piège se referme sans prévenir. On aligne donc les trois retraits de ce fichier sur la
+   * même conduite : ils remplacent, ils ne raccourcissent pas.
+   */
   const sansCommentaires = (t) => t
-    .replace(/\/\*[\s\S]*?\*\//g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => "\n".repeat(m.split("\n").length - 1) + " ")
+    .replace(/<!--[\s\S]*?-->/g, (m) => "\n".repeat(m.split("\n").length - 1) + " ")
     .replace(/^\s*\/\/.*$/gm, " ");
 
   let corpus = "", brut = "", styles = "";
@@ -319,10 +331,23 @@ test("aucune classe ni identifiant n'est cherché sans être posé quelque part"
 
   const jamaisPoses = [];
   for (const t of jetons.keys()) {
-    const partout = (corpus.match(new RegExp("\\b" + t.replace(/[-]/g, "\\-") + "\\b", "g")) ?? []).length;
+    /*
+     * `\b` S'OUVRE APRÈS UN TRAIT D'UNION, ET C'EST UN CHEMIN DE FAUX VERT.
+     *
+     * `/\bprise\b/` se trouve dans « carte-prise » : une classe courte jamais posée
+     * paraîtrait donc posée dès qu'un nom composé la contient en suffixe, et ce cas — dont
+     * tout l'objet est de dire « ce sélecteur ne trouvera personne » — rendrait vert.
+     * Signalé par une autre session, qui se faisait citer « four routes » sur
+     * « seventy-four routes ».
+     *
+     * Mesuré avant de corriger : aucun jeton ne bascule aujourd'hui dans les six dépôts
+     * porteurs, donc la faute est latente et non active. On la retire quand même — elle
+     * coûte une ligne, et elle attend un nom composé pour se réveiller. */
+    const borne = (j) => new RegExp("(?<![\\w-])" + j.replace(/[-]/g, "\\-") + "(?![\\w-])", "g");
+    const partout = (corpus.match(borne(t)) ?? []).length;
     let dansLecture = 0;
     for (const m of corpus.matchAll(LECTURE)) {
-      dansLecture += (m[2].match(new RegExp("\\b" + t.replace(/[-]/g, "\\-") + "\\b", "g")) ?? []).length;
+      dansLecture += (m[2].match(borne(t)) ?? []).length;
     }
     if (partout - dansLecture === 0 && !offerts.has(t)) jamaisPoses.push(t);
   }
@@ -546,4 +571,24 @@ test("aucun module compilé pour le navigateur n'importe un module Node", (t) =>
     `${[...new Set(fautifs)].join(", ")} : importé dans la construction web et employant un `
     + `module Node. Le navigateur ne le résout pas, le module ne se charge pas, et la page `
     + `publiée est vide — pas amoindrie, vide. ${vus.size} fichier(s) suivis.`);
+});
+
+test("un jeton court n'est pas trouvé à l'intérieur d'un nom composé", () => {
+  /*
+   * Le témoin de la borne, éprouvé sur des littéraux : `\b` s'ouvre après un trait d'union,
+   * donc `/\bprise\b/` se trouve dans « carte-prise ». Sans cette borne, une classe jamais
+   * posée paraît posée dès qu'un nom composé la contient — et le cas dont l'objet est de
+   * dire « ce sélecteur ne trouvera personne » rend vert.
+   *
+   * Une autre session a payé la même chose dans l'autre sens : sa règle citait
+   * « four routes » sur « seventy-four routes », donc un diagnostic qu'on ne pouvait pas
+   * retrouver dans le fichier.
+   */
+  const borne = (j) => new RegExp("(?<![\\w-])" + j.replace(/[-]/g, "\\-") + "(?![\\w-])");
+  assert.equal(borne("prise").test("carte-prise"), false, "un suffixe ne compte pas comme une pose");
+  assert.equal(borne("carte").test("carte-prise"), false, "un préfixe non plus");
+  assert.equal(borne("carte-prise").test("carte-prise"), true, "le nom entier, lui, compte");
+  assert.equal(borne("prise").test('class="prise"'), true, "le jeton seul reste trouvé");
+  /* Et le pendant : la borne ne doit pas devenir si stricte qu'elle ne trouve plus rien. */
+  assert.equal(borne("tete").test(".pliable > .tete { }"), true, "un sélecteur CSS reste lisible");
 });

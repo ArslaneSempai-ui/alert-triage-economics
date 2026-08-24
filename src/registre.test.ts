@@ -127,6 +127,36 @@ test("les couches partagées sont bien celles d'identite", (t) => {
     "baselines.ts": "chaque outil compare à la référence triviale de SON domaine (depuis le 2026-08-19)",
   };
 
+  /*
+   * UNE EXCEPTION DOIT POUVOIR DIRE QUAND ELLE A EXPIRÉ.
+   *
+   * `ADAPTES` sort un fichier du contrôle d'identité parce qu'il DIVERGE par construction.
+   * Le jour où il cesse de diverger, l'exception le garde hors du contrôle pour rien — et
+   * plus personne ne verra une dérive future sur ce fichier. Mesuré le 24 août 2026 :
+   * `baselines.ts` était devenu identique à la source dans deux dépôts sur trois.
+   *
+   * On ne la retire pas automatiquement : tant qu'un seul dépôt diverge, elle sert. Mais si
+   * elle ne sert PLUS NULLE PART, elle tombe — une exclusion qu'on ne peut pas voir expirer
+   * survit à sa raison d'être, et c'est la forme la plus discrète du contrôle qui ne
+   * contrôle rien.
+   */
+  for (const [nom, pourquoi] of Object.entries(ADAPTES)) {
+    const ici = racine + "src/" + nom, la = source + nom;
+    if (!existsSync(ici) || !existsSync(la)) continue;
+    const identiques = readFileSync(ici, "utf8") === readFileSync(la, "utf8");
+    if (!identiques) continue;
+    /* Identique ICI : l'exception peut encore servir ailleurs. On ne tombe que si elle ne
+       sert nulle part, ce que seul un balayage des voisins peut dire. */
+    const voisins = readdirSync(racine + "../", { withFileTypes: true })
+      .filter((e) => e.isDirectory() && existsSync(racine + "../" + e.name + "/src/" + nom))
+      .map((e) => racine + "../" + e.name + "/src/" + nom);
+    const divergent = voisins.filter((v) => readFileSync(v, "utf8") !== readFileSync(la, "utf8"));
+    assert.ok(divergent.length > 0,
+      `${nom} est déclaré adapté — « ${pourquoi} » — et il est pourtant identique à la source `
+      + `dans les ${voisins.length} dépôt(s) qui le portent. L'exception ne protège plus rien `
+      + `et sort ce fichier du contrôle d'identité pour rien : la retirer d'ADAPTES.`);
+  }
+
   const partages = readdirSync(source, { withFileTypes: true })
     .filter((e) => e.isFile() && /\.(ts|mjs|js|css)$/.test(e.name) && !/\.test\.mjs$/.test(e.name))
     .map((e) => e.name)
