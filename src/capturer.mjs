@@ -255,11 +255,14 @@ function servir(racine, port) {
   const avant = lireRegistre();
   if (!avant.lisible) {
     const preuve = `${REGISTRE.replace(/\.json$/, "")}.corrompu-${p.pid}.json`;
-    let garde = null;
-    try { renameSync(REGISTRE, preuve); garde = preuve; } catch { /* rien à déplacer */ }
+    let garde = null, pourquoiPas = null;
+    /* La RAISON de l'échec, pas seulement son fait. « Il n'a pas pu être mis de côté » ne dit
+       pas s'il n'existait pas, si le disque est plein, ou si les droits ont changé — et c'est
+       la seule information qui permette d'agir. */
+    try { renameSync(REGISTRE, preuve); garde = preuve; } catch (e) { pourquoiPas = e.message; }
     process.stderr.write(`  REGISTRE ILLISIBLE — ${avant.pourquoi}\n`
       + (garde ? `  Le fichier abîmé est gardé ici : ${garde}\n`
-               : `  Il n'a pas pu être mis de côté ; ce qu'il portait est perdu.\n`)
+               : `  Il n'a pas pu être mis de côté (${pourquoiPas}) ; ce qu'il portait est perdu.\n`)
       + `  Ce serveur s'inscrit dans un registre neuf.\n`);
   }
   ecrireRegistre([...avant.entrees.filter((e) => e.pid !== p.pid),
