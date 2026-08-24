@@ -16,7 +16,18 @@
  *
  * Copied identically into each repository.
  */
-const RETRIEVED = "2026-08-17";
+/*
+ * PAS DE DATE PARTAGÉE. Chaque entrée porte la sienne, en clair.
+ *
+ * Les neuf premières ont été relevées le même jour et se partageaient une constante. La
+ * dixième prouve que la constante est un piège pour toutes les suivantes : écrite comme ses
+ * voisines, elle aurait annoncé un relevé du 17 août pour une source ouverte le 24 — et le
+ * contrôle qui garde ce champ ne vérifie que le FORMAT, donc il l'aurait validée.
+ *
+ * Ce fichier interdit de citer de mémoire. **Une date fausse est pire qu'une date absente :
+ * l'absence se voit, la fausseté se fait valider.** Un champ qui atteste d'un acte — relevé
+ * le, mesuré le, vérifié par — ne se factorise pas.
+ */
 export const REGULATIONS = {
     /* ── Suspicious activity reporting ─────────────────────────────── */
     sarThreshold: {
@@ -26,7 +37,7 @@ export const REGULATIONS = {
         figure: "$5,000",
         quote: "it involves or aggregates at least $5,000",
         source: "https://www.law.cornell.edu/cfr/text/31/1020.320",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     sarDeadline: {
         cite: "31 CFR 1020.320(b)(3)",
@@ -35,7 +46,7 @@ export const REGULATIONS = {
         figure: "30 days, 60 maximum",
         quote: "no later than 30 calendar days after the date of initial detection",
         source: "https://www.law.cornell.edu/cfr/text/31/1020.320",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     sarRetention: {
         cite: "31 CFR 1020.320(d)",
@@ -44,7 +55,7 @@ export const REGULATIONS = {
         figure: "5 years",
         quote: "for a period of five years from the date of filing the SAR",
         source: "https://www.law.cornell.edu/cfr/text/31/1020.320",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     /**
      * The prohibition that governs how these tools may display anything at all.
@@ -60,7 +71,7 @@ export const REGULATIONS = {
         says: "Nobody at the bank may disclose a report, or any information that would reveal one exists.",
         quote: "shall disclose a SAR or any information that would reveal the existence of a SAR",
         source: "https://www.law.cornell.edu/cfr/text/31/1020.320",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     /* ── Customer due diligence ────────────────────────────────────── */
     beneficialOwnership: {
@@ -70,7 +81,7 @@ export const REGULATIONS = {
         figure: "25 %",
         quote: "owns 25 percent or more of the equity interests of a legal entity customer",
         source: "https://www.law.cornell.edu/cfr/text/31/1010.230",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     controlPerson: {
         cite: "31 CFR 1010.230(d)(2)",
@@ -79,7 +90,7 @@ export const REGULATIONS = {
         figure: "1 individual",
         quote: "A single individual with significant responsibility to control, manage, or direct a legal entity customer",
         source: "https://www.law.cornell.edu/cfr/text/31/1010.230",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     identificationTiming: {
         cite: "31 CFR 1010.230(a)",
@@ -87,7 +98,7 @@ export const REGULATIONS = {
         says: "Beneficial owners are identified when the account is opened, not afterwards.",
         quote: "at the time a new account is opened",
         source: "https://www.law.cornell.edu/cfr/text/31/1010.230",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     /* ── Currency transactions ─────────────────────────────────────── */
     currencyReport: {
@@ -97,7 +108,7 @@ export const REGULATIONS = {
         figure: "$10,000",
         quote: "more than $10,000",
         source: "https://www.law.cornell.edu/cfr/text/31/1010.311",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
     },
     /*
      * Why a name-screening system exists at all, and why a regression in one is a
@@ -115,7 +126,29 @@ export const REGULATIONS = {
         figure: "10 business days",
         quote: "within 10 business days from the date that property becomes blocked",
         source: "https://www.law.cornell.edu/cfr/text/31/501.603",
-        retrieved: RETRIEVED,
+        retrieved: "2026-08-17",
+    },
+    /*
+     * Ce que la banque doit COLLECTER, et non plus seulement qui identifier et quand.
+     *
+     * Les neuf entrees ci-dessus disent QUI identifier, QUAND, et fixent des seuils monetaires
+     * et des delais. Aucune ne dit QUELLES DONNEES. C'etait le lien manquant pour rattacher les
+     * figures d'un extracteur a une obligation : mesurer le nom, la date de naissance, le
+     * document et l'adresse n'est pas un choix de produit, c'est ce que le texte exige.
+     *
+     * Retrouve le 24 aout 2026 a la source. LE PAYS N'Y FIGURE PAS comme donnee propre — il se
+     * deduit de l'adresse ou du document — donc il n'est rattache a rien ici. Forcer ce
+     * cinquieme lien serait exactement ce que ce fichier existe pour interdire.
+     */
+    customerIdentification: {
+        cite: "31 CFR 1020.220(a)(2)(i)(A)",
+        short: "identifying information",
+        says: "Before opening an account a bank must obtain, at a minimum, the customer's name, "
+            + "date of birth for an individual, address, and identification number.",
+        figure: "4 data elements",
+        quote: "Name; Date of birth, for an individual; Address; Identification number",
+        source: "https://www.law.cornell.edu/cfr/text/31/1020.220",
+        retrieved: "2026-08-24",
     },
 };
 /*
