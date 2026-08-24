@@ -1,3 +1,6 @@
+/* PARTAGÉ — la source de ce fichier est ~/Documents/identite ; les dépôts du portfolio
+   en portent une copie identique. Corrigez-le DANS identite, puis recopiez. Corriger une
+   copie sur place fait refuser le commit, et le refus arrive après le travail. */
 /**
  * The regulations these tools cite, and where each figure came from.
  *

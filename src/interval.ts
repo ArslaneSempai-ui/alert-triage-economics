@@ -1,3 +1,6 @@
+/* PARTAGÉ — la source de ce fichier est ~/Documents/identite ; les dépôts du portfolio
+   en portent une copie identique. Corrigez-le DANS identite, puis recopiez. Corriger une
+   copie sur place fait refuser le commit, et le refus arrive après le travail. */
 /**
  * What a percentage is actually worth.
  *
@@ -28,6 +31,26 @@
  */
 export function wilson(successes: number, n: number, z = 1.96): [number, number] {
   if (n <= 0) return [0, 1];
+  /*
+   * PLUS DE SUCCÈS QUE D'ESSAIS N'EST PAS UN INTERVALLE LARGE, C'EST UN DÉFAUT EN AMONT.
+   *
+   * `p > 1` rend `p(1 − p)` négatif, `Math.sqrt` d'un négatif rend NaN, et les deux bornes
+   * sortent NaN. À n ≥ ENOUGH ça publie « 150.0 % [NaN–NaN] », ce qui est bruyant donc
+   * inoffensif. **Le danger est ailleurs et il est muet** : toute comparaison avec NaN vaut
+   * `false`, donc `distinguishable` répond « non séparables », donc la règle « prends le moins
+   * cher parmi les équivalents » retient un palier cassé s'il est rapide. Un palier gagne
+   * parce qu'il est cassé.
+   *
+   * Aucun site d'appel ne l'atteint aujourd'hui — les vingt-deux ont été relus, les comptes y
+   * sont bornés par construction. **Aujourd'hui n'est pas une garantie**, et deux lignes
+   * ferment la famille entière au lieu du cas.
+   */
+  if (!Number.isFinite(successes) || successes < 0 || successes > n) {
+    throw new Error(
+      `wilson(${successes}, ${n}): a success count outside [0, n].\n`
+      + "  An interval cannot absorb this — it would return NaN, and NaN compares silently as\n"
+      + "  \"not separable\". The defect is in the counting, upstream.");
+  }
   const p = successes / n;
   const d = 1 + (z * z) / n;
   const centre = (p + (z * z) / (2 * n)) / d;
@@ -112,6 +135,22 @@ export function writeRate(r: Rate, digits = 1): string {
  * survive the question, and it is better to find that out here than in an interview.
  */
 export function distinguishable(a: Rate, b: Rate): boolean {
+  /*
+   * « JE NE PEUX PAS COMPARER » ET « ILS SONT ÉQUIVALENTS » SONT DEUX PHRASES.
+   *
+   * Sur une borne NaN, `<` vaut `false` dans les deux sens, donc cette fonction répondait
+   * « non séparables » — et c'est la réponse qui décide, puisque l'appelant retient alors le
+   * moins cher des équivalents. Une fonction qui ne peut pas répondre doit refuser, pas
+   * choisir la réponse qui passe.
+   */
+  for (const [nom, r] of [["a", a], ["b", b]] as const) {
+    if (!Number.isFinite(r.low) || !Number.isFinite(r.high)) {
+      throw new Error(
+        `distinguishable(): bound ${nom} is not a number (low=${r.low}, high=${r.high}).\n`
+        + "  Refusing rather than returning `false`: \"cannot compare\" rendered as \"equivalent\"\n"
+        + "  makes the caller take the cheapest tier on a measurement that does not exist.");
+    }
+  }
   return a.high < b.low || b.high < a.low;
 }
 

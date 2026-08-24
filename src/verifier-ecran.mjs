@@ -1,3 +1,6 @@
+/* PARTAGÉ — la source de ce fichier est ~/Documents/identite ; les dépôts du portfolio
+   en portent une copie identique. Corrigez-le DANS identite, puis recopiez. Corriger une
+   copie sur place fait refuser le commit, et le refus arrive après le travail. */
 /*
  * L'ÉCRAN CONSTRUIT SE VÉRIFIE EN S'OUVRANT.
  *
@@ -19,7 +22,9 @@
 
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { inscrire, rayer, ramasserOrphelins } from "./capturer.mjs";
-import { existsSync, readFileSync, rmSync, cpSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, cpSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
@@ -212,11 +217,108 @@ const AUDIT = '<' + 'script>\n'
   + '}, 250); });\n'
   + '<' + '/script>\n';
 
+/**
+ * Les modules publiés plus vieux que leur source.
+ *
+ * ─── POURQUOI CETTE FONCTION VIT ICI, ET PAS SEULEMENT DANS LA SUITE ───
+ *
+ * La suite portait déjà ce contrôle, et son commentaire disait qu'un compilé retouché à la
+ * main est « attrapé ailleurs, par le contrôle d'écran ». Le contrôle d'écran n'attrapait
+ * rien de tel : il ouvre la page et regarde ce qui s'affiche, sans jamais demander si cette
+ * page est celle du code d'aujourd'hui.
+ *
+ * Deux gardes qui se renvoient l'une à l'autre laissent le trou intact, et chacune se croit
+ * couverte. Mesuré le 24 août 2026 : une source touchée après la construction, puis
+ * `node src/verifier-ecran.mjs .` seul — « écran vérifié — 2 figure(s) rendues ». Le seul
+ * contrôle du dépôt qui OUVRE vraiment la page dans un navigateur prononçait son verdict sur
+ * la construction précédente.
+ *
+ * Et c'est le pire endroit pour ce défaut. Une capture périmée n'est vue par aucun test ; ce
+ * contrôle-ci est ce qui remplace le regard, et un regard posé sur la mauvaise page vaut
+ * moins que pas de regard du tout — parce qu'il rassure.
+ *
+ * Exportée pour que la suite l'appelle plutôt que d'en écrire une seconde version : deux
+ * définitions d'une même fraîcheur divergent, et c'est comme ça qu'on en arrive à ce que
+ * chacune renvoie à l'autre.
+ */
+export function modulesEnRetard(racineDepot) {
+  const js = join(racineDepot, "docs", "js");
+  if (!existsSync(js)) return [];
+  const enRetard = [];
+  for (const f of readdirSync(js).filter((n) => n.endsWith(".js"))) {
+    const source = join(racineDepot, "src", f.replace(/\.js$/, ".ts"));
+    if (!existsSync(source)) continue;
+    /* Une seconde de marge : la construction écrit le compilé juste après avoir lu la
+       source, et deux horodatages pris à la même seconde ne doivent pas accuser. */
+    if (statSync(join(js, f)).mtimeMs + 1000 < statSync(source).mtimeMs) enRetard.push(f);
+  }
+  /*
+   * ET LA PAGE ELLE-MÊME, PAS SEULEMENT SES MODULES.
+   *
+   * La boucle ci-dessus n'apparie que `docs/js/x.js` à `src/x.ts`. Trois sources décident de
+   * `docs/index.html` sans jamais y porter leur nom : `pages.ts`, qui l'écrit, `ui.html`,
+   * qu'il lit, et `graphes.js`, qu'il copie. Toucher l'une des trois laissait la page périmée
+   * et les DEUX gardes satisfaites.
+   *
+   * Trouvé en plantant un témoin dans `pages.ts` et en le voyant passer au vert. Le témoin
+   * était au mauvais endroit — mais un témoin qui ne se déclenche pas là où on l'attendait
+   * dit quelque chose de la garde, pas seulement de lui.
+   */
+  const page = join(racineDepot, "docs", "index.html");
+  if (existsSync(page)) {
+    const t = statSync(page).mtimeMs;
+    for (const src of ["src/pages.ts", "src/ui.html", "docs/graphes.js"]) {
+      const chemin = join(racineDepot, src);
+      if (existsSync(chemin) && t + 1000 < statSync(chemin).mtimeMs) enRetard.push(`index.html (${src})`);
+    }
+  }
+  return enRetard;
+}
+
+/*
+ * ─── CE FICHIER AGISSAIT À L'IMPORT, ET C'EST UN DÉFAUT À PART ENTIÈRE ───
+ *
+ * Tout ce qui suit était au niveau du module : importer `verifier-ecran.mjs` pour une seule
+ * de ses fonctions lançait la vérification d'écran entière — construction lue, serveur
+ * ouvert, Chrome démarré — puis terminait le processus appelant par `process.exit`.
+ *
+ * Constaté en une fois : une suite de tests qui importe `modulesEnRetard` est passée de
+ * vingt-neuf cas verts à « 0 passé, 1 échoué », sans qu'aucune assertion soit en cause. Le
+ * fichier de tests n'avait pas échoué, il avait été TUÉ.
+ *
+ * Une session voisine s'est fait exactement la même chose le même jour, dans l'autre sens :
+ * elle a importé un harnais de contrôle, ce qui l'a exécuté — soixante-quatre lancements non
+ * voulus. La faute est symétrique et elle a une seule parade : un module ne fait rien tant
+ * qu'on ne l'a pas lancé comme une commande.
+ *
+ * `import.meta.url === "file://" + process.argv[1]` ne suffit pas : la comparaison échoue dès
+ * qu'un chemin contient un espace ou un accent, et le programme se termine alors SANS RIEN
+ * FAIRE, code 0. `pathToFileURL` fait l'encodage que la concaténation ne fait pas.
+ */
+function estLancéDirectement() {
+  const a = process.argv[1];
+  return a !== undefined && import.meta.url === pathToFileURL(a).href;
+}
+
+if (estLancéDirectement()) {
+
 const racine = (process.argv[2] ?? ".").replace(/\/$/, "") + "/";
 const attendu = Number(process.argv[3] ?? 1);
 const docs = racine + "docs";
 if (!existsSync(docs + "/index.html")) {
   console.error(`${docs}/index.html absent — lancer \`npm run pages\` d'abord`);
+  process.exit(1);
+}
+
+/* ON REFUSE AVANT D'OUVRIR. Vérifier une page périmée puis dire « vérifié » est exactement
+   la faute que ce fichier existe pour empêcher, un cran plus haut. */
+const enRetard = modulesEnRetard(racine);
+if (enRetard.length) {
+  console.error(
+    `${enRetard.length} module(s) publié(s) plus vieux que leur source : ${enRetard.join(", ")}.\n\n`
+    + "  La page construite n'est pas celle du code d'aujourd'hui. La vérifier reviendrait à\n"
+    + "  approuver la construction précédente, et à le dire avec les mots de celle-ci.\n\n"
+    + "  Lancez `npm run pages`, qui reconstruit puis vérifie.");
   process.exit(1);
 }
 
@@ -379,3 +481,5 @@ try {
   rayer(serveur.pid);
   rmSync(temp, { recursive: true, force: true });
 }
+
+}   /* fin du bloc « lancé directement » */
