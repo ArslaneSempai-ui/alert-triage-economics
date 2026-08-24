@@ -497,3 +497,53 @@ test("aucune date de relevé n'est postérieure à aujourd'hui", (t) => {
     + `relevée dans le futur, et une date au bon format n'est pas une date vraie — c'est `
     + `précisément ce qu'un contrôle de forme laisse passer.`);
 });
+
+test("aucun module compilé pour le navigateur n'importe un module Node", (t) => {
+  /*
+   * UN IMPORT NODE DANS UN MODULE DE NAVIGATEUR NE DÉGRADE RIEN : IL TUE LE MODULE.
+   *
+   * Le navigateur ne résout pas `node:fs`. Le module ne se charge pas du tout, et la page
+   * publiée est un écran vide — pas une fonctionnalité en moins, la page entière. Signalé le
+   * 24 août 2026 par une autre session : `optimise.ts`, compilé pour le web, importait un
+   * fichier qui importait `node:fs`. Rien ne le voyait — la suite ne construit pas la page,
+   * le `docs/` livré datait de quatre jours.
+   *
+   * Le chemin fautif est presque toujours INDIRECT : le module d'entrée est propre, et c'est
+   * un import local, deux niveaux plus bas, qui ramène Node. On suit donc le graphe.
+   */
+  const conf = ICI + "../tsconfig.web.json";
+  if (!existsSync(conf)) return t.skip("ce dépôt ne compile rien pour le navigateur");
+
+  const NODE = /from\s+["']node:|require\(\s*["']node:/;
+  /* Un témoin, avant le verdict : le motif doit dire oui et non. */
+  assert.equal(NODE.test('import { readFileSync } from "node:fs";'), true);
+  assert.equal(NODE.test('import { psi } from "./derive.ts";'), false);
+
+  const brut = readFileSync(conf, "utf8").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, "");
+  const entrees = (JSON.parse(brut).include ?? JSON.parse(brut).files ?? [])
+    .map((f) => ICI + "../" + f);
+
+  const vus = new Set();
+  const fautifs = [];
+  const suivre = (chemin) => {
+    if (vus.has(chemin) || !existsSync(chemin)) return;
+    vus.add(chemin);
+    const src = readFileSync(chemin, "utf8");
+    if (NODE.test(src)) fautifs.push(chemin.split("/").slice(-2).join("/"));
+    /* Les imports LOCAUX seulement : un paquet tiers n'est pas notre affaire ici. */
+    for (const m of src.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+      const rel = m[1].replace(/\.ts$/, "");
+      const base = chemin.slice(0, chemin.lastIndexOf("/") + 1);
+      suivre(new URL(rel + ".ts", "file://" + base).pathname);
+    }
+  };
+  for (const e of entrees) suivre(e);
+
+  assert.ok(vus.size > 0,
+    `aucun fichier suivi depuis ${conf} : la liste d'entrées est vide ou illisible, et un vert `
+    + `rendu ici ne dirait rien`);
+  assert.deepEqual([...new Set(fautifs)], [],
+    `${[...new Set(fautifs)].join(", ")} : importé dans la construction web et employant un `
+    + `module Node. Le navigateur ne le résout pas, le module ne se charge pas, et la page `
+    + `publiée est vide — pas amoindrie, vide. ${vus.size} fichier(s) suivis.`);
+});

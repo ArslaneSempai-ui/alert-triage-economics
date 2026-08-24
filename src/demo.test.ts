@@ -22,7 +22,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -143,6 +143,37 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
 
   const plusRecentes = sources.filter((f) => quand(f) > datePage)
     .map((f) => f.split("/").pop()!);
+  /*
+   * ─── ET L'ARBRE COMPILÉ À CÔTÉ, DÉDUIT DU DISQUE ───
+   *
+   * La liste ci-dessus est figée à cinq noms, et `index.html` n'est pas le seul artefact
+   * publié : `docs/js/` porte un module par source compilée pour le navigateur. Le 24 août
+   * 2026, `regulations.ts` avait gagné une dixième entrée et **`docs/js/regulations.js`
+   * servait encore l'ancienne** — dans quatre dépôts, sans qu'un seul contrôle s'en aperçoive.
+   * Sept jours d'écart possibles entre ce que la source dit et ce que la page sert.
+   *
+   * Les couples ne se déclarent donc pas : ils se déduisent. Tout `docs/js/X.js` qui a un
+   * `src/X.ts` est un couple, et le jour où la convention de nommage change, le témoin
+   * ci-dessous le dit au lieu de rendre un vert sur zéro couple.
+   */
+  const dossierJs = racine + "docs/js";
+  if (existsSync(dossierJs)) {
+    const couples = readdirSync(dossierJs)
+      .filter((f) => f.endsWith(".js"))
+      .map((js) => ({ js: dossierJs + "/" + js, ts: racine + "src/" + js.replace(/\.js$/, ".ts") }))
+      .filter((c) => existsSync(c.ts));
+    assert.ok(couples.length > 0,
+      `${dossierJs} porte des modules mais aucun n'a de source \`src/*.ts\` du même nom : `
+      + `la convention a changé et ce contrôle ne compare plus rien`);
+    const compilesPerimes = couples
+      .filter((c) => quand(c.ts) > quand(c.js))
+      .map((c) => c.js.split("/").pop()!);
+    assert.deepEqual(compilesPerimes, [],
+      `${compilesPerimes.join(", ")} : la page sert un module plus ancien que sa source — `
+      + `lancer \`npm run pages\`. Un module compilé peut vieillir sans que l'écran change `
+      + `d'aspect : il dit simplement autre chose que ce que le code dit.`);
+  }
+
   assert.deepEqual(plusRecentes, [],
     `la page contrôlée est plus ancienne que ${plusRecentes.join(", ")} — lancer \`npm run pages\`.\n`
     + `  → tout ce que les cas suivants diront porte sur une page que personne n'a reconstruite.\n`
