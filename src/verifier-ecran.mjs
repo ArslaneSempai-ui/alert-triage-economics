@@ -264,12 +264,42 @@ export function modulesEnRetard(racineDepot) {
    * était au mauvais endroit — mais un témoin qui ne se déclenche pas là où on l'attendait
    * dit quelque chose de la garde, pas seulement de lui.
    */
+  /*
+   * LA LISTE DES SOURCES DE LA PAGE SE DÉRIVE, ELLE NE S'ÉCRIT PAS.
+   *
+   * Elle a d'abord été écrite à la main — `["src/pages.ts", "src/ui.html", "docs/graphes.js"]`
+   * — et le catalogue de pièges l'a désignée UNE HEURE plus tard comme couverture récitée.
+   * Elle avait raison deux fois : rien ne confrontait cette liste au disque, ET elle était
+   * déjà fausse. `pages.ts` copie `src/graphes.js` et `src/registre.css` ; j'avais inscrit
+   * `docs/graphes.js`, qui est la SORTIE et non la source, et oublié la feuille de style
+   * entièrement. Une source périmée n'aurait donc rien déclenché sur deux des trois.
+   *
+   * Le mode de panne est asymétrique, et c'est ce qui rend ce genre de liste cher : un
+   * fichier renommé fait tomber la lecture, bruyamment. Un fichier AJOUTÉ ne fait rien — la
+   * liste cesse simplement de couvrir, et le vert reste vert.
+   *
+   * On lit donc `pages.ts` et on en extrait ce qu'il lit et ce qu'il copie. Si l'extraction
+   * rend moins de deux chemins, elle ne marche plus et on le dit : une dérivation muette
+   * vaut la liste écrite à la main qu'elle remplace.
+   */
   const page = join(racineDepot, "docs", "index.html");
-  if (existsSync(page)) {
+  const constructeur = join(racineDepot, "src", "pages.ts");
+  if (existsSync(page) && existsSync(constructeur)) {
+    const src = readFileSync(constructeur, "utf8");
+    const sources = new Set(["src/pages.ts"]);
+    for (const m of src.matchAll(/(?:readFileSync|cpSync)\(\s*root \+ "([^"]+)"/g)) sources.add(m[1]);
+    if (sources.size < 2) {
+      throw new Error(
+        `dérivation des sources de la page cassée : ${sources.size} chemin(s) extrait(s) de `
+        + "src/pages.ts.\n\n"
+        + "  Elle cherche `readFileSync(root + \"…\")` et `cpSync(root + \"…\")`. Si ce fichier a\n"
+        + "  changé de façon de lire, corrigez l'extraction — ne la laissez pas rendre une liste\n"
+        + "  courte, qui passerait au vert en ne regardant presque rien.");
+    }
     const t = statSync(page).mtimeMs;
-    for (const src of ["src/pages.ts", "src/ui.html", "docs/graphes.js"]) {
-      const chemin = join(racineDepot, src);
-      if (existsSync(chemin) && t + 1000 < statSync(chemin).mtimeMs) enRetard.push(`index.html (${src})`);
+    for (const rel of sources) {
+      const chemin = join(racineDepot, rel);
+      if (existsSync(chemin) && t + 1000 < statSync(chemin).mtimeMs) enRetard.push(`index.html (${rel})`);
     }
   }
   return enRetard;

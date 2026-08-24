@@ -48,10 +48,22 @@ export const arg = (n: number): string | undefined => args()?.[n];
  *
  * `--` seul est laissé passer : c'est le séparateur de npm, pas un drapeau.
  */
-export function refuserDrapeauxInconnus(connus: readonly string[], depuis = 2): void {
+export function refuserDrapeauxInconnus(connus: readonly string[], depuis = 2, jusqua?: number): void {
   const argv = args();
   if (argv === undefined) return;            /* pas de ligne de commande : rien à refuser */
-  const inconnus = argv.slice(depuis)
+  /*
+   * `jusqua` — INDICE DE FIN EXCLUSIF, parce que tous les drapeaux d'une ligne ne sont pas
+   * les siens.
+   *
+   * `egress --every=250 src/measure.ts --cases=x.csv` en porte deux sortes : `--every` est à
+   * `egress`, `--cases` appartient à la commande QU'IL OBSERVE et doit lui être passé intact.
+   * Sans borne haute, la garde refuserait un drapeau parfaitement valide — et une garde qui
+   * refuse le travail légitime se fait retirer, pas corriger.
+   *
+   * L'appelant calcule la borne parce que lui seul sait où finit sa part : c'est la position
+   * du premier argument qui n'est pas à lui. Absente, on valide jusqu'au bout.
+   */
+  const inconnus = argv.slice(depuis, jusqua)
     .filter((a) => a.startsWith("--") && a !== "--")
     .map((a) => a.split("=")[0]!)
     .filter((f) => !connus.includes(f));
