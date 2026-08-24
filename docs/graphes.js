@@ -1240,11 +1240,65 @@ export function affectation({ lignes, colonnes, fmt = String, motOptimum, aria }
   const large = (L - G - D) / colonnes.length;
   const cellW = large - ECART;
 
+  /*
+   * LES EN-TÊTES SE TOUCHAIENT DÈS QU'IL Y AVAIT ASSEZ DE COLONNES.
+   *
+   * Chaque titre était posé centré, à taille fixe, sans que rien ne regarde s'il tenait. Avec
+   * quatre paliers c'était vrai ; avec sept, « SMALL MODEL » et « LARGE MODEL » se
+   * chevauchaient de trois pixels — mesuré dans le navigateur, pas déduit d'une capture. Deux
+   * mots collés se lisent comme un seul, et c'était sur l'écran de démonstration du produit.
+   *
+   * La largeur d'un texte SVG ne se connaît qu'une fois rendu, or la figure est construite en
+   * chaîne avant d'exister. On l'ESTIME donc, et on estime LARGE — se replier une colonne trop
+   * tôt ne coûte qu'une ligne de plus, se replier trop tard remet le chevauchement.
+   *
+   * Trois recours, dans cet ordre : tenir sur une ligne ; couper à l'espace en deux lignes ;
+   * et seulement si ça ne suffit pas, réduire la taille, avec un plancher — un titre illisible
+   * ne vaut pas mieux qu'un titre chevauché.
+   */
+  const TETE = 11.5;            // doit suivre `.graphe .affect-tete` dans registre.css
+  const PLANCHER = 9;
+  /* Majuscules, plus 0,05em d'interlettrage : ~0,60em par caractère, arrondi vers le haut. */
+  const larg = (mot, taille) => mot.length * 0.60 * taille;
+  const dispo = cellW - 2;
+
   let svg = "";
   colonnes.forEach((c, j) => {
     const x = G + j * large + cellW / 2;
-    svg += `<text class="affect-tete" x="${arr(x)}" y="${T - 26}" text-anchor="middle">${ech(c.nom)}</text>`;
-    if (c.note) svg += `<text class="grad" x="${arr(x)}" y="${T - 10}" text-anchor="middle">${ech(c.note)}</text>`;
+    const nom = String(c.nom ?? "");
+    let lignesTitre = [nom], taille = TETE;
+
+    if (larg(nom, TETE) > dispo) {
+      /* Couper au dernier espace qui équilibre le mieux les deux moitiés. */
+      const espaces = [...nom.matchAll(/ /g)].map((m) => m.index);
+      if (espaces.length) {
+        const coupe = espaces.reduce((meilleur, i) =>
+          Math.abs(i - nom.length / 2) < Math.abs(meilleur - nom.length / 2) ? i : meilleur, espaces[0]);
+        lignesTitre = [nom.slice(0, coupe), nom.slice(coupe + 1)];
+      }
+      const pire = Math.max(...lignesTitre.map((t) => larg(t, TETE)));
+      if (pire > dispo) taille = Math.max(PLANCHER, TETE * (dispo / pire));
+    }
+
+    /* Deux lignes montent d'un cran : la seconde viendrait sinon sur la ligne du prix. */
+    const y0 = T - 26 - (lignesTitre.length > 1 ? 11 : 0);
+    lignesTitre.forEach((t, k) => {
+      const style = taille === TETE ? "" : ` style="font-size:${arr(taille)}px"`;
+      svg += `<text class="affect-tete" x="${arr(x)}" y="${arr(y0 + k * 11)}" text-anchor="middle"${style}>${ech(t)}</text>`;
+    });
+    /* La note — un prix, le plus souvent — se rétrécit aussi. Elle n'a pas d'espace où couper
+       proprement (« $587.12 / 1,000 » n'a pas de moitié), donc le seul recours est la taille.
+       Sans ça, corriger le titre laissait la ligne du dessous se toucher : le défaut se
+       déplaçait d'un cran au lieu d'être réglé. */
+    if (c.note) {
+      const NOTE = 12;                 // doit suivre `.graphe .grad` dans registre.css
+      const nb = String(c.note);
+      /* Chiffres et ponctuation, minuscules : ~0,52em par caractère. */
+      const besoin = nb.length * 0.52 * NOTE;
+      const tn = besoin > dispo ? Math.max(8, NOTE * (dispo / besoin)) : NOTE;
+      const style = tn === NOTE ? "" : ` style="font-size:${arr(tn)}px"`;
+      svg += `<text class="grad" x="${arr(x)}" y="${T - 10}" text-anchor="middle"${style}>${ech(nb)}</text>`;
+    }
   });
 
   lignes.forEach((l, i) => {
