@@ -204,8 +204,26 @@ function vivant(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
+/**
+ * Inscrire un serveur qu'on vient d'ouvrir, pour qu'il reste nommable après notre mort.
+ *
+ * Exporté depuis le 24 août 2026 : `verifier-ecran.mjs` ouvre lui aussi un serveur, et il
+ * tourne à chaque `npm run pages` — bien plus souvent que les captures. Six de ses serveurs
+ * ont survécu à un `pkill` ce jour-là, sans que rien puisse les rattacher à quoi que ce soit,
+ * parce que le registre ne vivait que dans ce fichier-ci.
+ */
+export function inscrire(pid, port, outil, racine) {
+  const r = lireRegistre();
+  if (!r.lisible) {
+    process.stderr.write(`  REGISTRE ILLISIBLE — ${r.pourquoi}\n`
+      + "  Ce serveur s'inscrit quand même ; ce que le fichier portait avant est perdu.\n");
+  }
+  ecrireRegistre([...r.entrees.filter((e) => e.pid !== pid),
+    { pid, port, depuis: Date.now(), outil, racine }]);
+}
+
 /** Se rayer du registre : l'arrêt normal ne doit rien laisser derrière lui. */
-function rayer(pid) {
+export function rayer(pid) {
   const r = lireRegistre();
   /* Ne rien écrire par-dessus un registre illisible : on effacerait ce qu'on ne sait pas lire. */
   if (!r.lisible) return;

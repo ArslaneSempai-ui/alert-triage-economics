@@ -18,6 +18,7 @@
  */
 
 import { spawn, spawnSync, execFileSync } from "node:child_process";
+import { inscrire, rayer, ramasserOrphelins } from "./capturer.mjs";
 import { existsSync, readFileSync, rmSync, cpSync, writeFileSync, mkdirSync } from "node:fs";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -256,6 +257,13 @@ writeFileSync(temp + "index.html", readFileSync(temp + "index.html", "utf8") + A
 const JETON = `jeton-${process.pid}-${Date.now()}`;
 writeFileSync(temp + "jeton.txt", JETON);
 
+/* On ramasse les orphelins d'exécutions tuées avant d'ouvrir le nôtre. */
+const orphelins = ramasserOrphelins();
+if (orphelins.fermes.length) {
+  console.error(`${orphelins.fermes.length} serveur(s) orphelin(s) fermé(s) — `
+    + orphelins.fermes.map((e) => `${e.outil}:${e.port}`).join(", "));
+}
+
 let port = 0, serveur = null;
 for (let essai = 0; essai < 20 && !serveur; essai++) {
   port = 8600 + Math.floor(Math.random() * 900);
@@ -272,7 +280,14 @@ for (let essai = 0; essai < 20 && !serveur; essai++) {
       return true;
     } catch { return false; }
   })();
-  if (vivant) serveur = candidat; else candidat.kill();
+  if (vivant) {
+    serveur = candidat;
+    /* S'inscrire au registre partagé : un `pkill` ne laisse pas tourner le `finally`, et six
+       serveurs de ce script ont survécu à un arrêt brutal le 24 août 2026 sans que rien ne
+       puisse les rattacher à quoi que ce soit. Le registre vivait dans `capturer.mjs` seul,
+       alors que ce fichier-ci tourne à chaque `npm run pages`. */
+    inscrire(candidat.pid, port, "verifier-ecran", temp);
+  } else candidat.kill();
 }
 if (!serveur) {
   console.error("aucun port libre trouvé en vingt essais — une autre vérification tourne-t-elle ?");
@@ -361,5 +376,6 @@ try {
   }
 } finally {
   serveur.kill();
+  rayer(serveur.pid);
   rmSync(temp, { recursive: true, force: true });
 }
