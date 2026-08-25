@@ -116,18 +116,45 @@ test("les couches partagées sont bien celles d'identite", (t) => {
    * des deux côtés est une copie de la couche, par définition. Ce qui reste déclaré, c'est
    * l'exception, et elle porte sa raison et sa date.
    */
-  const source = fileURLToPath(new URL("../../identite/", import.meta.url));
+  /*
+   * OÙ CHERCHER LA SOURCE — parce qu'une seule adresse ne vaut que sur une machine.
+   *
+   * `../../identite/` n'est vrai que si le dépôt est posé JUSTE À CÔTÉ d'identite. Un clone
+   * dans /tmp, le clone d'un acheteur, une intégration continue : le cas s'ignore, et le
+   * contrôle qui garde les couches partagées ne tourne que dans un seul dossier d'une seule
+   * machine.
+   *
+   * Ce que ça a coûté, mesuré le 25 août 2026 : la copie de CE fichier dans `cascade` avait
+   * **53 lignes de retard** et il lui manquait un correctif de faux vert documenté ici même.
+   * Le contrôle qui aurait dû voir la dérive était exactement celui qui ne tournait pas —
+   * un gardien absent de l'endroit qu'il garde.
+   */
+  const source = [
+    process.env["IDENTITE"],
+    fileURLToPath(new URL("../../identite/", import.meta.url)),
+  ].filter((d): d is string => typeof d === "string" && d.length > 0)
+    .map((d) => (d.endsWith("/") ? d : d + "/"))
+    .find((d) => existsSync(d + "registre.css"));
   /* Un `return` muet ici, et l'acheteur qui clone seul obtient un vert sur un cas qui n'a
      rien comparé — le vert vide dans sa forme la plus pure : le contrôle passe parce qu'il
      s'est arrêté avant de regarder. Un saut nommé est un résultat ; un saut muet est un
      mensonge poli. */
-  if (!existsSync(source + "registre.css")) {
-    return t.skip("dépôt cloné seul — identite n'est pas là, aucune couche n'a été comparée");
+  if (!source) {
+    return t.skip("dépôt cloné seul — identite n'est pas là, aucune couche n'a été comparée.\n"
+      + "  Pour le faire tourner ici : IDENTITE=<chemin vers identite> npm test");
   }
 
   /** Les gabarits : partagés d'origine, adaptés ensuite, donc divergents par construction. */
   const ADAPTES: Record<string, string> = {
     "baselines.ts": "chaque outil compare à la référence triviale de SON domaine (depuis le 2026-08-19)",
+    /* Divergence VOULUE et vérifiée le 2026-08-25 : dans cascade ce script ne vérifie plus
+       qu'un clone s'installe, il vérifie LA PROMESSE DE LA LETTRE DE MISSION — « vous clonez,
+       vous lancez sur vos propres cas ». Il y parle de `landing.json`, des journaux que `data/`
+       garde hors de git, et des poids. 172 lignes contre 80. Porter la version longue vers
+       identite imposerait le produit de cascade à onze dépôts qui n'ont ni lettre de mission
+       ni acheteur ; écraser la copie détruirait 92 lignes écrites contre des pannes réelles.
+       L'exception est le seul des trois qui ne détruit rien, et elle sait expirer. */
+    "clone-neuf.mjs": "dans cascade il vérifie la promesse de la lettre de mission, pas l'installation (depuis le 2026-08-25)",
   };
 
   /*
@@ -150,9 +177,22 @@ test("les couches partagées sont bien celles d'identite", (t) => {
     if (!identiques) continue;
     /* Identique ICI : l'exception peut encore servir ailleurs. On ne tombe que si elle ne
        sert nulle part, ce que seul un balayage des voisins peut dire. */
-    const voisins = readdirSync(racine + "../", { withFileTypes: true })
-      .filter((e) => e.isDirectory() && existsSync(racine + "../" + e.name + "/src/" + nom))
-      .map((e) => racine + "../" + e.name + "/src/" + nom);
+    /*
+     * LES VOISINS SE CHERCHENT AUTOUR D'IDENTITE, PAS AUTOUR DU DÉPÔT.
+     *
+     * `racine + "../"` suppose que le dépôt est posé dans le dossier du portfolio. C'est vrai
+     * quand identite est son voisin, et faux dès qu'on passe par `IDENTITE=` — un clone dans
+     * /tmp a pour voisins d'autres clones de travail, tous identiques à la source, et le cas
+     * tombait en accusant une exception de ne plus rien protéger. **Un faux rouge, produit
+     * par la même hypothèse d'emplacement que le saut qu'on vient de retirer.**
+     *
+     * Le portfolio est le dossier qui CONTIENT identite, par construction. On part de là, et
+     * les deux dispositions donnent alors le même résultat.
+     */
+    const portfolio = source + "../";
+    const voisins = readdirSync(portfolio, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && existsSync(portfolio + e.name + "/src/" + nom))
+      .map((e) => portfolio + e.name + "/src/" + nom);
     const divergent = voisins.filter((v) => readFileSync(v, "utf8") !== readFileSync(la, "utf8"));
     assert.ok(divergent.length > 0,
       `${nom} est déclaré adapté — « ${pourquoi} » — et il est pourtant identique à la source `

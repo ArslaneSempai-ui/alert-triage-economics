@@ -56,6 +56,26 @@ const L = 760;
 const M = { haut: 18, bas: 34, gauche: 60, droite: 20 };
 
 const ech = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+/*
+ * ─── LE TEXTE QUI VOYAGE DANS `data-lecture` DOIT ÊTRE ÉCHAPPÉ DEUX FOIS ───
+ *
+ * `data-lecture` porte du balisage VOULU — `<u>`, `<br>`, `<b>` — et la bulle de survol le
+ * rend par `innerHTML`. `ech()` protège donc l'ATTRIBUT, pas le rendu.
+ *
+ * Et ce sont deux couches, pas une. Le navigateur DÉCODE l'attribut quand `getAttribute` le
+ * rend : ce qui a été écrit `&lt;img src=x onerror=…&gt;` revient `<img src=x onerror=…>`,
+ * et `innerHTML` l'exécute. Un nom de champ fourni par le client traverse ainsi intact.
+ *
+ * Signalé par CodeQL sur le dépôt public — « DOM text reinterpreted as HTML », gravité haute,
+ * ouverte et jamais lue. Vérifié en rejouant l'aller-retour plutôt qu'en le supposant : la
+ * balise du client ressort du `getAttribute` telle quelle.
+ *
+ * `echLecture` échappe UNE FOIS DE PLUS les valeurs dynamiques. Après le `ech()` de
+ * l'attribut, elles reviennent du `getAttribute` sous leur forme échappée, donc `innerHTML`
+ * les rend comme du TEXTE — pendant que les balises de structure, elles, restent des balises.
+ */
+const echLecture = (t) => ech(ech(t));
 const fini = (v) => typeof v === "number" && Number.isFinite(v);
 const arr = (n) => Math.round(n * 100) / 100;
 
@@ -298,7 +318,7 @@ export function courbe({
       return `<b>${ech(s.nom)}</b> ${ech(fini(v) ? (s.fmt || String)(v) : "—")}`;
     }).join("<br>");
     svg += `<rect class="cible" x="${arr(c - pas / 2)}" y="${M.haut}" width="${arr(pas)}" height="${arr(solX - M.haut)}"`
-      + ` data-lecture="${ech(`<u>${fmtX(x(p))}</u><br>${infos}`)}" />`;
+      + ` data-lecture="${ech(`<u>${echLecture(fmtX(x(p)))}</u><br>${echLecture(infos)}`)}" />`;
   });
 
   const leg = legende && deux
@@ -352,7 +372,7 @@ export function barres({ items, fmt = String, max, aria, repere }) {
      * classent ou non.
      */
     const lecture = aInter
-      ? ` data-lecture="${ech(`<u>${i.nom}</u>${fmt(i.valeur)}<br><b>[${fmt(i.bas)} – ${fmt(i.haut)}]</b>`)}"` : "";
+      ? ` data-lecture="${ech(`<u>${echLecture(i.nom)}</u>${echLecture(fmt(i.valeur))}<br><b>[${echLecture(fmt(i.bas))} – ${echLecture(fmt(i.haut))}]</b>`)}"` : "";
     return `<div class="barre-ligne${i.ici ? " ici" : ""}"${lecture}>
       <span class="barre-nom">${ech(i.nom)}</span>
       <span class="barre-piste">
@@ -455,7 +475,7 @@ export function escalier({ marches, fmt = String, fmtX = String, hauteur = 210, 
   }
   for (const m of marches) {
     const g = px(m.de), d = px(m.a), y = py(m.valeur);
-    const lecture = ech(`<u>${fmtX(m.de)} → ${fmtX(m.a)}</u><br>${m.morte ? "—" : fmt(m.valeur)}`);
+    const lecture = ech(`<u>${echLecture(fmtX(m.de))} → ${echLecture(fmtX(m.a))}</u><br>${m.morte ? "—" : echLecture(fmt(m.valeur))}`);
     svg += `<rect class="marche${m.ici ? " ici" : ""}${m.gratuite ? " gratuite" : ""}${m.morte ? " morte" : ""}" x="${g}" y="${y}"
       width="${arr(Math.max(1, d - g))}" height="${arr(Math.max(1, sol - y))}"
       ${choix ? "" : `data-lecture="${lecture}"`} />`;
@@ -469,7 +489,7 @@ export function escalier({ marches, fmt = String, fmtX = String, hauteur = 210, 
       svg += `<rect class="marche-zone" x="${px(m.de)}" y="${M.haut}"
         width="${arr(Math.max(1, px(m.a) - px(m.de)))}" height="${arr(sol - M.haut)}"
         data-choix="${m.de}"
-        data-lecture="${ech(`<u>${fmtX(m.de)} → ${fmtX(m.a)}</u><br>${m.morte ? "—" : fmt(m.valeur)}`)}" />`;
+        data-lecture="${ech(`<u>${echLecture(fmtX(m.de))} → ${echLecture(fmtX(m.a))}</u><br>${m.morte ? "—" : echLecture(fmt(m.valeur))}`)}" />`;
     }
   }
 
@@ -548,8 +568,8 @@ export function histogramme({ bandes, seuil, fmt = String, fmtX = String, legend
      * lecture qui ne s'affiche jamais. Ce qu'elles disaient passe dans l'étiquette du
      * seuil, qui, elle, suit la main.
      */
-    const lecture = seuil?.saisissable ? "" : ech(`<u>${fmtX(b.de)} – ${fmtX(b.a)}</u><br>${fmt(b.valeur)}`
-      + (fini(b.part) ? ` · ${fmt(b.part)}` : ""));
+    const lecture = seuil?.saisissable ? "" : ech(`<u>${echLecture(fmtX(b.de))} – ${echLecture(fmtX(b.a))}</u><br>${echLecture(fmt(b.valeur))}`
+      + (fini(b.part) ? ` · ${echLecture(fmt(b.part))}` : ""));
     svg += `<rect class="bande-hist" x="${arr(g + 1.5)}" y="${y}" width="${arr(large)}"
       height="${arr(Math.max(1, sol - y))}"${lecture ? ` data-lecture="${lecture}"` : ""} />`;
     if (fini(b.part) && b.part > 0) {
@@ -679,7 +699,7 @@ export function grille({ colonnes, lignes, legende, aria, choix = false, iciText
         : (avant === true ? "casse" : "ko");
       const x = arr(GAUCHE + j * pas + (pas - large) / 2);
       svg += `<rect class="case-${etat}" x="${x}" y="${y}" width="${arr(large)}" height="${CELL}"
-        data-lecture="${ech(`<u>${cols[j]?.nom ?? j + 1}</u><br>${l.nom}`)}" />`;
+        data-lecture="${ech(`<u>${echLecture(cols[j]?.nom ?? j + 1)}</u><br>${echLecture(l.nom)}`)}" />`;
     });
     if (l.bout) {
       svg += `<text class="grille-bout" x="${L - DROITE + 10}" y="${y + CELL - 4}">${ech(l.bout)}</text>`;
@@ -855,7 +875,7 @@ export function opposees({ items, fmt = String, aria }) {
     svg += `<text class="opp-nom${it.ici ? " ici" : ""}" x="${GAUCHE - 12}" y="${milieu + 4}" text-anchor="end">${ech(it.nom)}</text>`;
     svg += `<rect class="opp-barre${it.valeur < 0 ? " sortie" : ""}${it.ici ? " ici" : ""}"
       x="${de}" y="${y + 4}" width="${arr(Math.max(1, a - de))}" height="${LIGNE - 16}"
-      data-lecture="${ech(`<u>${it.nom}</u><br>${fmt(it.valeur)}`)}" />`;
+      data-lecture="${ech(`<u>${echLecture(it.nom)}</u><br>${echLecture(fmt(it.valeur))}`)}" />`;
     if (fini(it.bas) && fini(it.haut)) {
       const g = px(it.bas), d = px(it.haut);
       svg += `<line class="opp-inter" x1="${g}" y1="${milieu}" x2="${d}" y2="${milieu}" />`
@@ -898,7 +918,7 @@ export function axe({ bas, haut, seuil, bandes = [], fmtX = String, aria }) {
     const y = HAUT + i * LIGNE;
     const g = px(Math.max(bas, b.de)), d = px(Math.min(haut, b.a));
     svg += `<rect class="axe-bande${b.sens === "bas" ? " bas" : ""}" x="${g}" y="${y}" width="${arr(Math.max(2, d - g))}" height="${LIGNE - 9}"
-      data-lecture="${ech(`<u>${b.nom}</u><br>${fmtX(b.de)} – ${fmtX(b.a)}`)}" />`;
+      data-lecture="${ech(`<u>${echLecture(b.nom)}</u><br>${echLecture(fmtX(b.de))} – ${echLecture(fmtX(b.a))}`)}" />`;
     /*
      * Où poser l'intitulé, en trois essais successifs et deux échecs.
      *
@@ -1335,7 +1355,7 @@ export function affectation({ lignes, colonnes, fmt = String, motOptimum, aria }
       if (c.indisponible) return;
       svg += `<rect class="affect-zone" x="${arr(G + j * large)}" y="${arr(y)}" width="${arr(cellW)}"
         height="${RANG - 16}" data-choix="${ech((l.cle ?? l.nom) + "~" + c.cle)}"
-        data-lecture="${ech(`<u>${l.nom} · ${colonnes[j]?.nom ?? ""}</u><br>${fmt(c.valeur)}`)}" />`;
+        data-lecture="${ech(`<u>${echLecture(l.nom)} · ${echLecture(colonnes[j]?.nom ?? "")}</u><br>${echLecture(fmt(c.valeur))}`)}" />`;
     });
   });
 
@@ -1381,7 +1401,7 @@ export function sequence({ lignes, fmtX = String, motEcheance, motHaut, choix = 
     }
     svg += `<rect class="seq-barre${l.retard > 0 ? " tard" : ""}" x="${px(l.debut)}" y="${arr(y)}"
       width="${arr(Math.max(1, px(l.fin) - px(l.debut)))}" height="${BARRE}"
-      data-lecture="${ech(`<u>${l.nom}</u><br>${fmtX(l.fin - l.debut)}`)}" />`;
+      data-lecture="${ech(`<u>${echLecture(l.nom)}</u><br>${echLecture(fmtX(l.fin - l.debut))}`)}" />`;
 
     /*
      * Ce qui dépasse, hachuré — la part de la *barre*, pas la durée depuis l'échéance.
@@ -1668,8 +1688,8 @@ export function rangs({ colonnes, series, fmt = String, aria, nomRang, choix = f
   for (const s of lig) {
     const vu = s === vedette;
     s.rangs.forEach((r, i) => {
-      const lecture = ech(`<u>${s.nom} · ${cols[i]?.titre ?? ""}</u><br>${nomRang ? nomRang(r.rang) : r.rang}`
-        + (fini(r.valeur) ? ` — ${fmt(r.valeur)}` : ""));
+      const lecture = ech(`<u>${echLecture(s.nom)} · ${echLecture(cols[i]?.titre ?? "")}</u><br>${echLecture(nomRang ? nomRang(r.rang) : r.rang)}`
+        + (fini(r.valeur) ? ` — ${echLecture(fmt(r.valeur))}` : ""));
       svg += `<circle class="rang-point${vu ? " vedette" : ""}" cx="${px(i)}" cy="${py(r.rang)}" r="${vu ? 5 : 4.5}"
         data-lecture="${lecture}" />`;
     });

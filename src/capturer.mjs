@@ -54,9 +54,9 @@ function python() {
   for (const py of essais) {
     if (spawnSync(py, ["-c", "import PIL"], { stdio: "ignore" }).status === 0) return (_python = py);
   }
-  console.error("aucun python3 n'a Pillow — les images ne peuvent pas être recadrées ni assemblées.");
-  console.error("  essayés : " + essais.join(", "));
-  console.error("  → installer Pillow, ou pointer vers l'interpréteur qui l'a.");
+  console.error("no python3 has Pillow — images cannot be cropped or assembled.");
+  console.error("  tried: " + essais.join(", "));
+  console.error("  → install Pillow, or point at the interpreter that has it.");
   process.exit(1);
 }
 
@@ -358,7 +358,7 @@ const lance = (() => {
 
 if (lance) {
   const depot = process.argv[2];
-  if (!depot) { console.error("usage : node capturer.mjs <dossier-du-depot>"); process.exit(1); }
+  if (!depot) { console.error("usage: node capturer.mjs <repository-directory>"); process.exit(1); }
   const racine = depot.endsWith("/") ? depot : depot + "/";
   const plan = JSON.parse(readFileSync(racine + "captures.json", "utf8"));
 
@@ -372,7 +372,7 @@ if (lance) {
      serveur sert encore un dossier temporaire à qui passe sur la boucle locale. */
   const orphelins = ramasserOrphelins();
   if (orphelins.fermes.length) {
-    console.error(`${orphelins.fermes.length} serveur(s) orphelin(s) fermé(s) — `
+    console.error(`${orphelins.fermes.length} orphan server(s) closed — `
       + orphelins.fermes.map((e) => `${e.outil}:${e.port}`).join(", ")
       + " (une exécution tuée ne passe pas par son `finally`)");
   }
@@ -406,9 +406,9 @@ if (lance) {
    */
   function refuserSiPilotageMort() {
     if (!pilotageMort.size) return;
-    console.error(`\n${pilotageMort.size} sélecteur(s) de pilotage n'ont trouvé personne :`);
+    console.error(`\n${pilotageMort.size} driving selector(s) matched nothing:`);
     for (const m of pilotageMort) console.error(`  ${m}`);
-    console.error("  → l'étape est sautée en silence et l'image montre le mauvais état.");
+    console.error("  → the step is skipped in silence and the image shows the wrong state.");
     serveur.kill();
   rayer(serveur.pid);
     rmSync(temp, { recursive: true, force: true });
@@ -502,10 +502,10 @@ if (lance) {
   rayer(serveur.pid);
   rmSync(temp, { recursive: true, force: true });
   if (manquantes.length) {
-    console.error(`\n${manquantes.length} image(s) sur ${plan.images.length} n'ont pas été produites :`);
+    console.error(`\n${manquantes.length} image(s) of ${plan.images.length} were not produced:`);
     for (const m of manquantes) console.error(`  ${m}`);
-    console.error(`  → les README garderaient leurs anciennes images sans que rien ne le dise.`);
+    console.error(`  → the READMEs would keep their old images with nothing saying so.`);
     process.exit(1);
   }
-  console.log(`${ecrites.length} image(s) écrite(s) sur ${plan.images.length} — ${racine}`);
+  console.log(`${ecrites.length} image(s) written of ${plan.images.length} — ${racine}`);
 }

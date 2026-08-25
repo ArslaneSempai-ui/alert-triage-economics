@@ -122,6 +122,28 @@ export function rate(successes: number, n: number, z = CONFIANCE.z): Rate {
  * Always with its interval and its sample size. A reader who sees "75 % [53–89], n=20"
  * knows what they are holding; a reader who sees "75 %" does not.
  */
+/**
+ * LES DEUX CELLULES D'UN TABLEAU, PARCE QU'UN CHIFFRE QUI PORTE UNE CONDITION NE SE
+ * FORMATE QU'À UN SEUL ENDROIT.
+ *
+ * `writeRate` refuse de citer un taux sous `ENOUGH` observations. Le rapport écrit au
+ * client, lui, fabriquait ses cellules à la main et ne regardait jamais `reportable` :
+ *
+ *     n=1    console « — (n=1, too few to quote) »     fichier « 100.0 % [21–100] »
+ *     n=19   console refuse                            fichier « 78.9 % [57–91] »
+ *
+ * La garde protégeait le terminal, qui défile et se perd, et laissait passer le fichier,
+ * qui est classé, transféré et cité. Deux chemins écrivaient le même chiffre et un seul
+ * portait la condition ; le second l'oubliera toujours, et c'est celui qu'on garde.
+ */
+export function cellulesDeTaux(r: Rate, digits = 1): { taux: string; intervalle: string } {
+  if (!r.reportable) return { taux: "— too few to quote", intervalle: `n < ${ENOUGH}` };
+  return {
+    taux: `${(r.rate * 100).toFixed(digits)} %`,
+    intervalle: `[${(r.low * 100).toFixed(0)}–${(r.high * 100).toFixed(0)}]`,
+  };
+}
+
 export function writeRate(r: Rate, digits = 1): string {
   if (!r.reportable) return `— (n=${r.n}, too few to quote)`;
   return `${(r.rate * 100).toFixed(digits)} % [${(r.low * 100).toFixed(0)}–${(r.high * 100).toFixed(0)}], n=${r.n}`;
