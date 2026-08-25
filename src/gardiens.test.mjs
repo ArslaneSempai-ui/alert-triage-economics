@@ -595,3 +595,120 @@ test("un jeton court n'est pas trouvé à l'intérieur d'un nom composé", () =>
   /* Et le pendant : la borne ne doit pas devenir si stricte qu'elle ne trouve plus rien. */
   assert.equal(borne("tete").test(".pliable > .tete { }"), true, "un sélecteur CSS reste lisible");
 });
+
+test("chaque data-lecture passe par le double échappement", () => {
+  /*
+   * CODEQL SIGNALE `boite.innerHTML = t` DANS `graphes.js`, ET C'EST UN FAUX POSITIF —
+   * AUJOURD'HUI.
+   *
+   * `data-lecture` porte du balisage VOULU (`<u>`, `<br>`), donc `innerHTML` est délibéré, et
+   * les données passent par `ech(echLecture(...))`. Vérifié deux fois : dans un vrai
+   * navigateur, les charges `<img src=x onerror=…>` et `<script>` ressortent inertes tandis
+   * que `<u>` et `<br>` survivent — le témoin qui rend la mesure valable ; et par énumération,
+   * les onze sites de construction passent tous par `ech`.
+   *
+   * Mais « vrai par énumération » est vrai à un instant. Le douzième site écrit demain sans
+   * `ech` ferait une XSS réelle, dans un fichier que douze dépôts portent, et le rejet déposé
+   * sur l'alerte CodeQL dirait toujours « faux positif ». Ce cas rend la propriété vraie par
+   * construction : il DÉRIVE les sites du fichier au lieu d'en réciter la liste.
+   */
+  const src = readFileSync(new URL("./graphes.js", import.meta.url), "utf8");
+  /*
+   * L'EXPRESSION SE LIT EN COMPTANT LES ACCOLADES, PAS AVEC `[^}]*`.
+   *
+   * Ces expressions sont des gabarits imbriqués : `ech(`<u>${echLecture(x)}`)`. Un motif qui
+   * s'arrête au premier `}` rend `ech(`<u>${echLecture(x` — tronqué avant l'accolade qui
+   * compte. Le contrôle extérieur y survit par chance (`ech(` est dans le morceau gardé) ;
+   * tout contrôle du contenu INTÉRIEUR, lui, ne voit rien et rend un vert vide.
+   *
+   * Mesuré le 25 août 2026 : la garde du second échappement, écrite avec `[^}]*`, restait
+   * verte alors qu'un `echLecture` avait été retiré — c'est-à-dire sur le défaut d'origine.
+   * Troisième fois dans ce dépôt qu'un extracteur naïf se désynchronise sur une imbrication.
+   */
+  const extraire = (texte) => {
+    const out = [];
+    const marque = 'data-lecture="${';
+    for (let i = texte.indexOf(marque); i !== -1; i = texte.indexOf(marque, i + 1)) {
+      let d = 1, j = i + marque.length;
+      while (j < texte.length && d > 0) {
+        if (texte[j] === "{") d++;
+        else if (texte[j] === "}") d--;
+        j++;
+      }
+      if (d === 0) out.push({ index: i, 1: texte.slice(i + marque.length, j - 1) });
+    }
+    return out;
+  };
+  const sites = extraire(src);
+  assert.ok(sites.length >= 8,
+    `${sites.length} site(s) data-lecture trouvé(s) — le motif ne lit plus le fichier, `
+    + "et un cas qui n'examine rien passerait toujours.");
+
+  /* Un site est sûr si l'expression appelle `ech(`, ou si elle nomme une variable dont
+     l'affectation, plus haut, appelle `ech(`. Les deux formes existent dans le fichier. */
+  const lignes = src.split("\n");
+  const nus = [];
+  for (const s of sites) {
+    const expr = s[1].trim();
+    if (/\bech\(/.test(expr)) continue;
+    const nom = expr.match(/^[A-Za-z_$][\w$]*$/)?.[0];
+    const pose = nom && lignes.some((l) => new RegExp(`\\b(const|let)\\s+${nom}\\s*=`).test(l) && /\bech\(/.test(l));
+    if (!pose) nus.push(`ligne ${src.slice(0, s.index).split("\n").length} — ${expr.slice(0, 40)}`);
+  }
+  assert.deepEqual(nus, [],
+    `site(s) data-lecture sans échappement :\n${nus.map((x) => "  - " + x).join("\n")}\n`
+    + "  → envelopper dans `ech(...)` avec `echLecture(...)` pour les données, sinon `innerHTML` "
+    + "rend du balisage fourni par la donnée.");
+
+  /*
+   * ET LE SECOND ÉCHAPPEMENT, QUI EST CELUI QUE LE TITRE PROMET.
+   *
+   * Le contrôle ci-dessus n'exige que le `ech(` EXTÉRIEUR, celui qui protège l'attribut. Il
+   * laisse passer `data-lecture="${ech(`<u>${b.nom}`)}"` — données échappées UNE fois — qui
+   * est le défaut d'origine mot pour mot. Trouvé le 25 août 2026 en mutant le fichier :
+   * remplacer `echLecture(` par `(` sur un seul site laissait la suite au vert.
+   *
+   * Un contrôle dont le nom promet plus que ce qu'il regarde est pire qu'un contrôle absent :
+   * il occupe la place de celui qui aurait pu exister. Ici la promesse était dans le titre du
+   * cas ET dans le texte de rejet déposé sur l'alerte CodeQL.
+   *
+   * La donnée traverse `ech` TROIS fois — deux par `echLecture`, une par l'enveloppe — parce
+   * que le navigateur relit l'attribut et réinsère son contenu.
+   */
+  const simples = [];
+  for (const s of sites) {
+    const expr = s[1];
+    /* Les interpolations INTÉRIEURES : celles du gabarit que l'enveloppe `ech(` entoure. */
+    /* Les interpolations intérieures, elles aussi comptées : `${fmtX(x(p))}` porte des
+       parenthèses mais pas d'accolades, `${a ? `${b}` : c}` en porte. */
+    const inters = [];
+    for (let i = expr.indexOf("${"); i !== -1; i = expr.indexOf("${", i + 1)) {
+      let d = 1, j = i + 2;
+      while (j < expr.length && d > 0) { if (expr[j] === "{") d++; else if (expr[j] === "}") d--; j++; }
+      if (d === 0) inters.push([null, expr.slice(i + 2, j - 1)]);
+    }
+    for (const inter of inters) {
+      const e = inter[1].trim();
+      if (!e || /^["'`]/.test(e)) continue;              /* un littéral n'a rien à échapper */
+      if (/\bechLecture\(/.test(e)) continue;
+      simples.push(`ligne ${src.slice(0, s.index).split("\n").length} — ${e.slice(0, 40)}`);
+    }
+  }
+  assert.deepEqual(simples, [],
+    `donnée(s) échappée(s) UNE SEULE FOIS dans un data-lecture :\n`
+    + `${simples.map((x) => "  - " + x).join("\n")}\n`
+    + "  → `echLecture(...)`, pas `ech(...)` : l'attribut est relu puis réinséré, donc une\n"
+    + "    seule passe laisse la charge vivante. C'est le défaut d'origine.");
+
+  /* TÉMOINS DU SECOND MOTIF, dans les deux sens. */
+  const faux = extraire('a data-lecture="${ech(`<u>${b.nom}`)}" b');
+  assert.equal(faux.length, 1, "le motif ne reconnaît plus un site à échappement simple");
+  assert.ok(/\bech\(/.test(faux[0][1]) && !/\bechLecture\(/.test(faux[0][1]),
+    "le témoin doit être accepté par le premier contrôle ET refusé par le second — "
+    + "sinon il ne démontre pas l'écart entre les deux.");
+
+  /* TÉMOINS DU MOTIF, sans quoi `nus` vide dirait seulement qu'il ne trouve rien. */
+  const nuDansUnFaux = [...`x data-lecture="\${brut}" y`.matchAll(/data-lecture="\$\{([^}]*)\}/g)];
+  assert.equal(nuDansUnFaux.length, 1, "le motif ne reconnaît plus un site data-lecture.");
+  assert.ok(!/\bech\(/.test(nuDansUnFaux[0][1]), "le témoin négatif doit être vu comme non échappé.");
+});
