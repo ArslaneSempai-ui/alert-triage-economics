@@ -189,11 +189,11 @@ test("les couches partagées sont bien celles d'identite", (t) => {
      * Le portfolio est le dossier qui CONTIENT identite, par construction. On part de là, et
      * les deux dispositions donnent alors le même résultat.
      */
-    const portfolio = source + "../";
-    const voisins = readdirSync(portfolio, { withFileTypes: true })
+    const portfolio: string = source + "../";
+    const voisins: string[] = readdirSync(portfolio, { withFileTypes: true })
       .filter((e) => e.isDirectory() && existsSync(portfolio + e.name + "/src/" + nom))
       .map((e) => portfolio + e.name + "/src/" + nom);
-    const divergent = voisins.filter((v) => readFileSync(v, "utf8") !== readFileSync(la, "utf8"));
+    const divergent: string[] = voisins.filter((v: string) => readFileSync(v, "utf8") !== readFileSync(la, "utf8"));
     assert.ok(divergent.length > 0,
       `${nom} est déclaré adapté — « ${pourquoi} » — et il est pourtant identique à la source `
       + `dans les ${voisins.length} dépôt(s) qui le portent. L'exception ne protège plus rien `
