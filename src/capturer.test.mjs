@@ -247,9 +247,20 @@ test("servir refuse quand le port est tenu par un serveur étranger", async () =
 
   /* On attend que l'INTRUS réponde : sans ça le cas éprouverait un port libre et passerait
      pour de mauvaises raisons — exactement la faute qu'il est là pour attraper. */
-  const { execFileSync: exec } = await import("node:child_process");
-  exec("bash", ["-c",
-    `for i in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:${PORT}/index.html && exit 0; sleep 0.1; done; exit 1`]);
+  /* PAS D'ALIAS SUR `execFileSync`. L'appeler `exec` fait ressembler un appel sûr à celui qui
+     donne sa chaîne à un shell — la garde de ce dépôt l'a signalé, et elle a raison : un lecteur
+     qui balaie `exec(` s'arrête là aussi. Et pas de shell non plus : on attend en JavaScript. */
+  const { execFileSync } = await import("node:child_process");
+  const dors = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  let debout = false;
+  for (let i = 0; i < 50 && !debout; i++) {
+    try {
+      execFileSync("curl", ["-sf", "-o", "/dev/null", `http://127.0.0.1:${PORT}/index.html`],
+        { stdio: "ignore" });
+      debout = true;
+    } catch { dors(100); }
+  }
+  assert.ok(debout, "l'intrus n'a pas démarré : sans lui ce cas éprouverait un port libre");
 
   const nous = mkdtempSync(chemin(tmp(), "nous-"));
   ecrire(chemin(nous, "index.html"), "<h1>NOTRE PAGE</h1>");

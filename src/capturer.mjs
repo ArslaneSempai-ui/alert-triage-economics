@@ -416,11 +416,28 @@ export function servir(racine, port) {
   const fichierJeton = `.pret-${jeton}.txt`;
   writeFileSync(join(racine, fichierJeton), jeton);
   const url = `http://127.0.0.1:${port}/${fichierJeton}`;
-  const pret = spawnSync("bash", ["-c",
-    `for i in $(seq 1 50); do [ "$(curl -sf ${url})" = "${jeton}" ] && exit 0; sleep 0.1; done; exit 1`],
-    { stdio: ["ignore", "ignore", "pipe"] });
+  /* AUCUN SHELL, ET AUCUNE COMMANDE CONSTRUITE EN CHAÎNE. La version précédente passait par
+     `bash -c` avec l'URL et le jeton interpolés. Ce dépôt a une garde contre ça et elle a
+     raison : une chaîne donnée à un shell est une chaîne qu'il relit. On appelle donc `curl`
+     directement, on compare en JavaScript, et l'attente est une boucle ordinaire. */
+  const dors = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  /** Le corps rendu par une adresse, ou null si rien ne répond encore. */
+  const interroger = (u) => {
+    try {
+      return execFileSync("curl", ["-sf", u],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch { return null; }
+  };
+  let servi = false;
+  for (let i = 0; i < 50 && !servi; i++) {
+    /* LA DÉCISION TIENT SUR UNE LIGNE, ET C'EST VOULU : elle est ce qu'une contre-épreuve doit
+       pouvoir remplacer d'un bloc pour remettre le défaut d'origine — demander une page que
+       n'importe quel serveur possède, et se contenter qu'elle réponde. */
+    servi = interroger(url) === jeton;
+    if (!servi) dors(100);
+  }
 
-  if (pret.status !== 0) {
+  if (!servi) {
     /* ON RAPPORTE CE QUE LE SERVEUR A DIT, pas seulement qu'il n'a pas répondu. Sans ça le
        message est « le serveur n'est pas prêt », qui envoie chercher le réseau alors que la
        cause est presque toujours « ce port est déjà pris » — écrit noir sur blanc par python
