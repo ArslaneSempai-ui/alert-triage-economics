@@ -29,6 +29,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
@@ -203,6 +204,69 @@ function ecrireRegistre(v) {
     return false;
   }
 }
+/**
+ * Ce processus est-il encore celui que le registre a inscrit ?
+ *
+ * `vivant()` répond sur le NUMÉRO ; celle-ci répond sur l'IDENTITÉ. La différence décide si
+ * l'on ferme un serveur oublié ou le travail de quelqu'un d'autre.
+ *
+ * En cas de doute — `ps` absent, sortie illisible, droits refusés — elle rend **false**, donc on
+ * ne tue pas. Un orphelin qui survit coûte un port ; un processus étranger tué coûte le travail
+ * de la session qui le tenait.
+ */
+/**
+ * UN NOMBRE, OU UN REFUS — JAMAIS CE QU'ON A REÇU.
+ *
+ * Ces valeurs viennent d'un fichier de plan et partent **dans du code Python engendré**. Deux
+ * choses s'y cassent, et aucune ne demande d'attaquant :
+ *
+ * 1. `depart: "10"` avec `hauteurUtile: "5"` donnait `"10" + "5"` = `"105"`, pas 15. JavaScript
+ *    concatène deux chaînes là où l'auteur du plan a écrit deux nombres, et le recadrage se fait
+ *    sept fois trop bas sans que rien ne proteste.
+ * 2. Une valeur portant un saut de ligne devient **des lignes de la source engendrée**. Un
+ *    `depart` valant `"0\nimport os\nos.system(...)"` s'exécute. C'est un chemin de
+ *    contributeur et non un chemin distant, mais ce dépôt accepte des correctifs, et un fichier
+ *    de données qui devient du code est un fichier de données qui devient du code.
+ *
+ * On exige donc un nombre fini AVANT l'interpolation, et on refuse en nommant le champ. Ce
+ * refus vaut mieux qu'une image fausse : une capture mal recadrée se publie sans que personne
+ * la relise.
+ */
+export function nombreDeGabarit(valeur, nom, defaut) {
+  if (valeur === undefined || valeur === null) return defaut;
+  const n = typeof valeur === "number" ? valeur : Number(valeur);
+  if (!Number.isFinite(n)) {
+    throw new Error(
+      `${nom} vaut ${JSON.stringify(valeur)}, qui n'est pas un nombre fini.\n`
+      + `  Cette valeur part dans le code de recadrage engendré : une chaîne y serait concaténée\n`
+      + `  au lieu d'être additionnée, et un saut de ligne y deviendrait une ligne exécutable.`);
+  }
+  return n;
+}
+
+/** L'heure de démarrage réelle d'un processus, ou null si on ne peut pas la lire. */
+function demarrageDe(pid) {
+  try {
+    const t = Date.parse(execFileSync("ps", ["-p", String(pid), "-o", "lstart="],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim());
+    return Number.isFinite(t) ? t : null;
+  } catch { return null; }
+}
+
+function estToujoursLeNotre(e) {
+  /* SANS PROVENANCE, ON NE PEUT PAS VÉRIFIER — ET ON LE DIT PLUTÔT QUE DE CHOISIR EN SILENCE.
+     Une entrée écrite avant que ce champ existe, ou à la main, ne porte pas de quoi distinguer
+     « toujours le nôtre » de « ce numéro a été réattribué ». On garde alors l'ancien
+     comportement — fermer — parce que refuser laisserait vivre tous les vrais orphelins
+     hérités ; mais l'appelant le rapporte, et une entrée non vérifiable se voit. */
+  if (typeof e.demarre !== "number") return true;
+  const maintenant = demarrageDe(e.pid);
+  if (maintenant === null) return false;
+  /* `lstart` est arrondi à la seconde : une seconde de jeu, sinon un serveur inscrit dans la
+     même seconde que son démarrage passerait pour un imposteur. */
+  return Math.abs(maintenant - e.demarre) <= 1000;
+}
+
 function vivant(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
@@ -244,17 +308,49 @@ export function ramasserOrphelins(maxAgeMs = 3_600_000, maintenant = Date.now())
       + `  Regardez le fichier, ou effacez-le si vous acceptez d'oublier ce qu'il portait.\n`);
     return { fermes: [], restants: null, illisible: r.pourquoi };
   }
-  const garde = [], fermes = [];
+  const garde = [], fermes = [], usurpes = [], nonVerifiables = [];
   for (const e of r.entrees) {
     if (!vivant(e.pid)) continue;
     if (maintenant - e.depuis < maxAgeMs) { garde.push(e); continue; }
+    /*
+     * UN NUMÉRO DE PROCESSUS SE RECYCLE, ET L'ENTRÉE PORTE DE QUOI LE VÉRIFIER.
+     *
+     * `vivant(pid)` répond « un processus porte ce numéro », pas « c'est le nôtre ». Sur une
+     * machine où six sessions ouvrent et ferment des processus, un numéro libéré est réattribué
+     * en minutes — et cette boucle tuait alors quelque chose qu'elle n'avait jamais lancé, sur la
+     * foi d'une entrée périmée. Le registre porte `outil` et `port` depuis le début ; ils
+     * n'étaient lus que pour composer le message.
+     *
+     * L'invariant qui tranche n'est pas le nom de la commande — un orphelin légitime peut être
+     * n'importe quoi — c'est le TEMPS : un numéro réattribué désigne forcément un processus
+     * démarré APRÈS l'inscription qui le nomme. On compare donc l'heure de démarrage réelle à
+     * la date de l'entrée, et si le processus est plus jeune que sa propre inscription, **on ne
+     * tue pas**.
+     *
+     * Trouvé par un cas existant : ma première version exigeait `http.server` dans la ligne de
+     * commande, ce qui est vrai des vrais serveurs et faux du montage du témoin. Le cas rouge
+     * disait que la garde était trop étroite, pas que le témoin était mauvais.
+     */
+    if (typeof e.demarre !== "number") nonVerifiables.push(e);
+    else if (!estToujoursLeNotre(e)) { usurpes.push(e); continue; }
     try { process.kill(e.pid); fermes.push(e); } catch { garde.push(e); }
+  }
+  if (nonVerifiables.length) {
+    process.stderr.write(
+      `  ${nonVerifiables.length} entrée(s) sans heure de démarrage : fermées sans vérification.\n`
+      + `  Elles datent d'avant ce champ ; les suivantes seront vérifiables.\n`);
+  }
+  if (usurpes.length) {
+    process.stderr.write(
+      `  ${usurpes.length} entrée(s) périmée(s) : le numéro de processus a été réattribué.\n`
+      + usurpes.map((e) => `    pid ${e.pid} inscrit pour ${e.outil}:${e.port}\n`).join("")
+      + `  Rien n'a été tué : ce numéro appartient maintenant à un autre processus.\n`);
   }
   ecrireRegistre(garde);
   return { fermes, restants: garde.length };
 }
 
-function servir(racine, port) {
+export function servir(racine, port) {
   /*
    * `--bind 127.0.0.1`, et pas seulement dans l'URL qu'on interroge.
    *
@@ -266,7 +362,18 @@ function servir(racine, port) {
    * déjà à `127.0.0.1`, ce qui donnait toutes les apparences d'un serveur local.
    */
   const p = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", racine],
-    { stdio: "ignore", detached: false });
+    { stdio: ["ignore", "ignore", "pipe"], detached: false });
+  /*
+   * ON GARDE CE QU'IL DIT SANS LE LAISSER TENIR LA BOUCLE OUVERTE.
+   *
+   * Un tuyau ouvert est une poignée : sans `unref`, le processus qui a lancé ce serveur ne peut
+   * plus se terminer tant que l'enfant vit, et un cas qui rend la main tôt part en attente
+   * indéfinie. Mesuré : neuf minutes avant interruption, sur ma propre première version de ce
+   * correctif. On accumule donc la raison à mesure, et on relâche la poignée.
+   */
+  p.dit = "";
+  p.stderr?.on("data", (b) => { p.dit += String(b); });
+  p.stderr?.unref?.();
   /* S'INSCRIRE MÊME SI LE REGISTRE EST ILLISIBLE, et le dire. Ce qu'il portait n'est plus
      lisible — refuser de s'inscrire ajouterait un orphelin de plus à ceux qu'on ne retrouve
      déjà pas. On repart donc d'un registre qui ne contient que nous.
@@ -287,8 +394,48 @@ function servir(racine, port) {
       + `  Ce serveur s'inscrit dans un registre neuf.\n`);
   }
   ecrireRegistre([...avant.entrees.filter((e) => e.pid !== p.pid),
-    { pid: p.pid, port, depuis: Date.now(), outil: "capturer", racine }]);
-  execFileSync("bash", ["-c", `for i in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:${port}/index.html && exit 0; sleep 0.1; done; exit 1`]);
+    { pid: p.pid, port, depuis: Date.now(), demarre: demarrageDe(p.pid), outil: "capturer", racine }]);
+  /*
+   * « QUELQUE CHOSE RÉPOND » N'EST PAS « LE MIEN RÉPOND ».
+   *
+   * Le port vaut `8700 + (pid % 200)` : deux cents valeurs, et six sessions ouvrent des ports
+   * sur cette machine. Quand le port est déjà pris, `python3 -m http.server` échoue — en
+   * `stdio: "ignore"`, donc sans une ligne — et cette boucle voyait le 200 du serveur ÉTRANGER,
+   * déclarait « prêt », et la capture publiée était **la page d'un autre processus**. Le témoin
+   * qui l'a montré a rendu `<h1>PAGE DUN AUTRE</h1>`.
+   *
+   * Deux fautes dans la même séquence : le canal coupé — le code de sortie existait, `stdio`
+   * l'a jeté — et le contrôle qui regarde à côté de ce qu'il prétend couvrir.
+   *
+   * La parade n'est pas un port plus improbable : c'est de rendre la question vérifiable. Un
+   * jeton tiré au hasard, écrit dans le dossier servi, et dont on exige le CONTENU. Seul un
+   * serveur enraciné dans NOTRE dossier temporaire peut le rendre — un 200 ne prouve rien,
+   * cette chaîne prouve tout.
+   */
+  const jeton = randomBytes(16).toString("hex");
+  const fichierJeton = `.pret-${jeton}.txt`;
+  writeFileSync(join(racine, fichierJeton), jeton);
+  const url = `http://127.0.0.1:${port}/${fichierJeton}`;
+  const pret = spawnSync("bash", ["-c",
+    `for i in $(seq 1 50); do [ "$(curl -sf ${url})" = "${jeton}" ] && exit 0; sleep 0.1; done; exit 1`],
+    { stdio: ["ignore", "ignore", "pipe"] });
+
+  if (pret.status !== 0) {
+    /* ON RAPPORTE CE QUE LE SERVEUR A DIT, pas seulement qu'il n'a pas répondu. Sans ça le
+       message est « le serveur n'est pas prêt », qui envoie chercher le réseau alors que la
+       cause est presque toujours « ce port est déjà pris » — écrit noir sur blanc par python
+       sur sa sortie d'erreur, et jeté jusqu'ici. */
+    const dit = String(p.dit ?? "").trim();
+    try { process.kill(p.pid); } catch { /* déjà mort : c'est le cas courant ici */ }
+    throw new Error(
+      `le serveur de capture n'a pas servi son propre jeton sur ${port} en 5 s.\n`
+      + `  code de sortie du serveur : ${p.exitCode ?? "toujours en vie"}\n`
+      + (dit ? `  il a dit : ${dit}\n` : `  il n'a rien dit sur sa sortie d'erreur.\n`)
+      + `  La cause la plus fréquente est un port déjà pris : plusieurs sessions ouvrent des\n`
+      + `  serveurs sur cette machine, et 8700 + (pid % 200) n'en réserve aucun.\n`
+      + `  On refuse plutôt que de capturer : une capture prise sur le serveur de quelqu'un\n`
+      + `  d'autre est publiée sans que rien ne proteste.`);
+  }
   return p;
 }
 
@@ -443,8 +590,8 @@ if (lance) {
   from PIL import Image, ImageSequence
   import sys
   cadres = [Image.open(c).convert("RGB") for c in sys.argv[2:]]
-  hautCrop = ${image.depart ?? 0} * ${echelle}
-  basCrop = ${(image.depart ?? 0) + (image.hauteurUtile ?? 100000)} * ${echelle}
+  hautCrop = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
+  basCrop = ${nombreDeGabarit(image.depart, "depart", 0) + nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle}
   cadres = [c.crop((0, hautCrop, c.width, min(c.height, basCrop))) for c in cadres]
   petits = [c.resize((${large}, ${haut}), Image.LANCZOS) for c in cadres]
   petits[0].save(sys.argv[1], save_all=True, append_images=petits[1:],
@@ -468,8 +615,8 @@ if (lance) {
   from PIL import Image
   import sys
   im = Image.open(sys.argv[1])
-  haut = ${image.depart ?? 0} * ${echelle}
-  bas = min(im.height, haut + ${image.hauteurUtile ?? 100000} * ${echelle})
+  haut = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
+  bas = min(im.height, haut + ${nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle})
   im.crop((0, haut, im.width, bas)).save(sys.argv[1])
   `, cible], { stdio: "inherit" });
       }
