@@ -75,7 +75,31 @@ const ech = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
  * l'attribut, elles reviennent du `getAttribute` sous leur forme échappée, donc `innerHTML`
  * les rend comme du TEXTE — pendant que les balises de structure, elles, restent des balises.
  */
-const echLecture = (t) => ech(ech(t));
+/*
+ * UNE PASSE, PAS DEUX — MESURÉ DANS UN VRAI NAVIGATEUR LE 25 AOÛT 2026.
+ *
+ * La correction de la XSS avait mis DEUX `ech` ici. Elle ferme bien la faille, et elle
+ * abîme la donnée : la valeur traverse `ech` trois fois en tout — deux ici, une par
+ * l'enveloppe de l'attribut — alors que le trajet n'en défait que deux (le navigateur
+ * décode l'attribut au parsing, puis `innerHTML` décode en interprétant le balisage).
+ *
+ * Les trois formes, éprouvées côte à côte dans Chrome sur le trajet complet — attribut,
+ * `getAttribute`, `innerHTML` — et non simulées :
+ *
+ *              « Smith & Co »        « a<b »   « <img src=x onerror=…> »
+ *   aucun      Smith & Co            « a »     ÉLÉMENT CRÉÉ — la faille
+ *   UNE        Smith & Co            a<b       texte inerte
+ *   deux       Smith &amp; Co        a&lt;b    texte inerte
+ *
+ * Une passe est donc la seule qui soit à la fois SÛRE et FIDÈLE. Deux passes affichaient
+ * « Smith &amp; Co » à un client dont un champ contient une esperluette — et un nom de
+ * société en contient souvent une.
+ *
+ * Le nom reste `echLecture` bien qu'il ne fasse plus qu'appeler `ech` : il dit à quel
+ * endroit du trajet on se trouve, et une garde dérive les sites de ce fichier en le
+ * cherchant. Le renommer rendrait cette garde aveugle.
+ */
+const echLecture = (t) => ech(t);
 const fini = (v) => typeof v === "number" && Number.isFinite(v);
 const arr = (n) => Math.round(n * 100) / 100;
 

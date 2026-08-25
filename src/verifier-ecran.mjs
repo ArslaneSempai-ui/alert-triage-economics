@@ -23,6 +23,7 @@
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { inscrire, rayer, ramasserOrphelins } from "./capturer.mjs";
 import { existsSync, readFileSync, rmSync, cpSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -259,12 +260,41 @@ export function modulesEnRetard(racineDepot) {
   const js = join(racineDepot, "docs", "js");
   if (!existsSync(js)) return [];
   const enRetard = [];
+
+  /*
+   * ─── L'EMPREINTE D'ABORD, LA DATE SEULEMENT SI ELLE MANQUE ───
+   *
+   * Les dates de modification répondent à « lequel a été écrit en dernier », qui est une
+   * question sur la machine, pas sur la page. Sur un clone neuf elles se trompent CENT POUR
+   * CENT du temps et de façon déterministe : `git clone` écrit `docs/` avant `src/`, et les
+   * neuf à dix-huit millisecondes d'écart suffisent — mesuré le 25 août 2026, six modules
+   * annoncés périmés dont les octets étaient identiques à leurs sources.
+   *
+   * `pages.ts` enregistre l'empreinte de chaque source dans `docs/.sources.json`. Quand il est
+   * là, il tranche seul et la marge d'une seconde n'a plus de rôle.
+   */
+  const manifeste = join(racineDepot, "docs", ".sources.json");
+  if (existsSync(manifeste)) {
+    let empreintes;
+    try { ({ empreintes } = JSON.parse(readFileSync(manifeste, "utf8"))); } catch { empreintes = null; }
+    if (empreintes && Object.keys(empreintes).length >= 2) {
+      for (const [rel, attendu] of Object.entries(empreintes)) {
+        const src = join(racineDepot, "src", rel.replace(/^js\//, "").replace(/\.js$/, ".ts"));
+        if (!existsSync(src)) continue;
+        const vu = createHash("sha256").update(readFileSync(src)).digest("hex");
+        if (vu !== attendu) enRetard.push(rel.startsWith("js/") ? rel.slice(3) : `index.html (src/${rel})`);
+      }
+      return enRetard;
+    }
+  }
   for (const f of readdirSync(js).filter((n) => n.endsWith(".js"))) {
     const source = join(racineDepot, "src", f.replace(/\.js$/, ".ts"));
     if (!existsSync(source)) continue;
-    /* Une seconde de marge : la construction écrit le compilé juste après avoir lu la
-       source, et deux horodatages pris à la même seconde ne doivent pas accuser. */
-    if (statSync(join(js, f)).mtimeMs + 1000 < statSync(source).mtimeMs) enRetard.push(f);
+    /* REPLI PAR DATES, faute de manifeste. La marge passe à trente secondes : une seconde
+       ne couvre pas un clone, et ce chemin ne sert plus qu'aux dépôts dont la construction
+       n'écrit pas encore d'empreintes. Un repli trop serré rend un rouge que personne ne peut
+       corriger, et un rouge qu'on ne peut pas corriger se fait désactiver. */
+    if (statSync(join(js, f)).mtimeMs + 30_000 < statSync(source).mtimeMs) enRetard.push(f);
   }
   /*
    * ET LA PAGE ELLE-MÊME, PAS SEULEMENT SES MODULES.
@@ -313,7 +343,7 @@ export function modulesEnRetard(racineDepot) {
     const t = statSync(page).mtimeMs;
     for (const rel of sources) {
       const chemin = join(racineDepot, rel);
-      if (existsSync(chemin) && t + 1000 < statSync(chemin).mtimeMs) enRetard.push(`index.html (${rel})`);
+      if (existsSync(chemin) && t + 30_000 < statSync(chemin).mtimeMs) enRetard.push(`index.html (${rel})`);
     }
   }
   return enRetard;

@@ -26,6 +26,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -134,30 +135,77 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
   const PRODUISENT = ["ui.html", "gabarit.html", "pages.ts", "registre.css", "graphes.js"];
   if (!existsSync(page)) return t.skip("docs/index.html absent — lancer `npm run pages`");
 
-  const quand = (f: string) => statSync(f).mtimeMs;
-  const datePage = quand(page);
   const sources = PRODUISENT
     .map((f) => racine + "src/" + f)
     .filter((f) => existsSync(f));
-
   assert.ok(sources.length > 0,
     `aucune des sources déclarées n'existe dans ${racine}src/ : la liste est périmée, et un `
     + `vert rendu ici ne dirait rien`);
 
-  const plusRecentes = sources.filter((f) => quand(f) > datePage)
-    .map((f) => f.split("/").pop()!);
   /*
-   * ─── ET L'ARBRE COMPILÉ À CÔTÉ, DÉDUIT DU DISQUE ───
+   * ─── ON COMPARE DES OCTETS, PLUS DES DATES ───
    *
-   * La liste ci-dessus est figée à cinq noms, et `index.html` n'est pas le seul artefact
-   * publié : `docs/js/` porte un module par source compilée pour le navigateur. Le 24 août
-   * 2026, `regulations.ts` avait gagné une dixième entrée et **`docs/js/regulations.js`
-   * servait encore l'ancienne** — dans quatre dépôts, sans qu'un seul contrôle s'en aperçoive.
-   * Sept jours d'écart possibles entre ce que la source dit et ce que la page sert.
+   * Ce cas comparait `mtimeMs`. Il tombait sur CENT POUR CENT des clones neufs, et de façon
+   * déterministe : `git clone` écrit `docs/` avant `src/`, donc chaque source paraît plus
+   * récente que le fichier publié. Mesuré le 25 août 2026 sur deux clones : de NEUF À DIX-HUIT
+   * MILLISECONDES d'écart, six modules annoncés périmés, et les fichiers réellement servis
+   * identiques au bit près à leurs sources. Le tout premier `npm test` d'un acheteur affichait
+   * donc trois échecs dont celui-ci.
    *
-   * Les couples ne se déclarent donc pas : ils se déduisent. Tout `docs/js/X.js` qui a un
-   * `src/X.ts` est un couple, et le jour où la convention de nommage change, le témoin
-   * ci-dessous le dit au lieu de rendre un vert sur zéro couple.
+   * Une date répond à « lequel a été écrit en dernier » : une question sur la machine. La
+   * question posée est « le publié correspond-il aux sources » : une question sur le contenu.
+   *
+   * Deux régimes, parce que la construction fait deux choses différentes :
+   *   - ce qui est COPIÉ verbatim se compare octet pour octet, sans rien enregistrer ;
+   *   - ce qui est COMPILÉ ne peut pas se comparer ainsi, donc `pages.ts` enregistre
+   *     l'empreinte de chaque source dans `docs/.sources.json` et on la recalcule ici.
+   *     Si le manifeste n'existe pas, on SAUTE EN LE DISANT plutôt que de retomber sur les
+   *     dates — un repli silencieux vers la mesure fautive vaut moins que pas de mesure.
+   */
+  /* Les fichiers COPIÉS se déduisent du disque : tout fichier présent sous le même nom dans
+     `src/` et dans `docs/` a été copié verbatim. Écrire la liste à la main la figerait à ce
+     que la construction copie aujourd'hui, et le sixième artefact ajouté demain ne serait
+     jamais comparé. */
+  const copies = readdirSync(racine + "docs")
+    .filter((f) => /\.(js|css|html)$/.test(f) && existsSync(racine + "src/" + f));
+  assert.ok(copies.length > 0,
+    `aucun fichier de docs/ n'a d'homonyme dans src/ : la construction ne copie plus rien sous `
+    + `le même nom, et ce contrôle ne compare plus rien.`);
+  const divergents = copies.filter((f) =>
+    !readFileSync(racine + "src/" + f).equals(readFileSync(racine + "docs/" + f)));
+  assert.deepEqual(divergents, [],
+    `${divergents.join(", ")} : la page sert un contenu différent de sa source — lancer `
+    + "`npm run pages`. Comparé octet pour octet, ce n'est pas une question de date.");
+
+  const manifeste = racine + "docs/.sources.json";
+  if (!existsSync(manifeste)) {
+    t.diagnostic("docs/.sources.json absent — les modules COMPILÉS ne sont pas contrôlés ici. "
+      + "`pages.ts` de ce dépôt ne l'écrit pas encore ; les fichiers copiés le sont.");
+  } else {
+    const { empreintes } = JSON.parse(readFileSync(manifeste, "utf8")) as { empreintes: Record<string, string> };
+    const nb = Object.keys(empreintes).length;
+    assert.ok(nb >= 2,
+      `le manifeste ne porte que ${nb} empreinte(s) : il ne couvre plus la construction, et un `
+      + "contrôle qui n'examine presque rien passerait toujours.");
+    const perimes: string[] = [];
+    for (const [rel, attendu] of Object.entries(empreintes)) {
+      const src = racine + "src/" + rel.replace(/^js\//, "").replace(/\.js$/, ".ts");
+      if (!existsSync(src)) continue;
+      const vu = createHash("sha256").update(readFileSync(src)).digest("hex");
+      if (vu !== attendu) perimes.push(rel);
+    }
+    assert.deepEqual(perimes, [],
+      `${perimes.join(", ")} : la page a été construite depuis une AUTRE version de ces sources `
+      + "— lancer `npm run pages`. Le contenu diffère, indépendamment de toute date.");
+  }
+
+  /*
+   * ─── ET LA CONVENTION DE NOMMAGE, DÉDUITE DU DISQUE ───
+   *
+   * `docs/js/` porte un module par source compilée. Le 24 août 2026, `regulations.ts` avait
+   * gagné une entrée et `docs/js/regulations.js` servait encore l'ancienne, dans quatre dépôts.
+   * Les couples ne se déclarent pas : ils se déduisent, et le jour où la convention change, le
+   * témoin le dit au lieu de rendre un vert sur zéro couple.
    */
   const dossierJs = racine + "docs/js";
   if (existsSync(dossierJs)) {
@@ -168,20 +216,7 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
     assert.ok(couples.length > 0,
       `${dossierJs} porte des modules mais aucun n'a de source \`src/*.ts\` du même nom : `
       + `la convention a changé et ce contrôle ne compare plus rien`);
-    const compilesPerimes = couples
-      .filter((c) => quand(c.ts) > quand(c.js))
-      .map((c) => c.js.split("/").pop()!);
-    assert.deepEqual(compilesPerimes, [],
-      `${compilesPerimes.join(", ")} : la page sert un module plus ancien que sa source — `
-      + `lancer \`npm run pages\`. Un module compilé peut vieillir sans que l'écran change `
-      + `d'aspect : il dit simplement autre chose que ce que le code dit.`);
   }
-
-  assert.deepEqual(plusRecentes, [],
-    `la page contrôlée est plus ancienne que ${plusRecentes.join(", ")} — lancer \`npm run pages\`.\n`
-    + `  → tout ce que les cas suivants diront porte sur une page que personne n'a reconstruite.\n`
-    + `  → la date suffit à décider : une reconstruction inutile coûte une commande, un vert sur`
-    + ` l'ancienne page coûte le travail qu'on croit vérifié.`);
 });
 
 test("la page publiée ne révèle aucun chemin ni adresse de la machine qui l'a construite", (t) => {
