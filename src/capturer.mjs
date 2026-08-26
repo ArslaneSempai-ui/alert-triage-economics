@@ -279,6 +279,26 @@ function vivant(pid) {
  * ont survécu à un `pkill` ce jour-là, sans que rien puisse les rattacher à quoi que ce soit,
  * parce que le registre ne vivait que dans ce fichier-ci.
  */
+/*
+ * UNE SEULE FORME D'ENTRÉE, PARCE QUE DEUX ÉCRIVAINS AVAIENT DÉJÀ DIVERGÉ.
+ *
+ * Le registre était écrit à deux endroits : le chemin interne de la capture, qui posait
+ * `demarre`, et l'`inscrire()` exporté, qui l'oubliait. Or `estToujoursLeNotre()` rend `true`
+ * — « toujours le nôtre », donc ON FERME — dès que `demarre` manque : c'est le repli voulu
+ * pour les entrées héritées, et il avalait en silence toutes celles de l'appelant exporté.
+ *
+ * L'exporté est justement celui qui tourne le plus : `verifier-ecran.mjs` s'inscrit par lui à
+ * chaque `npm run pages`, bien plus souvent qu'une capture. La protection anti-recyclage de
+ * numéro de processus ne couvrait donc pas le chemin le plus fréquent — vérifié sur le
+ * registre vivant de cette machine : 104 entrées, toutes écrites par le chemin interne,
+ * toutes avec `demarre` ; une entrée écrite par l'appel exporté n'en portait aucune.
+ *
+ * Deux écrivains d'une même forme finissent toujours par diverger. Il n'y en a plus qu'un.
+ */
+function entreeDeRegistre(pid, port, outil, racine) {
+  return { pid, port, depuis: Date.now(), demarre: demarrageDe(pid), outil, racine };
+}
+
 export function inscrire(pid, port, outil, racine) {
   const r = lireRegistre();
   if (!r.lisible) {
@@ -286,7 +306,7 @@ export function inscrire(pid, port, outil, racine) {
       + "  Ce serveur s'inscrit quand même ; ce que le fichier portait avant est perdu.\n");
   }
   ecrireRegistre([...r.entrees.filter((e) => e.pid !== pid),
-    { pid, port, depuis: Date.now(), outil, racine }]);
+    entreeDeRegistre(pid, port, outil, racine)]);
 }
 
 /** Se rayer du registre : l'arrêt normal ne doit rien laisser derrière lui. */
@@ -394,7 +414,7 @@ export function servir(racine, port) {
       + `  Ce serveur s'inscrit dans un registre neuf.\n`);
   }
   ecrireRegistre([...avant.entrees.filter((e) => e.pid !== p.pid),
-    { pid: p.pid, port, depuis: Date.now(), demarre: demarrageDe(p.pid), outil: "capturer", racine }]);
+    entreeDeRegistre(p.pid, port, "capturer", racine)]);
   /*
    * « QUELQUE CHOSE RÉPOND » N'EST PAS « LE MIEN RÉPOND ».
    *
