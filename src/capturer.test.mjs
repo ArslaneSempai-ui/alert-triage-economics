@@ -17,6 +17,31 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+/*
+ * CES CAS ÉCRIVAIENT DANS LE REGISTRE PARTAGÉ DE LA MACHINE.
+ *
+ * Trois d'entre eux posent un registre fabriqué — dont un JSON volontairement corrompu — à
+ * `join(tmpdir(), "serveurs-portfolio.json")`, jouent, puis restaurent. La restauration est
+ * correcte ; la FENÊTRE ne l'est pas. Pendant qu'elle est ouverte, tout `npm run pages` ou
+ * toute capture d'une autre session, d'un autre dépôt, lit un registre corrompu — et le
+ * ramassage d'orphelins qui s'y fie referme des serveurs qui ne lui appartiennent pas.
+ *
+ * C'est la famille exacte qui a coûté une demi-journée sur `releve-scelle.test.ts` : un témoin
+ * qui a besoin d'un fichier à un chemin fixe a besoin d'un BAC À SABLE, pas d'une restauration.
+ * Restaurer referme la fenêtre après coup ; isoler fait qu'elle n'existe jamais.
+ *
+ * `capturer.mjs` calcule son chemin de registre depuis `tmpdir()` AU CHARGEMENT, et ce fichier
+ * ne l'importe que dynamiquement, dans les cas. Rediriger `TMPDIR` ici — avant que le premier
+ * `await import()` ne s'exécute — suffit donc à déplacer les trois sites d'un coup, sans
+ * toucher à leur corps. Les processus fils héritent de la variable, donc eux aussi.
+ */
+const BAC = mkdtempSync(join(tmpdir(), "capturer-cas-"));
+process.env.TMPDIR = BAC;
+process.on("exit", () => { try { rmSync(BAC, { recursive: true, force: true }); } catch { /* rien */ } });
 
 const SOURCE = readFileSync(fileURLToPath(new URL("./capturer.mjs", import.meta.url)), "utf8");
 
@@ -345,5 +370,93 @@ test("une valeur de plan est un nombre fini, ou elle est refusée", async () => 
     assert.throws(() => nombreDeGabarit(mauvais, "depart", 0), /n'est pas un nombre fini/,
       `${JSON.stringify(mauvais)} part dans du code engendré : le refuser ici est le seul `
       + "endroit où il est encore une donnée");
+  }
+});
+
+/*
+ * L'ENTRÉE ÉCRITE PAR L'APPEL EXPORTÉ NE PORTAIT PAS SA PROVENANCE.
+ *
+ * `estToujoursLeNotre()` compare `e.demarre` à l'heure de démarrage réelle du processus, pour
+ * ne pas refermer un serveur dont le NUMÉRO a été réattribué à quelqu'un d'autre. Sans ce
+ * champ, elle rend `true` — « toujours le nôtre », donc on ferme : le repli voulu pour les
+ * entrées héritées d'avant.
+ *
+ * Or le registre était écrit à DEUX endroits. Le chemin interne de la capture posait
+ * `demarre` ; l'`inscrire()` exporté ne le posait pas. Et l'exporté est celui qui tourne le
+ * plus — `verifier-ecran.mjs` s'inscrit par lui à chaque `npm run pages`, bien plus souvent
+ * qu'une capture. La protection ne couvrait donc pas le chemin le plus fréquent.
+ *
+ * Relevé sur le registre vivant de cette machine le 27 août 2026 : 104 entrées, toutes
+ * écrites par le chemin interne, toutes avec `demarre`. Une entrée écrite par l'appel exporté
+ * n'en portait aucune. Le défaut ne se voyait pas dans le registre parce que l'appelant
+ * exporté s'y raye vite — il se voyait au moment exact où il compte.
+ *
+ * Les deux écrivains n'en font plus qu'un : `entreeDeRegistre()`.
+ */
+test("l'entrée écrite par inscrire() porte sa provenance", async () => {
+  const { inscrire, rayer } = await import("./capturer.mjs");
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const registre = join(tmpdir(), "serveurs-portfolio.json");
+
+  inscrire(process.pid, 65001, "temoin-provenance", "/tmp");
+  try {
+    const entrees = JSON.parse(readFileSync(registre, "utf8"));
+    const moi = (entrees.entrees ?? entrees).find((e) => e.pid === process.pid);
+    assert.ok(moi, "inscrire() n'a rien écrit : ce cas ne mesure rien.");
+    assert.equal(typeof moi.demarre, "number",
+      "sans `demarre`, estToujoursLeNotre() rend `true` sur cette entrée — donc le ramassage "
+      + "la ferme sans avoir pu vérifier que le numéro n'a pas été réattribué. C'est le "
+      + "chemin qu'emprunte `verifier-ecran.mjs`, à chaque construction de page.");
+    /* Et la valeur doit être la NÔTRE, pas une constante quelconque : un `demarre: 0` posé
+       pour faire taire ce cas passerait le test de type et rendrait la comparaison fausse. */
+    assert.ok(Math.abs(moi.demarre - Date.now()) < 60_000,
+      `demarre vaut ${moi.demarre}, qui n'est pas l'heure de démarrage de ce processus. `
+      + "Un champ posé pour la forme ne vaut pas mieux qu'un champ absent.");
+  } finally {
+    rayer(process.pid);
+  }
+});
+
+test("une entrée SANS provenance est comptée comme non vérifiable", async () => {
+  /*
+   * LA DIRECTION QUI DÉCIDE. Sans ce cas, poser `demarre` partout suffirait à rendre le
+   * précédent vert, et l'on ne saurait toujours pas si le ramassage SAIT distinguer une
+   * entrée vérifiable d'une entrée qui ne l'est pas.
+   *
+   * IL FAUT UN PROCESSUS VIVANT, et ça m'a coûté un essai : la boucle écarte d'abord tout
+   * numéro qui ne répond plus (`if (!vivant(e.pid)) continue`), donc un numéro inventé
+   * n'atteint jamais la classification. On lance donc NOTRE propre enfant, inoffensif, et on
+   * l'inscrit sans provenance. Le ramassage le fermera — c'est le repli voulu — et c'est bien
+   * ce qu'on veut voir rapporté.
+   */
+  const { ramasserOrphelins } = await import("./capturer.mjs");
+  const { spawn } = await import("node:child_process");
+  const { writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const registre = join(tmpdir(), "serveurs-portfolio.json");
+
+  const enfant = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"],
+    { stdio: "ignore" });
+  try {
+    writeFileSync(registre, JSON.stringify([
+      { pid: enfant.pid, port: 65002, depuis: Date.now() - 7_200_000, outil: "herite", racine: "/tmp" },
+    ]));
+    /* Le compte des non-vérifiables n'est pas RENDU — il est écrit sur stderr. On observe
+       donc ce que l'opérateur voit, pas une valeur que le code ne publie pas. */
+    const vraiEcrire = process.stderr.write.bind(process.stderr);
+    let dit = "";
+    process.stderr.write = (m) => { dit += String(m); return true; };
+    try { ramasserOrphelins(3_600_000, Date.now()); }
+    finally { process.stderr.write = vraiEcrire; }
+
+    assert.match(dit, /sans heure de démarrage/,
+      "une entrée sans `demarre` doit être DITE non vérifiable. Le repli — fermer quand même "
+      + "— est le bon choix pour les entrées héritées, mais il doit se voir : sinon le silence "
+      + "dit « tout est vérifié » alors que rien ne l'a été.\nCe qui a été écrit :\n" + dit);
+  } finally {
+    try { enfant.kill("SIGKILL"); } catch { /* déjà fermé par le ramassage, c'est le but */ }
   }
 });
