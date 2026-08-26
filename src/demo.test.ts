@@ -200,6 +200,55 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
   }
 
   /*
+   * ─── ET CE QUI EST SERVI, PAS SEULEMENT CE QUI L'A PRODUIT ───
+   *
+   * Le bloc ci-dessus répond à « la source a-t-elle bougé depuis la construction ». Il ne
+   * répond pas à « le fichier que le navigateur charge est-il celui qu'on a construit », et
+   * c'est la seconde question qui protège un visiteur.
+   *
+   * Mesuré le 26 août 2026 : une ligne ajoutée à la main dans `docs/js/assumptions.js` — le
+   * module réellement servi — laisse ce fichier de cas à 5 sur 5. Aucune source n'a bougé,
+   * donc toutes les empreintes concordent, et le module falsifié part avec la page.
+   *
+   * Les fichiers copiés verbatim sont déjà couverts : le premier bloc les compare octet pour
+   * octet à leur homonyme de `src/`. Le COMPILÉ n'a pas d'homonyme, d'où ce bloc-ci.
+   *
+   * Ce qu'il ne ferme pas, écrit plutôt que tu : une main qui falsifie le module ET le
+   * manifeste passe. Le manifeste est versionné ; c'est l'historique qui répond de ce cas-là.
+   */
+  if (existsSync(manifeste)) {
+    const { publies } = JSON.parse(readFileSync(manifeste, "utf8")) as {
+      publies?: Record<string, string>;
+    };
+    if (!publies) {
+      t.diagnostic("docs/.sources.json ne scelle pas les fichiers SERVIS : la construction de "
+        + "ce depot ne les enregistre pas encore, donc un module publie falsifie ne serait pas "
+        + "vu ici. Les sources, elles, sont controlees.");
+    } else {
+      const nb = Object.keys(publies).length;
+      assert.ok(nb >= 2,
+        `le manifeste ne scelle que ${nb} fichier(s) servi(s) : il ne couvre plus la page, et `
+        + "un controle qui n'examine presque rien passerait toujours.");
+      const falsifies: string[] = [];
+      const absents: string[] = [];
+      for (const [rel, attendu] of Object.entries(publies)) {
+        const servi = racine + "docs/" + rel;
+        if (!existsSync(servi)) { absents.push(rel); continue; }
+        const vu = createHash("sha256").update(readFileSync(servi)).digest("hex");
+        if (vu !== attendu) falsifies.push(rel);
+      }
+      assert.deepEqual(absents, [],
+        `${absents.join(", ")} : le manifeste scelle des fichiers que docs/ ne porte plus. La `
+        + "page reference des modules absents, ou la construction n'a pas ete relancee.");
+      assert.deepEqual(falsifies, [],
+        `${falsifies.join(", ")} : le fichier SERVI ne correspond plus a celui qui a ete `
+        + "construit. Ce n'est pas une question de fraicheur de source — les sources sont "
+        + "intactes — c'est le contenu que le navigateur charge qui a change. Relancer "
+        + "`npm run pages`, et si personne ne l'a modifie, chercher qui l'a fait.");
+    }
+  }
+
+  /*
    * ─── ET LE RELEVÉ, QUI EST LA SOURCE QUI PEUT LE PLUS MENTIR ───
    *
    * Le bloc ci-dessus scelle le CODE qui produit la page. Un code inchangé qui recopie un
