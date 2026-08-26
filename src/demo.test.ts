@@ -200,6 +200,48 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
   }
 
   /*
+   * ─── ET LE RELEVÉ, QUI EST LA SOURCE QUI PEUT LE PLUS MENTIR ───
+   *
+   * Le bloc ci-dessus scelle le CODE qui produit la page. Un code inchangé qui recopie un
+   * relevé changé rend une page fausse dont toutes les empreintes concordent.
+   *
+   * Mesuré le 26 août 2026 : on remesure, `npm run sceller`, `npm run figures`,
+   * `npm run dossier`, `npm run sonde` — la discipline entière — et `npm test` rend 442
+   * sur 442 avec sortie 0 pendant que `docs/index.html` sert encore l'ancien chiffre. Seul
+   * `npm run pages` refait la page, et rien ne le disait.
+   *
+   * On compare au relevé DE RÉFÉRENCE, jamais à `readProfiles()`. Un acheteur qui mesure
+   * ses propres données fait apparaître `data/profiles.json` ; notre page publiée n'en
+   * devient pas fausse, et un rouge là-dessus serait le faux rouge que ce fichier a déjà
+   * payé une fois avec les dates de modification.
+   */
+  if (existsSync(manifeste)) {
+    const { releve } = JSON.parse(readFileSync(manifeste, "utf8")) as {
+      releve?: { attendu?: string; empreinte?: string };
+    };
+    assert.ok(releve && typeof releve.empreinte === "string" && typeof releve.attendu === "string",
+      "docs/.sources.json ne dit pas de quel releve la page a ete construite : la page "
+      + "publie des chiffres et rien ne relie ces chiffres a une mesure.\n"
+      + "  Deux remedes selon le depot : relancer `npm run pages` si sa construction ecrit "
+      + "deja cette entree, sinon la lui faire ecrire — ce fichier de cas voyage entre "
+      + "depots, la construction non.");
+    /* LE NOM DU RELEVE SORT DU MANIFESTE, PAS D'UN IMPORT. Ce fichier voyage : `measure.ts`
+       n'existe que dans un depot sur onze, et l'importer cassait la compilation des dix
+       autres. Un fichier partage derive du depot ou il se trouve ce dont il a besoin. */
+    const fichier = racine + releve!.attendu!;
+    assert.ok(existsSync(fichier),
+      releve!.attendu + " est absent : la page publiee cite une mesure que le depot ne "
+      + "porte plus, et personne ne peut la refaire.");
+    const aujourdhui = (JSON.parse(readFileSync(fichier, "utf8")) as Record<string, unknown>).empreinte;
+    assert.equal(releve!.empreinte, aujourdhui,
+      "la page publiee a ete construite sur le releve " + releve!.empreinte + ", et "
+      + releve!.attendu + " porte aujourd'hui " + aujourdhui + ". Deux causes, toutes "
+      + "deux reelles : soit la mesure a ete refaite depuis et la page sert des chiffres "
+      + "perimes, soit la page a ete construite depuis une mesure locale que `data/` ne "
+      + "versionne pas, et personne d'autre ne peut la refaire. Lancer `npm run pages`.");
+  }
+
+  /*
    * ─── ET LA CONVENTION DE NOMMAGE, DÉDUITE DU DISQUE ───
    *
    * `docs/js/` porte un module par source compilée. Le 24 août 2026, `regulations.ts` avait
