@@ -130,6 +130,31 @@ test("la troisième cause ne masque jamais une vraie dérive", () => {
     "sans référence publiée lisible, on ne peut pas conclure — le cas sûr est le rouge");
 });
 
+/**
+ * LE SORT D'UNE EXCEPTION DÉCLARÉE, ISOLÉ POUR ÊTRE ÉPROUVÉ.
+ *
+ * Une exception d'`ADAPTES` sort un fichier du contrôle d'identité ; elle doit donc servir
+ * quelque part, sinon elle ouvre un trou pour rien. Mais « elle ne sert nulle part » ne se
+ * conclut que si l'on a REGARDÉ quelque part : sans voisin qui porte le fichier, il n'y a
+ * pas de constat, il y a une absence de constat, et les deux ne se rapportent pas pareil.
+ */
+export function jugerException(voisins: number, divergents: number): "protège" | "inutile" | "non jugeable" {
+  if (voisins === 0) return "non jugeable";
+  return divergents > 0 ? "protège" : "inutile";
+}
+
+test("une exception ne se juge pas sur zéro voisin", () => {
+  assert.equal(jugerException(3, 1), "protège",
+    "une exception qui diverge chez au moins un voisin protège quelque chose");
+  assert.equal(jugerException(3, 0), "inutile",
+    "trois voisins REGARDÉS et aucune divergence : l'exception ouvre un trou pour rien, "
+    + "et ce rouge-là doit rester — c'est lui qui empêche ADAPTES de grossir sans raison");
+  assert.equal(jugerException(0, 0), "non jugeable",
+    "aucun voisin ne porte le fichier : il n'y a rien à observer, donc rien à conclure. "
+    + "Conclure « inutile » ici est un rouge vide, et il tombait sur un runner d'intégration "
+    + "où le dépôt est seul.");
+});
+
 test("les couches partagées sont bien celles d'identite", (t) => {
   /*
    * Ces règles ne valent que si le fichier contrôlé est celui que l'écran sert. Une copie
@@ -231,7 +256,26 @@ test("les couches partagées sont bien celles d'identite", (t) => {
       .filter((e) => e.isDirectory() && existsSync(portfolio + e.name + "/src/" + nom))
       .map((e) => portfolio + e.name + "/src/" + nom);
     const divergent: string[] = voisins.filter((v: string) => readFileSync(v, "utf8") !== readFileSync(la, "utf8"));
-    assert.ok(divergent.length > 0,
+    const verdict = jugerException(voisins.length, divergent.length);
+    if (verdict === "non jugeable") {
+      /*
+       * AUCUN VOISIN NE PORTE CE FICHIER : ON N'OBSERVE RIEN, DONC ON NE CONCLUT RIEN.
+       *
+       * Le rouge vide, exactement en face du vert vide. « identique à la source dans les 0
+       * dépôt(s) qui le portent » est vrai par vacuité : l'exception n'a pas été prise en
+       * défaut, elle n'a pas été REGARDÉE. Sur un runner d'intégration, où cascade est seul
+       * et n'a aucun voisin, ce verdict accusait chaque exception d'être inutile — et il
+       * emportait avec lui la comparaison principale, qui est justement celle qu'on vient
+       * de rendre exécutable là-bas.
+       *
+       * Le commentaire ci-dessus raconte déjà un faux rouge né de la même hypothèse
+       * d'emplacement. C'en était le dernier morceau.
+       */
+      t.diagnostic(`exception « ${nom} » non jugée : aucun dépôt voisin ne porte ce fichier `
+        + `sous ${portfolio} — rien n'a été observé, donc rien n'est conclu.`);
+      continue;
+    }
+    assert.equal(verdict, "protège",
       `${nom} est déclaré adapté — « ${pourquoi} » — et il est pourtant identique à la source `
       + `dans les ${voisins.length} dépôt(s) qui le portent. L'exception ne protège plus rien `
       + `et sort ce fichier du contrôle d'identité pour rien : la retirer d'ADAPTES.`);
