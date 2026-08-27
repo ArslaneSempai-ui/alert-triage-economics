@@ -507,6 +507,10 @@ export function servir(racine, port) {
        cause est presque toujours « ce port est déjà pris » — écrit noir sur blanc par python
        sur sa sortie d'erreur, et jeté jusqu'ici. */
     const dit = String(p.dit ?? "").trim();
+    /* piege:ok catch-muet — le serveur vient d'échouer à servir son jeton ; le tuer lève s'il
+       est déjà mort, et c'est le cas courant. Nommer CETTE panne-là masquerait la vraie, qui
+       est levée trois lignes plus bas avec le code de sortie du serveur et ce qu'il a dit sur
+       sa sortie d'erreur. Même raison que l'exemption de `capturer.test.mjs`. */
     try { process.kill(p.pid); } catch { /* déjà mort : c'est le cas courant ici */ }
     throw new Error(
       `le serveur de capture n'a pas servi son propre jeton sur ${port} en 5 s.\n`
