@@ -268,12 +268,32 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
     const { releve } = JSON.parse(readFileSync(manifeste, "utf8")) as {
       releve?: { attendu?: string; empreinte?: string };
     };
-    assert.ok(releve && typeof releve.empreinte === "string" && typeof releve.attendu === "string",
-      "docs/.sources.json ne dit pas de quel releve la page a ete construite : la page "
-      + "publie des chiffres et rien ne relie ces chiffres a une mesure.\n"
-      + "  Deux remedes selon le depot : relancer `npm run pages` si sa construction ecrit "
-      + "deja cette entree, sinon la lui faire ecrire — ce fichier de cas voyage entre "
-      + "depots, la construction non.");
+    /*
+     * CETTE EXIGENCE ETAIT INCONDITIONNELLE, ET C'ETAIT MON ERREUR.
+     *
+     * Le bloc voisin — celui des fichiers SERVIS, ecrit dans le meme geste — traite la cle
+     * absente par un diagnostic. Celui-ci refusait. La difference n'avait aucune raison
+     * d'etre, et elle coutait cher : un depot dont la construction n'ecrit pas `releve` ne
+     * pouvait pas sceller sa page SANS se rendre rouge. Cinq d'entre eux ont donc choisi de
+     * ne pas sceller du tout — et leurs modules servis ne sont alors tenus par rien.
+     *
+     * Mesure du 27 aout 2026 : cycle, funnel, arbitrage, derive, remediation portent un
+     * `pages.ts` qui n'ecrit jamais `releve`, et aucun manifeste. cascade et banc l'ecrivent
+     * et restent entierement controles — banc en nommant SON releve a lui.
+     *
+     * Une garde qui ne peut etre satisfaite que par un depot sur sept ne protege pas les six
+     * autres : elle les pousse a se mettre hors de portee.
+     */
+    if (!releve) {
+      t.diagnostic("docs/.sources.json ne dit pas de quel releve la page a ete construite : "
+        + "la construction de ce depot n'ecrit pas cette entree, donc rien ne relie les "
+        + "chiffres publies a une mesure. Les sources et les fichiers servis, eux, sont "
+        + "controles ici. Pour fermer ce trou, faire ecrire `releve` a son `pages.ts`.");
+    } else {
+      assert.ok(typeof releve.empreinte === "string" && typeof releve.attendu === "string",
+        "docs/.sources.json porte une entree `releve` incomplete : elle doit nommer le releve "
+        + "et son empreinte. Une entree a moitie ecrite est pire qu'absente — elle a l'air "
+        + "d'un scelle.");
     /* LE NOM DU RELEVE SORT DU MANIFESTE, PAS D'UN IMPORT. Ce fichier voyage : `measure.ts`
        n'existe que dans un depot sur onze, et l'importer cassait la compilation des dix
        autres. Un fichier partage derive du depot ou il se trouve ce dont il a besoin. */
@@ -288,6 +308,7 @@ test("la page contrôlée est celle que les sources produisent aujourd'hui", (t)
       + "deux reelles : soit la mesure a ete refaite depuis et la page sert des chiffres "
       + "perimes, soit la page a ete construite depuis une mesure locale que `data/` ne "
       + "versionne pas, et personne d'autre ne peut la refaire. Lancer `npm run pages`.");
+    }
   }
 
   /*

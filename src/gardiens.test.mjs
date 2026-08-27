@@ -37,6 +37,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /*
@@ -52,6 +53,27 @@ import { fileURLToPath } from "node:url";
  * qu'il refuse aux autres. Il est donc recopié dans chaque dépôt et regarde le sien.
  */
 const ICI = fileURLToPath(new URL(".", import.meta.url));
+/*
+ * LA RACINE DU DÉPÔT SE CHERCHE, ELLE NE SE DÉDUIT PAS D'UN CRAN.
+ *
+ * Première écriture : `new URL("..")`, en supposant que ce fichier vit dans `src/`. C'est vrai
+ * dans onze dépôts et FAUX dans `identite`, où la couche est à la racine — le cran de trop y
+ * désignait `~/Documents`, donc le balayage serait parti dans les douze dépôts voisins.
+ *
+ * Un `.git` marque une racine de dépôt, et rien d'autre ne le fait. On remonte jusqu'à lui, et
+ * on s'arrête sur le dossier de ce fichier si on n'en trouve aucun — un dossier sans dépôt
+ * n'est pas une raison de balayer son parent.
+ */
+const RACINE_DEPOT = (() => {
+  let d = fileURLToPath(new URL(".", import.meta.url));
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(d, ".git"))) return d.endsWith("/") ? d : d + "/";
+    const parent = join(d, "..");
+    if (parent === d) break;
+    d = parent;
+  }
+  return fileURLToPath(new URL(".", import.meta.url));
+})();
 const MARQUE = "liste-figee:";
 
 /** La liste des dépôts vit dans `identite` ; un dépôt cloné seul n'y a pas accès. */
@@ -482,9 +504,35 @@ test("aucune date de relevé n'est postérieure à aujourd'hui", (t) => {
    * qu'une source a été ouverte le jour dit, mais on peut refuser l'impossible : une date
    * postérieure à aujourd'hui, ou antérieure à l'existence de ces outils.
    */
-  const fichier = ICI + "regulations.ts";
-  if (!existsSync(fichier)) {
-    return t.skip("ce dépôt ne porte pas regulations.ts — rien à vérifier ici");
+  /*
+   * ON CHERCHE LE FICHIER, ON NE SUPPOSE PAS OÙ IL EST.
+   *
+   * Cette garde ne regardait qu'à la racine de la couche. `arbitrage` porte le sien sous
+   * `src/emprunts/economics/regulations.ts` — un module emprunté à un dépôt voisin — donc onze
+   * dates de relevé étaient hors de portée, et le cas se déclarait « ignoré ».
+   *
+   * C'EST LE PIRE DES DEUX SILENCES. Un cas rouge se corrige ; un cas ignoré se lit comme
+   * « rien à vérifier ici », ce qui était faux. Le compte des ignorés d'un dépôt ne dit pas
+   * lequel a cessé de regarder.
+   *
+   * On balaie donc le dépôt et on contrôle TOUTES les copies trouvées. Un `skip` ne subsiste
+   * que si le dépôt n'en porte réellement aucune — et c'est alors une affirmation vérifiée,
+   * pas une supposition sur un chemin.
+   */
+  const trouver = (dossier, vus = []) => {
+    let entrees;
+    try { entrees = readdirSync(dossier, { withFileTypes: true }); } catch { return vus; }
+    for (const e of entrees) {
+      if (e.name === "node_modules" || e.name === ".git" || e.name.startsWith(".")) continue;
+      const chemin = join(dossier, e.name);
+      if (e.isDirectory()) trouver(chemin, vus);
+      else if (e.name === "regulations.ts") vus.push(chemin);
+    }
+    return vus;
+  };
+  const fichiers = trouver(RACINE_DEPOT);
+  if (!fichiers.length) {
+    return t.skip("ce dépôt ne porte aucun regulations.ts — balayé, pas supposé");
   }
   const PLANCHER = "2020-01-01";
   /*
@@ -515,15 +563,22 @@ test("aucune date de relevé n'est postérieure à aujourd'hui", (t) => {
   assert.equal(impossible("2019-12-31"), true, "avant le plancher doit être refusé");
   assert.equal(impossible("pas-une-date"), true, "une non-date doit être refusée");
 
-  const dates = [...readFileSync(fichier, "utf8").matchAll(/retrieved:\s*"([^"]*)"/g)]
-    .map((m) => m[1]);
-  assert.ok(dates.length >= 3,
-    `seulement ${dates.length} date(s) de relevé lue(s) : le motif est périmé`);
-  const fautives = [...new Set(dates.filter((d) => impossible(d)))];
-  assert.deepEqual(fautives, [],
-    `${fautives.join(", ")} : date de relevé impossible. Une citation ne peut pas avoir été `
-    + `relevée dans le futur, et une date au bon format n'est pas une date vraie — c'est `
-    + `précisément ce qu'un contrôle de forme laisse passer.`);
+  /* TOUTES les copies, et le compte est global : un fichier lu, zéro date, doit crier. */
+  const fautives = [];
+  let lues = 0;
+  for (const f of fichiers) {
+    const dates = [...readFileSync(f, "utf8").matchAll(/retrieved:\s*"([^"]*)"/g)].map((m) => m[1]);
+    lues += dates.length;
+    for (const d of dates) if (impossible(d)) fautives.push(`${f.slice(RACINE_DEPOT.length)}: ${d}`);
+  }
+  assert.ok(lues >= 3,
+    `${fichiers.length} fichier(s) regulations.ts trouvé(s) et seulement ${lues} date(s) de `
+    + `relevé lue(s) : le motif est périmé, ou ces fichiers n'en portent plus. `
+    + fichiers.map((f) => f.slice(RACINE_DEPOT.length)).join(", "));
+  assert.deepEqual([...new Set(fautives)], [],
+    `${[...new Set(fautives)].join(" · ")} : date de relevé impossible. Une citation ne peut `
+    + `pas avoir été relevée dans le futur, et une date au bon format n'est pas une date `
+    + `vraie — c'est précisément ce qu'un contrôle de forme laisse passer.`);
 });
 
 test("aucun module compilé pour le navigateur n'importe un module Node", (t) => {
