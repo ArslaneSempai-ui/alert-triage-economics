@@ -928,3 +928,9 @@ a:hover { color: var(--encre); }
 @media (prefers-reduced-motion: reduce) {
   .pliable > .tete::before { transition: none; }
 }
+
+/* Le bouton d'action d'un bloc verdict. Cette marge vivait dans un attribut style inline —
+   que la CSP `style-src 'self'` BLOQUE : elle n'a jamais existé à l'écran, et rien ne le
+   disait. Une règle de feuille servie est la seule forme que la politique laisse vivre.
+   Posé à la source : registre.css est porté par treize dépôts. Audit du 27 août 2026. */
+.verdict-action { margin-top: 10px; }
