@@ -155,6 +155,55 @@ test("une exception ne se juge pas sur zéro voisin", () => {
     + "où le dépôt est seul.");
 });
 
+/*
+ * LE CONSEIL, ISOLÉ POUR ÊTRE ÉPROUVÉ.
+ *
+ * Il vivait dans une chaîne ternaire au milieu de l'assertion, donc rien ne pouvait vérifier
+ * qu'il envoie au bon remède — et il envoyait au mauvais pour le seul dépôt EXCLU de la
+ * diffusion : « lancer `node diffuser.mjs`, ne pas recopier à la main » y est doublement faux,
+ * puisque la commande n'écrit rien là-bas et que la reprise à la main est le mécanisme prévu.
+ */
+export function conseilPourDivergence(exclu: boolean, enRetard: number, total: number): string {
+  if (exclu) {
+    return "Ce dépôt est EXCLU de la diffusion (voir `exclus` dans depots.json) : "
+      + "`node diffuser.mjs` n'y écrit rien et ne réparera pas ceci. La reprise à la main "
+      + "depuis identite est le mécanisme prévu ici, pas une dérive.";
+  }
+  if (enRetard === total) {
+    return "La SOURCE a avancé : lancer `node diffuser.mjs` depuis identite. "
+      + "Ne pas recopier à la main — ce serait la dérive locale que ce cas interdit.";
+  }
+  if (enRetard) {
+    return `${enRetard} par diffusion en retard (\`node diffuser.mjs\`), `
+      + `${total - enRetard} par dérive locale (recopier, ne pas corriger ici).`;
+  }
+  return "La COPIE a avancé : c'est une dérive locale — recopier depuis identite "
+    + "plutôt que corriger ici, sinon la correction ne voyagera pas.";
+}
+
+test("le conseil s'inverse pour un dépôt exclu de la diffusion", () => {
+  /* Un exclu : la commande de diffusion n'y écrit rien, donc la conseiller est un cul-de-sac.
+     Et le conseil doit dire que la reprise à la main est PRÉVUE, sinon le lecteur croit qu'il
+     transgresse. */
+  const exclu = conseilPourDivergence(true, 1, 1);
+  assert.match(exclu, /EXCLU de la diffusion/);
+  assert.match(exclu, /reprise à la main/);
+  assert.doesNotMatch(exclu, /Ne pas recopier à la main/,
+    "le conseil interdit encore le seul mécanisme qui marche dans un dépôt exclu");
+
+  /* LA DIRECTION QUI DÉCIDE : pour un dépôt de la diffusion, rien ne change. Sans ce cas, un
+     conseil qui dirait « exclu » partout passerait le précédent. */
+  const suivi = conseilPourDivergence(false, 1, 1);
+  assert.match(suivi, /node diffuser\.mjs/);
+  assert.match(suivi, /Ne pas recopier à la main/);
+  assert.doesNotMatch(suivi, /EXCLU/,
+    "un dépôt que la diffusion atteint est annoncé exclu : le conseil ne distingue plus rien");
+
+  /* Et les deux causes mixtes gardent leur forme. */
+  assert.match(conseilPourDivergence(false, 1, 3), /1 par diffusion en retard/);
+  assert.match(conseilPourDivergence(false, 0, 2), /dérive locale/);
+});
+
 test("les couches partagées sont bien celles d'identite", (t) => {
   /*
    * Ces règles ne valent que si le fichier contrôlé est celui que l'écran sert. Une copie
@@ -376,15 +425,27 @@ test("les couches partagées sont bien celles d'identite", (t) => {
     } catch { return "horodatage illisible"; }
   };
   const enRetard = divergents.filter((f) => cause(f) === "source plus récente");
+  /*
+   * LE CONSEIL S'INVERSE POUR UN DÉPÔT EXCLU DE LA DIFFUSION.
+   *
+   * « Lancer `node diffuser.mjs`, ne pas recopier à la main » est juste pour les dépôts que la
+   * diffusion atteint. Il est FAUX pour un exclu : la diffusion n'y écrit rien, donc la
+   * commande ne fait rien, et le message interdit explicitement le seul mécanisme qui marche.
+   * Une session voisine a suivi le conseil jusqu'au bout et n'est arrivée nulle part.
+   *
+   * La liste des exclus se DÉRIVE de `depots.json` : nommer un dépôt en dur ici, c'est écrire
+   * une seconde liste qui divergera de la première le jour où un second dépôt y entre.
+   */
+  const suisJeExclu = (() => {
+    try {
+      const d = JSON.parse(readFileSync(source + "depots.json", "utf8"));
+      const moi = racine.replace(/\/$/, "").split("/").pop();
+      return Object.keys(d.exclus ?? {}).includes(moi ?? "");
+    } catch { return false; }
+  })();
+
   assert.deepEqual(divergents, [],
     `${divergents.map((f) => `${f} (${cause(f)})`).join(", ")} `
     + `ont divergé d'identite sur ${partages.length} fichier(s) comparé(s). `
-    + (enRetard.length === divergents.length
-        ? "La SOURCE a avancé : lancer `node diffuser.mjs` depuis identite. "
-          + "Ne pas recopier à la main — ce serait la dérive locale que ce cas interdit."
-        : enRetard.length
-          ? `${enRetard.length} par diffusion en retard (\`node diffuser.mjs\`), `
-            + `${divergents.length - enRetard.length} par dérive locale (recopier, ne pas corriger sur place).`
-          : "La COPIE a avancé : c'est une dérive locale — recopier depuis identite "
-            + "plutôt que corriger ici, sinon la correction ne voyagera pas."));
+    + conseilPourDivergence(suisJeExclu, enRetard.length, divergents.length));
 });
