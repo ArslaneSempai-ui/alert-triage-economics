@@ -16,7 +16,7 @@ npm start        # the screen, on localhost:4700
 npm run model    # the cost curve, threshold by threshold
 npm run shadow   # what the next analyst actually buys
 npm run plan     # the quarter the hiring decision is due
-npm test         # types, README figures, and <!--p:portfolio.parDepot.economics-->76<!--/p--> tests
+npm test         # types, README figures, and <!--p:portfolio.parDepot.economics-->98<!--/p--> tests
 ```
 
 Everything runs locally. No API key, nothing leaves the machine, and anyone who clones this
@@ -307,7 +307,7 @@ src/
   serveur.ts + ui.html   one screen, French or English
 ```
 
-Node 26 with native TypeScript, `node:test`, no build step, no dependencies. <!--p:portfolio.parDepot.economics-->76<!--/p--> tests,
+Node 26 with native TypeScript, `node:test`, no build step, no dependencies. <!--p:portfolio.parDepot.economics-->98<!--/p--> tests,
 including one that fails if the free zone disappears — because that's the finding, and a
 refactor that quietly removes it should not pass silently.
 
