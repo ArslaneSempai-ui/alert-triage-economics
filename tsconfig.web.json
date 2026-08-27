@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM"],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
@@ -16,9 +19,6 @@
     "src/alerts.ts",
     "src/model.ts",
     "src/shadow.ts",
-    "src/plan.ts",
-    "src/sensitivity.ts",
-    "src/regulations.ts",
-    "src/provenance.ts"
+    "src/plan.ts"
   ]
 }

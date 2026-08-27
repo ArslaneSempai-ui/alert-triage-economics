@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "What a detection threshold costs in analyst hours, headcount and money — and what risk it buys.",
+  "description": "What a detection threshold costs in analyst hours, headcount and money \u2014 and what risk it buys.",
   "scripts": {
     "start": "node src/server.ts",
     "test": "tsc --noEmit && node src/readme.ts --check && node --test src/*.test.*",
@@ -13,7 +13,7 @@
     "sensitivity": "node src/sensitivity.ts",
     "shadow": "node src/shadow.ts",
     "plan": "node src/plan.ts",
-    "pages": "tsc -p tsconfig.web.json && node src/pages.ts && node src/verifier-ecran.mjs . 4",
+    "pages": "tsc -p tsconfig.web.json && node src/pages.ts && node src/elaguer-emission.mjs && node src/verifier-ecran.mjs . 4",
     "simulate": "node src/montecarlo.ts",
     "captures": "node src/capturer.mjs ."
   },
