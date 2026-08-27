@@ -29,7 +29,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { modulesEnRetard } from "./verifier-ecran.mjs";
+import { readdirSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -134,3 +135,63 @@ function verifierRedeclarations(ecran: string): void {
     );
   }
 }
+
+/**
+ * LE NOM DE LA VARIABLE N'EST PAS UN CONTRAT, ET IL L'ÉTAIT.
+ *
+ * `modulesEnRetard()` dérive les sources de la page en extrayant de `pages.ts` ce qu'il lit et
+ * ce qu'il copie. Le motif exigeait `root` littéralement. Les onze `pages.ts` du portfolio
+ * l'emploient — relevé le 27 août 2026, donc rien n'était cassé — mais tout le reste de ce
+ * dépôt écrit `racine`, y compris `verifier-ecran.mjs` lui-même. Le premier `pages.ts` écrit
+ * dans la langue du reste du code aurait fait LEVER la dérivation, et le message ne disait
+ * nulle part « renommez votre variable ».
+ *
+ * Un contrat qui ne vit que dans une expression régulière n'est écrit nulle part.
+ *
+ * Le bac à sable est indispensable ici : la fonction lit un dépôt par son chemin, et l'éprouver
+ * sur le dépôt vivant ne dirait que ce que ce dépôt-ci fait aujourd'hui.
+ */
+test("la dérivation des sources de page accepte n'importe quel nom de base", () => {
+  const bac = mkdtempSync(join(tmpdir(), "ecran-base-"));
+  try {
+    mkdirSync(join(bac, "src"), { recursive: true });
+    /* `docs/js/` EST OBLIGATOIRE : la fonction rend [] tout de suite s'il manque, et mes deux
+       premiers témoins passaient donc sans jamais atteindre la dérivation. C'est le cas
+       décisif d'à côté qui l'a montré — le premier était vert pour la mauvaise raison. */
+    mkdirSync(join(bac, "docs", "js"), { recursive: true });
+    writeFileSync(join(bac, "docs", "index.html"), "<!doctype html>\n");
+    /* Une base nommée en français, comme le reste de ce dépôt l'écrit. */
+    writeFileSync(join(bac, "src", "pages.ts"),
+      'const racine = "/x/";\n'
+      + 'const a = readFileSync(racine + "src/ui.html", "utf8");\n'
+      + 'cpSync(racine + "src/graphes.js", "docs/graphes.js");\n');
+    /* Ne lève pas = la dérivation a trouvé au moins deux chemins. Avant, elle en trouvait un
+       — celui qu'elle s'ajoute elle-même — et refusait toute construction. */
+    assert.doesNotThrow(() => modulesEnRetard(bac),
+      "la dérivation refuse un pages.ts dont la base ne s'appelle pas `root`. Le nom de la "
+      + "variable n'est pas un contrat : ce qui compte est un chemin littéral collé à une base.");
+  } finally {
+    rmSync(bac, { recursive: true, force: true });
+  }
+});
+
+test("une dérivation qui ne trouve plus rien lève encore — sinon la garde ne garde rien", () => {
+  /* LA DIRECTION QUI DÉCIDE. Élargir le motif jusqu'à tout accepter le rendrait inutile : le
+     refus sur une extraction trop courte est ce qui empêche un vert obtenu en ne regardant
+     presque rien. Il doit survivre à l'élargissement. */
+  const bac = mkdtempSync(join(tmpdir(), "ecran-vide-"));
+  try {
+    mkdirSync(join(bac, "src"), { recursive: true });
+    /* `docs/js/` EST OBLIGATOIRE : la fonction rend [] tout de suite s'il manque, et mes deux
+       premiers témoins passaient donc sans jamais atteindre la dérivation. C'est le cas
+       décisif d'à côté qui l'a montré — le premier était vert pour la mauvaise raison. */
+    mkdirSync(join(bac, "docs", "js"), { recursive: true });
+    writeFileSync(join(bac, "docs", "index.html"), "<!doctype html>\n");
+    writeFileSync(join(bac, "src", "pages.ts"), "/* ce constructeur ne lit plus rien */\n");
+    assert.throws(() => modulesEnRetard(bac), /derivation is broken/,
+      "un pages.ts dont on n'extrait aucun chemin doit faire lever. Sans ça, la liste des "
+      + "sources se vide en silence et le contrôle de fraîcheur ne compare plus rien.");
+  } finally {
+    rmSync(bac, { recursive: true, force: true });
+  }
+});

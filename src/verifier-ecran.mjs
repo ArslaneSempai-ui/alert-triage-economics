@@ -331,14 +331,30 @@ export function modulesEnRetard(racineDepot) {
   if (existsSync(page) && existsSync(constructeur)) {
     const src = readFileSync(constructeur, "utf8");
     const sources = new Set(["src/pages.ts"]);
-    for (const m of src.matchAll(/(?:readFileSync|cpSync)\(\s*root \+ "([^"]+)"/g)) sources.add(m[1]);
+    /*
+     * LE NOM DE LA VARIABLE N'EST PAS UN CONTRAT, ET IL L'ÉTAIT.
+     *
+     * Ce motif exigeait `root` littéralement. Les onze `pages.ts` du portfolio l'emploient
+     * aujourd'hui — vérifié le 27 août 2026, donc rien n'est cassé — mais tout le reste de ce
+     * dépôt écrit `racine`, y compris ce fichier-ci vingt lignes plus bas. Le premier
+     * `pages.ts` écrit dans la langue du reste du code aurait fait lever la dérivation, avec
+     * un message qui parle d'extraction cassée et ne dit nulle part « renommez votre
+     * variable ». Un contrat qui ne vit que dans une expression régulière n'est écrit nulle
+     * part.
+     *
+     * Ce qui compte est la FORME — un chemin littéral concaténé à une base — pas le nom de la
+     * base. On accepte donc n'importe quel identifiant.
+     */
+    for (const m of src.matchAll(/(?:readFileSync|cpSync)\(\s*[A-Za-z_$][A-Za-z0-9_$]* \+ "([^"]+)"/g)) sources.add(m[1]);
     if (sources.size < 2) {
       throw new Error(
         `page source derivation is broken: ${sources.size} path(s) extracted from `
         + "src/pages.ts.\n\n"
-        + "  Elle cherche `readFileSync(root + \"…\")` et `cpSync(root + \"…\")`. Si ce fichier a\n"
-        + "  changé de façon de lire, corrigez l'extraction — ne la laissez pas rendre une liste\n"
-        + "  courte, qui passerait au vert en ne regardant presque rien.");
+        + "  Elle cherche `readFileSync(<base> + \"…\")` et `cpSync(<base> + \"…\")`, où\n"
+        + "  <base> est n'importe quel identifiant — `root`, `racine`, peu importe — et le\n"
+        + "  chemin une chaîne littérale collée à lui. Si ce fichier a changé de façon de lire,\n"
+        + "  corrigez l'extraction — ne la laissez pas rendre une liste courte, qui passerait\n"
+        + "  au vert en ne regardant presque rien.");
     }
     const t = statSync(page).mtimeMs;
     for (const rel of sources) {
