@@ -1,0 +1,59 @@
+# Les cas qui s'ignorent ICI, nommés un par un, avec la raison.
+#
+# La porte (`verifier-ignores.sh`) compare l'ENSEMBLE EXACT des noms ignorés à cette liste.
+# Un ignoré absent d'ici est un contrôle qui vient de s'éteindre — rouge. Une ligne d'ici
+# dont le cas s'exécute désormais est une liste qui ment — rouge aussi, et l'issue est de
+# la resserrer, jamais de l'élargir sans une raison écrite du même genre que celles-ci.
+#
+# Un cas ignoré n'est pas un cas passé. Sur le dépôt voisin, la construction est restée
+# verte pendant que la promesse centrale du produit n'était éprouvée sur rien : le cas qui
+# la vérifiait s'ignorait faute de ressource, et un simple compte ne l'aurait pas dit.
+
+# Ce dépôt ne porte pas de seuils réglementaires : le cas de fraîcheur des dates de relevé
+# n'a rien à examiner. Il s'ignore APRÈS avoir balayé — l'absence est mesurée, pas supposée —
+# ce qui est le bon comportement, mais il doit rester nommé : le jour où ce dépôt gagne un
+# `regulations.ts`, ce cas doit s'exécuter, et la porte le dira en refusant cette ligne.
+#
+# Les noms ci-dessous sont MESURÉS dans les conditions du runner — arbre isolé, sans le
+# dépôt voisin `identite`. Mesurés sur la machine ils étaient FAUX : le contrôle de
+# couche partagée s'y exécute et ne se serait jamais montré ici.
+#
+# ─── POURQUOI CE CONTRÔLE NE SERA PAS MIS EN CHAÎNE, ET C'EST DÉCIDÉ ───
+#
+# « les couches partagées sont bien celles d'identite » s'ignore ici parce qu'`identite` est
+# un dépôt PRIVÉ de développement : il ne vit pas sur un runner. La tentation est de l'y
+# cloner avec un jeton et une révision épinglée. Mesuré le 27/08/2026, c'est une fausse bonne
+# idée, pour une raison qui n'est pas le coût :
+#
+#   L'ÉPINGLE REND LA CHAÎNE AVEUGLE AU SEUL DÉFAUT QUI SE PRODUIT. Une épingle est un
+#   fichier versionné ; elle ne monte que lorsqu'une diffusion la fait monter. Or la panne
+#   réelle est « la source avance, les copies restent » — et dans cet état l'épingle nomme
+#   encore l'ancienne révision, les copies lui correspondent, et la chaîne est VERTE pendant
+#   que le dépôt est en retard. Épingler sur une branche mobile rend l'autre défaut : un
+#   rouge dont la cause a déjà changé quand on vient le lire.
+#
+# Ce contrôle a son domicile au CROCHET DE PRÉ-COMMIT, qui lance la suite entière sur toute
+# machine portant `identite` — c'est-à-dire toute machine qui peut légitimement toucher la
+# couche partagée, puisqu'elle se diffuse et ne s'édite pas sur place.
+#
+# Écrit ici pour que personne ne le retente en croyant l'inventer.
+#
+# ─── POURQUOI CE CONTRÔLE NE SERA PAS MIS EN CHAÎNE, ET C'EST DÉCIDÉ ───
+#
+# « les couches partagées sont bien celles d'identite » s'ignore ici parce qu'`identite` est
+# un dépôt PRIVÉ de développement : il ne vit pas sur un runner. La tentation est de l'y
+# cloner avec un jeton et une révision épinglée. Mesuré le 27/08/2026, c'est une fausse bonne
+# idée, et pas pour le coût :
+#
+#   L'ÉPINGLE REND LA CHAÎNE AVEUGLE AU SEUL DÉFAUT QUI SE PRODUIT. Une épingle est un
+#   fichier versionné ; elle ne monte que lorsqu'une diffusion la fait monter. Or la panne
+#   réelle est « la source avance, les copies restent » — et dans cet état l'épingle nomme
+#   encore l'ancienne révision, les copies lui correspondent, et la chaîne est VERTE pendant
+#   que le dépôt est en retard.
+#
+# Ce contrôle a son domicile au CROCHET DE PRÉ-COMMIT, qui lance la suite entière sur toute
+# machine portant `identite` — c'est-à-dire toute machine qui peut légitimement toucher la
+# couche, puisqu'elle se diffuse et ne s'édite pas sur place.
+#
+# Écrit ici pour que personne ne le retente en croyant l'inventer.
+les couches partagées sont bien celles d'identite

@@ -5,14 +5,40 @@ on:
     branches: [main]
   pull_request:
 
+# Sans ce bloc, GitHub donne au jeton les droits par défaut du dépôt, écriture comprise —
+# et la passe tourne aussi sur `pull_request`, donc sur du code proposé de l'extérieur.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # L'historique ENTIER : les ignorés attendus sont mesurés sur un arbre complet.
+          # À profondeur 1, des cas qui interrogent git s'ignorent en plus et la porte,
+          # qui compare l'ensemble exact, refuserait pour une raison hors du code.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: npm install
       # Le typage passe avant les tests : une erreur de type fait échouer la suite.
-      - run: npm test
+      # ─── UN CAS IGNORÉ N'EST PAS UN CAS PASSÉ ───
+      #
+      # `npm test` rend 0 quand des cas s'ignorent. Cette chaîne le faisait depuis toujours :
+      # le contrôle de couche partagée s'y éteint faute du dépôt voisin, et rien ne le disait.
+      #
+      # La porte est NOMINATIVE, pas un plafond — un plafond laisserait un contrôle s'éteindre
+      # tant qu'un autre se rallume. Elle compare l'ensemble EXACT des noms et refuse dans les
+      # deux sens : un ignoré nouveau est rouge, un ignoré attendu qui s'exécute désormais
+      # aussi, parce que la liste ment et doit être resserrée.
+      #
+      # `pipefail` parce qu'un tube mange le code de sortie : sans lui la suite pourrait
+      # échouer et la porte conclure sur une sortie tronquée.
+      - name: suite, et aucun cas ignoré hors de la liste nominative
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/suite.txt
+          sh .github/verifier-ignores.sh /tmp/suite.txt .github/cas-ignores-attendus.txt
