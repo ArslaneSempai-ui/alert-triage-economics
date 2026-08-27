@@ -230,9 +230,9 @@ Every operating assumption is editable on screen — productive hours per day, w
 per year, loaded cost, headcount. A model whose assumptions you can't challenge isn't a
 model, it's an opinion in a table.
 
-The defaults are deliberately conservative: **6 productive hours a day**, not 8. Anyone
-modelling an analyst at 8 hours of case review is modelling a person who doesn't exist,
-and every conclusion downstream inherits that.
+<!-- figures:defaults -->
+The defaults are deliberately conservative: **6 productive hours a day**, not 8. Anyone modelling an analyst at 8 hours of case review is modelling a person who doesn't exist, and every conclusion downstream inherits that.
+<!-- /figures:defaults -->
 
 The alert population is **synthetic and seeded**, so two scenarios are comparable. True
 and false positives overlap heavily by construction — if they separated cleanly the job

@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { headsRequiredFast } from "./plan.ts";
+import { headsRequiredFast, HORIZON as HORIZON_PLAN } from "./plan.ts";
 import { simulate, summarise, jensenGap, UNCERTAINTY } from "./montecarlo.ts";
 import { INVENTORY, MUST_DECLARE } from "./inventory.ts";
 import { PLAUSIBLE } from "./sensitivity.ts";
@@ -286,8 +286,16 @@ test("the two headcount figures cannot be swapped", () => {
    * dated with the first.
    */
   const step = costOfTakingTheStep();
+  /*
+   * LE COMPTE VIENT DE LA SOURCE, PAS DU MESSAGE.
+   *
+   * La phrase disait « eight quarters later » et rien ne l'imposait : porter l'horizon à douze
+   * aurait laissé ce cas vert en affirmant huit. Un message d'échec est lu au moment où
+   * quelqu'un cherche une cause, c'est-à-dire au pire moment pour lui mentir.
+   */
+  const trimestres = HORIZON_PLAN.quarters;
   assert.ok(step!.extraWhenItBites <= step!.extraByHorizon,
-    "the bill at the moment it bites cannot exceed the bill eight quarters later");
+    `the bill at the moment it bites cannot exceed the bill ${trimestres} quarters later`);
 });
 
 test("faster growth never moves a decision later", () => {

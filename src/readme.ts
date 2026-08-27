@@ -183,6 +183,19 @@ const simulation = (() => {
 
 const provenance = markdown(INVENTORY, table);
 
+/*
+ * The conservative default, stated where a reader meets it.
+ *
+ * The sentence used to be prose: "6 productive hours a day, not 8". The 6 lives in
+ * ASSUMPTIONS.productiveHoursPerDay — change the default and the sentence keeps asserting the
+ * old one, in the paragraph whose whole point is that this number decides everything
+ * downstream. The 8 is rhetoric and stays typed: no such value exists in this repository.
+ */
+const defaults =
+  `The defaults are deliberately conservative: **${ASSUMPTIONS.productiveHoursPerDay} productive `
+  + `hours a day**, not 8. Anyone modelling an analyst at 8 hours of case review is modelling a `
+  + `person who doesn't exist, and every conclusion downstream inherits that.`;
+
 /* The finding, in the first screenful. Generated: a headline typed by hand is the figure
  * most likely to go stale and the one a reader is most likely to quote back. */
 const finding = reco
@@ -215,4 +228,4 @@ const citations =
     CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
   );
 
-run(fileURLToPath(new URL("../README.md", import.meta.url)), { finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });
+run(fileURLToPath(new URL("../README.md", import.meta.url)), { defaults, finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });
