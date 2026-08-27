@@ -297,7 +297,7 @@ test("servir refuse quand le port est tenu par un serveur étranger", async () =
      de la session suivante, et c'est exactement ce que ce fichier existe pour empêcher. */
   let rendu = null;
   try {
-    assert.throws(() => { rendu = servir(nous + "/", PORT); }, /n'a pas servi son propre jeton/,
+    assert.throws(() => { rendu = servir(nous + "/", PORT); }, /did not serve its own token/,
       "un 200 rendu par le serveur de quelqu'un d'autre ne doit pas valoir « prêt » : "
       + "la capture publiée serait sa page, et rien ne protesterait");
   } finally {
@@ -370,7 +370,7 @@ test("une valeur de plan est un nombre fini, ou elle est refusée", async () => 
     "l'absence prend le défaut — sinon la garde mangerait l'usage normal");
 
   for (const mauvais of ["0\nimport os\nos.system('rm -rf /')", "abc", NaN, Infinity, {}]) {
-    assert.throws(() => nombreDeGabarit(mauvais, "depart", 0), /n'est pas un nombre fini/,
+    assert.throws(() => nombreDeGabarit(mauvais, "depart", 0), /is not a finite number/,
       `${JSON.stringify(mauvais)} part dans du code engendré : le refuser ici est le seul `
       + "endroit où il est encore une donnée");
   }
@@ -455,7 +455,7 @@ test("une entrée SANS provenance est comptée comme non vérifiable", async () 
     try { ramasserOrphelins(3_600_000, Date.now()); }
     finally { process.stderr.write = vraiEcrire; }
 
-    assert.match(dit, /sans heure de démarrage/,
+    assert.match(dit, /with no start time/,
       "une entrée sans `demarre` doit être DITE non vérifiable. Le repli — fermer quand même "
       + "— est le bon choix pour les entrées héritées, mais il doit se voir : sinon le silence "
       + "dit « tout est vérifié » alors que rien ne l'a été.\nCe qui a été écrit :\n" + dit);

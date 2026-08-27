@@ -214,9 +214,9 @@ function sousVerrou(fn) {
         if (Date.now() - statSync(VERROU_REGISTRE).mtimeMs > 5_000) { rmSync(VERROU_REGISTRE, { recursive: true, force: true }); continue; }
       } catch { continue; }
       if (Date.now() > echeance) {
-        process.stderr.write(`  REGISTRE : verrou tenu depuis plus de 2 s — on écrit quand même,
+        process.stderr.write(`  REGISTRY: lock held for more than 2 s — writing anyway,
 `
-          + `  une entrée concurrente peut être perdue (et ceci le dit plutôt que de le taire).
+          + `  a concurrent entry may be lost (and this says so rather than keeping quiet).
 `);
         break;
       }
@@ -267,9 +267,9 @@ export function nombreDeGabarit(valeur, nom, defaut) {
   const n = typeof valeur === "number" ? valeur : Number(valeur);
   if (!Number.isFinite(n)) {
     throw new Error(
-      `${nom} vaut ${JSON.stringify(valeur)}, qui n'est pas un nombre fini.\n`
-      + `  Cette valeur part dans le code de recadrage engendré : une chaîne y serait concaténée\n`
-      + `  au lieu d'être additionnée, et un saut de ligne y deviendrait une ligne exécutable.`);
+      `${nom} is ${JSON.stringify(valeur)}, which is not a finite number.\n`
+      + `  This value goes into generated crop code: a string would be concatenated there\n`
+      + `  instead of added, and a newline would become an executable line.`);
   }
   return n;
 }
@@ -394,14 +394,14 @@ export function ramasserOrphelins(maxAgeMs = 3_600_000, maintenant = Date.now())
     }
     if (nonVerifiables.length) {
       process.stderr.write(
-        `  ${nonVerifiables.length} entrée(s) sans heure de démarrage : fermées sans vérification.\n`
-        + `  Elles datent d'avant ce champ ; les suivantes seront vérifiables.\n`);
+        `  ${nonVerifiables.length} entry/entries with no start time: closed without checking.\n`
+        + `  They predate that field; later ones will be checkable.\n`);
     }
     if (usurpes.length) {
       process.stderr.write(
-        `  ${usurpes.length} entrée(s) périmée(s) : le numéro de processus a été réattribué.\n`
-        + usurpes.map((e) => `    pid ${e.pid} inscrit pour ${e.outil}:${e.port}\n`).join("")
-        + `  Rien n'a été tué : ce numéro appartient maintenant à un autre processus.\n`);
+        `  ${usurpes.length} stale entry/entries: the process id has been reused.\n`
+        + usurpes.map((e) => `    pid ${e.pid} registered for ${e.outil}:${e.port}\n`).join("")
+        + `  Nothing was killed: that id now belongs to another process.\n`);
     }
     ecrireRegistre(garde);
     return { fermes, restants: garde.length };
@@ -513,13 +513,13 @@ export function servir(racine, port) {
        sa sortie d'erreur. Même raison que l'exemption de `capturer.test.mjs`. */
     try { process.kill(p.pid); } catch { /* déjà mort : c'est le cas courant ici */ }
     throw new Error(
-      `le serveur de capture n'a pas servi son propre jeton sur ${port} en 5 s.\n`
-      + `  code de sortie du serveur : ${p.exitCode ?? "toujours en vie"}\n`
-      + (dit ? `  il a dit : ${dit}\n` : `  il n'a rien dit sur sa sortie d'erreur.\n`)
-      + `  La cause la plus fréquente est un port déjà pris : plusieurs sessions ouvrent des\n`
-      + `  serveurs sur cette machine, et 8700 + (pid % 200) n'en réserve aucun.\n`
-      + `  On refuse plutôt que de capturer : une capture prise sur le serveur de quelqu'un\n`
-      + `  d'autre est publiée sans que rien ne proteste.`);
+      `the capture server did not serve its own token on ${port} within 5 s.\n`
+      + `  server exit code: ${p.exitCode ?? "still alive"}\n`
+      + (dit ? `  it said: ${dit}\n` : `  it said nothing on stderr.\n`)
+      + `  The commonest cause is a port already taken: several sessions open servers on this\n`
+      + `  machine, and 8700 + (pid % 200) reserves none of them.\n`
+      + `  We refuse rather than capture: a shot taken on someone else's server is published\n`
+      + `  with nothing to protest.`);
   }
   return p;
 }
