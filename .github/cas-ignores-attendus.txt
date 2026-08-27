@@ -37,23 +37,4 @@
 # couche partagée, puisqu'elle se diffuse et ne s'édite pas sur place.
 #
 # Écrit ici pour que personne ne le retente en croyant l'inventer.
-#
-# ─── POURQUOI CE CONTRÔLE NE SERA PAS MIS EN CHAÎNE, ET C'EST DÉCIDÉ ───
-#
-# « les couches partagées sont bien celles d'identite » s'ignore ici parce qu'`identite` est
-# un dépôt PRIVÉ de développement : il ne vit pas sur un runner. La tentation est de l'y
-# cloner avec un jeton et une révision épinglée. Mesuré le 27/08/2026, c'est une fausse bonne
-# idée, et pas pour le coût :
-#
-#   L'ÉPINGLE REND LA CHAÎNE AVEUGLE AU SEUL DÉFAUT QUI SE PRODUIT. Une épingle est un
-#   fichier versionné ; elle ne monte que lorsqu'une diffusion la fait monter. Or la panne
-#   réelle est « la source avance, les copies restent » — et dans cet état l'épingle nomme
-#   encore l'ancienne révision, les copies lui correspondent, et la chaîne est VERTE pendant
-#   que le dépôt est en retard.
-#
-# Ce contrôle a son domicile au CROCHET DE PRÉ-COMMIT, qui lance la suite entière sur toute
-# machine portant `identite` — c'est-à-dire toute machine qui peut légitimement toucher la
-# couche, puisqu'elle se diffuse et ne s'édite pas sur place.
-#
-# Écrit ici pour que personne ne le retente en croyant l'inventer.
 les couches partagées sont bien celles d'identite
