@@ -17,9 +17,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync,
+  realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, basename } from "node:path";
+import { spawnSync } from "node:child_process";
 
 /*
  * CES CAS ÉCRIVAIENT DANS LE REGISTRE PARTAGÉ DE LA MACHINE.
@@ -491,5 +493,109 @@ test("deux écrivains simultanés du registre ne se perdent pas l'un l'autre", a
       `${miens.length}/20 inscriptions ont survécu : un lire-modifier-écrire en a écrasé.`);
   } finally {
     for (const e of miens) rayer(e.pid);
+  }
+});
+
+/*
+ * LE DOSSIER DE TRAVAIL DU HARNAIS : DEVINABLE, ET LISIBLE PAR TOUTE LA MACHINE.
+ *
+ * `/tmp/capturer-${process.pid}/` tirait son nom d'un numéro de processus, dans un dossier
+ * partagé par tous les comptes, et laissait le masque de création décider des permissions.
+ * Il porte le site construit — d'un dépôt qui peut être privé — et le même PID détermine le
+ * port du serveur qui le sert.
+ *
+ * CE CAS NE PEUT PAS ÊTRE POSÉ SUR LA FONCTION. Le dossier est créé dans le bloc de script,
+ * qu'aucun import n'atteint : éprouver `dossierTemporairePrive` prouverait que la fonction
+ * est correcte et ne dirait rien de l'endroit qui l'appelle — exactement le trou qu'on
+ * répare. Le cas LANCE donc le script et regarde ce qui apparaît sur le disque.
+ *
+ * Le dépôt fabriqué porte un `captures.json` valide et PAS de `docs/` : la copie échoue donc
+ * juste après la création du dossier, et le script meurt avant son nettoyage. C'est ce qui
+ * rend le dossier observable — sur un chemin nominal il est retiré avant qu'on puisse le lire.
+ *
+ * On regarde `tmpdir()` ET `/tmp` : l'ancien code écrivait dans `/tmp` en dur, qui n'est pas
+ * `tmpdir()` sur macOS. Ne scruter que `tmpdir()` ferait rougir ce cas en disant « aucun
+ * dossier » là où le vrai défaut est « un dossier au nom devinable, ailleurs ».
+ */
+test("le dossier de travail du harnais est imprévisible et fermé, à l'endroit qui le crée", () => {
+  const bac = mkdtempSync(join(tmpdir(), "capturer-appel-"));
+  const depot = join(bac, "depot");
+  mkdirSync(depot);
+  writeFileSync(join(depot, "captures.json"), JSON.stringify({ captures: [] }));
+
+  /* TÉMOIN DE FABRICATION : c'est bien l'ABSENCE de `docs/` qui doit tuer le script, et
+     `captures.json` doit être lisible — sinon il meurt avant d'avoir créé quoi que ce soit
+     et ce cas ne regarderait rien. */
+  assert.ok(!existsSync(join(depot, "docs")), "le dépôt fabriqué porte un `docs/` : la copie réussirait.");
+  JSON.parse(readFileSync(join(depot, "captures.json"), "utf8"));
+
+  /*
+   * ON DONNE AU FILS SON PROPRE DOSSIER TEMPORAIRE, ON NE FOUILLE PAS CELUI DE TOUT LE MONDE.
+   *
+   * La première version relevait `tmpdir()` et `/tmp` avant et après le lancement, retenait
+   * les entrées neuves en `capturer-` et les effaçait. Trois défauts, tous mesurés :
+   *
+   *   — `capturer-cas-XXXX` est le bac de CE fichier de cas, et `capturer-appel-XXXX` celui-ci.
+   *     Un dépôt voisin qui lance sa passe pendant les ~28 ms du sous-processus voit son bac
+   *     classé « apparu », donc EFFACÉ — avec le registre fabriqué qu'il contient.
+   *   — le compte attendu devenait faux pour la même raison, donc rouge par voisinage.
+   *   — et `/tmp` n'est pas `tmpdir()` sur macOS : le relevé portait sur deux espaces partagés
+   *     au lieu d'un seul espace à soi.
+   *
+   * `os.tmpdir()` lit `TMPDIR` : il suffit de le poser pour que TOUT ce que le fils crée —
+   * son dossier de travail comme son registre — atterrisse dans un dossier qui n'appartient
+   * qu'à ce cas. Plus rien à filtrer, plus rien à effacer chez les autres, et le registre
+   * partagé de la machine n'est plus touché du tout.
+   */
+  const prive = join(bac, "tmp");
+  mkdirSync(prive);
+
+  const script = fileURLToPath(new URL("./capturer.mjs", import.meta.url));
+  const r = spawnSync(process.execPath, [script, depot],
+    { encoding: "utf8", env: { ...process.env, TMPDIR: prive } });
+
+  const apparus = readdirSync(prive).map((n) => join(prive, n));
+
+  /* L'ANCIEN CODE ÉCRIVAIT `/tmp` EN DUR, donc hors du dossier qu'on vient de désigner. On
+     regarde ce seul chemin-là, nommément, parce qu'il se déduit du PID du fils : c'est le
+     défaut lui-même qui rend l'endroit calculable, et c'est à ce titre qu'on a le droit d'y
+     toucher — aucun autre processus ne porte ce numéro. */
+  const devinable = `/tmp/capturer-${r.pid}`;
+
+  try {
+    assert.ok(!existsSync(devinable),
+      `le dossier de travail est à « ${devinable} » : son nom se déduit du numéro de processus,\n`
+      + "  il est hors du dossier temporaire que l'environnement désigne, et tout compte local\n"
+      + "  peut le nommer sans le chercher — le même numéro donne le port du serveur qui le sert.");
+
+    /* Le script doit avoir ÉCHOUÉ, et sur la copie. S'il réussissait, il aurait nettoyé
+       derrière lui et il n'y aurait rien à regarder. */
+    assert.notEqual(r.status, 0,
+      "le harnais a réussi sur un dépôt sans `docs/` : il a nettoyé son dossier, et ce cas "
+      + "n'observe plus rien.");
+
+    assert.equal(apparus.length, 1,
+      `${apparus.length} dossier de travail observé (1 attendu) : ${apparus.join(", ") || "aucun"}.\n`
+      + "  Zéro veut dire que le dossier n'est pas créé AVANT la copie — c'est alors la copie\n"
+      + "  qui le crée, avec le masque pour permissions et le nom que l'appelant a écrit.");
+
+    const chemin = apparus[0];
+    const nom = basename(chemin);
+
+    assert.ok(!nom.includes(String(r.pid)),
+      `le dossier de travail s'appelle « ${nom} » et porte le numéro du processus (${r.pid}) :\n`
+      + "  n'importe quel compte de la machine peut le nommer sans le chercher — et le même\n"
+      + "  numéro donne le port du serveur qui le sert.");
+
+    const mode = statSync(chemin).mode & 0o777;
+    assert.equal(mode, 0o700,
+      `le dossier de travail est en ${mode.toString(8)} au lieu de 700 : le site construit d'un `
+      + "dépôt privé est lisible par tout compte local dès qu'une exécution est interrompue.");
+  } finally {
+    /* Tout ce que le fils a pu créer est SOUS `bac` : un seul retrait, et rien qui appartienne
+       à quelqu'un d'autre. Le chemin devinable est retiré à part, quand il existe — il porte
+       le numéro du fils, donc il est à lui et à personne. */
+    rmSync(devinable, { recursive: true, force: true });
+    rmSync(bac, { recursive: true, force: true });
   }
 });

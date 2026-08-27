@@ -24,7 +24,7 @@
  * Le dépôt décrit ce qu'il veut dans `captures.json`.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, statSync, realpathSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, statSync, realpathSync, renameSync, mkdtempSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -605,6 +605,26 @@ export function selecteursManquants(stderr) {
  * `realpathSync` parce qu'un chemin peut passer par un lien symbolique — sur macOS `/tmp`
  * en est un, et la comparaison naïve rendait faux sans que rien ne le dise.
  */
+/*
+ * LE DOSSIER DE TRAVAIL ÉTAIT DEVINABLE, ET LISIBLE PAR TOUT LE MONDE.
+ *
+ * `/tmp/capturer-${process.pid}/` : le nom se déduit d'un numéro de processus, `/tmp` est
+ * partagé par tous les comptes de la machine, et le dossier héritait du masque de création —
+ * donc lisible par n'importe qui. Il porte le site construit d'un dépôt qui peut être privé.
+ * Le même PID détermine aussi le port : qui devine l'un devine l'autre.
+ *
+ * `mkdtempSync` tire le suffixe au hasard et crée en 0700 ; le `chmodSync` le REDIT plutôt
+ * que de s'en remettre à la plateforme, parce que c'est la propriété qu'on publie ici.
+ *
+ * Le dossier est créé AVANT la copie, et c'est ce qui rend la garde vraie : quand c'est la
+ * copie qui crée la destination, le mode vient du masque et le nom de l'appelant.
+ */
+export function dossierTemporairePrive(prefixe) {
+  const d = mkdtempSync(join(tmpdir(), prefixe));
+  chmodSync(d, 0o700);
+  return d.endsWith("/") ? d : d + "/";
+}
+
 const lance = (() => {
   try { return fileURLToPath(import.meta.url) === realpathSync(process.argv[1] ?? ""); }
   catch { return false; }
@@ -616,8 +636,7 @@ if (lance) {
   const racine = depot.endsWith("/") ? depot : depot + "/";
   const plan = JSON.parse(readFileSync(racine + "captures.json", "utf8"));
 
-  const temp = `/tmp/capturer-${process.pid}/`;
-  rmSync(temp, { recursive: true, force: true });
+  const temp = dossierTemporairePrive("capturer-");
   cpSync(racine + "docs", temp, { recursive: true });
   writeFileSync(temp + "index.html", readFileSync(temp + "index.html", "utf8") + PILOTE);
 

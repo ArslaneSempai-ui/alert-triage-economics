@@ -17,6 +17,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const racine = fileURLToPath(new URL("..", import.meta.url));
@@ -91,6 +92,42 @@ test("aucune bande disqualifiée ne repose sur sa seule couleur", () => {
   const legende = source.slice(source.indexOf("cle-hist"), source.indexOf("cle-hist") + 400);
   assert.match(legende, /ech\(c\.texte\)/,
     "une clé de légende sans texte : la pastille porterait seule");
+});
+
+/*
+ * LA DÉCISION, ISOLÉE POUR ÊTRE ÉPROUVÉE.
+ *
+ * Elle vivait dans un `filter` au milieu du cas, donc rien ne pouvait la mettre à l'épreuve
+ * sans fabriquer un faux portfolio. Mesuré en la rendant aveugle exprès : une VRAIE dérive
+ * locale passait alors au vert, et aucun cas de la suite ne bougeait. Une branche qui décide
+ * d'un rouge et que rien n'éprouve est une branche qu'on peut casser sans le savoir.
+ */
+export function classerDivergence(
+  sourceEnEcriture: boolean, refCommitee: string | null, copie: string,
+): "dérive" | "en écriture" {
+  /* La source est stable : la divergence est une vraie dérive, comme avant. */
+  if (!sourceEnEcriture) return "dérive";
+  /* La référence publiée est illisible : on garde le rouge. Le cas sûr est celui qui refuse. */
+  if (refCommitee === null) return "dérive";
+  /* La copie suit la dernière version COMMITÉE : il n'y a rien à réparer ici. */
+  return copie === refCommitee ? "en écriture" : "dérive";
+}
+
+test("la troisième cause ne masque jamais une vraie dérive", () => {
+  const REF = "version publiée\n";
+  /* Source stable : tout ce qui diffère est une dérive, quel que soit le reste. */
+  assert.equal(classerDivergence(false, REF, REF), "dérive",
+    "quand la source n'est pas en cours d'écriture, la troisième cause ne doit pas s'appliquer");
+  /* Source en écriture ET copie identique au commité : le seul cas vert. */
+  assert.equal(classerDivergence(true, REF, REF), "en écriture");
+  /* Source en écriture MAIS copie dérivée : rouge, et c'est le cas qui compte — sans lui, la
+     troisième cause avalerait les vraies dérives pendant qu'on écrit dans identite. */
+  assert.equal(classerDivergence(true, REF, "copie modifiée à la main\n"), "dérive",
+    "une dérive locale doit rester rouge PENDANT que la source est en cours d'écriture : "
+    + "c'est exactement la fenêtre où personne ne la verrait autrement");
+  /* Référence illisible : on refuse plutôt que de supposer. */
+  assert.equal(classerDivergence(true, null, REF), "dérive",
+    "sans référence publiée lisible, on ne peut pas conclure — le cas sûr est le rouge");
 });
 
 test("les couches partagées sont bien celles d'identite", (t) => {
@@ -214,8 +251,54 @@ test("les couches partagées sont bien celles d'identite", (t) => {
     `seulement ${partages.length} fichier(s) partagé(s) trouvé(s) entre identite/ et src/ : `
     + `ce n'est pas un dépôt en ordre, c'est un relevé qui ne lit rien`);
 
-  const divergents = partages.filter(
+  const brut = partages.filter(
     (f) => readFileSync(racine + "src/" + f, "utf8") !== readFileSync(source + f, "utf8"));
+
+  /*
+   * LA TROISIÈME CAUSE : LA SOURCE EST EN COURS D'ÉCRITURE.
+   *
+   * Ce cas distinguait deux causes. Il en manquait une, et son absence envoyait au geste
+   * DANGEREUX : quand `identite` porte un fichier modifié et non commité, le message conseillait
+   * « recopier depuis identite » — c'est-à-dire diffuser le travail en cours de son auteur dans
+   * tous les dépôts. Vécu le 27 août 2026 : onze copies d'un correctif de sécurité à moitié
+   * écrit, prêtes à être commitées par onze mains qui n'en connaissaient pas l'état.
+   *
+   * Il n'y avait alors aucun état acceptable : les copies portaient le travail en cours, ou
+   * elles divergeaient. Le troisième existe — comparer à la version COMMITÉE de la source :
+   *
+   *   copie ≠ version commitée   vraie dérive locale, rouge comme avant
+   *   copie = version commitée   la copie suit la référence PUBLIÉE : rien à réparer,
+   *                              et on le DIT plutôt que de le taire
+   *
+   * Rien n'est masqué : une dérive réelle reste rouge dans les deux branches. Ce qui disparaît
+   * est le rouge que personne ne peut réparer — et un rouge chronique se fait ignorer, puis on
+   * ignore le vrai le jour où il arrive.
+   */
+  const enEcriture = new Set<string>();
+  const commitee = (f: string): string | null => {
+    try {
+      return execFileSync("git", ["-C", source, "show", `HEAD:${f}`],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch { return null; }
+  };
+  const sales = (() => {
+    try {
+      return new Set(execFileSync("git", ["-C", source, "status", "--porcelain", "--", ...partages],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+        .split("\n").map((l) => l.slice(3).trim()).filter(Boolean));
+    } catch { return new Set<string>(); }
+  })();
+  const divergents = brut.filter((f) => {
+    const verdict = classerDivergence(sales.has(f), commitee(f),
+      readFileSync(racine + "src/" + f, "utf8"));
+    if (verdict === "en écriture") { enEcriture.add(f); return false; }
+    return true;
+  });
+  if (enEcriture.size) {
+    t.diagnostic(`${[...enEcriture].join(", ")} : la source est en cours d'écriture dans identite `
+      + `et la copie suit sa dernière version COMMITÉE. Rien à faire ici — surtout pas recopier, `
+      + `ce qui diffuserait un travail non commité. La divergence se refermera à son commit.`);
+  }
 
   /*
    * LE MESSAGE DOIT DISTINGUER LES DEUX CAUSES, SINON IL ENVOIE LA MOITIÉ DE SES LECTEURS
