@@ -7,7 +7,7 @@ staffing decision and a budget line, and almost nobody prices it before moving i
 **The finding.** At the tight threshold a cautious team lands on, 7 of 8 analysts are paid to sit idle while 392 of 454 reportable cases go undetected. Loosening to 0.50 catches **306 more for no extra money** — the payroll is already committed. The organisation was never short of budget. It was short of the calculation.
 <!-- /figures:finding -->
 
-**[Try it in your browser →](https://arslanesempai-ui.github.io/alert-triage-economics/)** — pick the notch whose price you accept, and every figure follows. Every assumption is editable too: put your own headcount in.
+**[Try it in your browser →](https://arslanesempai-ui.github.io/alert-triage-economics/)** — pick the notch whose price you accept, and every figure follows. The five operating assumptions are editable too: put your own headcount in.
 
 ![Picking a notch on the staircase: the cost of the next true positive stays at zero, then explodes](images/demo.gif)
 
@@ -242,7 +242,9 @@ wouldn't exist, and neither would the decision this tool exists to inform.
 
 The queue verdict uses the standard result that waiting time grows as 1/(1−load). It isn't
 meant to be precise, and it reports a **mean**: at <!--p:economics.chargeAuSeuilGratuit~pc0-->98 %<!--/p--> occupancy the average wait is <!--p:economics.attenteAuSeuilGratuit~n1-->5.5<!--/p-->
-days, which also means half the files wait longer. One absence, one holiday period, and a
+days, which is an average and not a typical case: the waiting time in a queue like this is
+exponential, so roughly a third of the files wait longer than the mean and the worst of them
+wait far longer. One absence, one holiday period, and a
 team sitting there is already past its deadline. Treat anything above about 90 % as
 fragile rather than as fine.
 
