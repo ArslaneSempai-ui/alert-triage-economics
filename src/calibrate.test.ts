@@ -195,3 +195,51 @@ test("un fichier dit lui-même jusqu'où il a été observé", () => {
   /* Le compte d'opérations ne peut pas être inférieur au nombre de lignes fournies. */
   assert.equal(populationFromCases([{ score: 0.5, truePositive: true }], 0).operations, 1);
 });
+
+test("une cellule de score VIDE est écartée, pas lue comme un zéro", () => {
+  /*
+   * ─── LE PIÈGE DE LA CONVERSION POSÉE AVANT LA GARDE ───
+   *
+   * `Number("")` vaut 0 et `Number("   ")` aussi. La garde était `Number.isFinite`, posée
+   * APRÈS la conversion : une cellule vide la traversait avec le score le plus bas possible.
+   *
+   * Mesuré avant correction, sur ce CSV exact : cinq lignes retenues, ZÉRO ignorée, deux
+   * scores à 0 qui n'existaient pas dans le fichier. L'une des deux portait « true » — un vrai
+   * positif noté 0 dit que le modèle a raté une alerte qui en valait la peine, tire la courbe
+   * entière et fait paraître pire n'importe quel seuil. Le relevé publié bouge, et le compte
+   * des lignes écartées — qui existe précisément pour le dire — annonçait zéro.
+   *
+   * Une colonne ABSENTE donne `undefined`, donc NaN, et était déjà écartée. C'est la chaîne
+   * vide qui traversait, et c'est pour ça que le défaut ne se voyait pas : il fallait une
+   * cellule présente et vide.
+   */
+  const csv = ["score,outcome", "0.9,true", "0.1,false", ",true", "   ,false", "0.5,true"].join("\n");
+  const r = readScoredCases(csv);
+
+  assert.equal(r.rows.length, 3,
+    `${r.rows.length} ligne(s) retenue(s) : les deux cellules vides ne doivent pas devenir des `
+    + "scores.");
+  assert.deepEqual(r.rows.map((x) => x.score), [0.9, 0.1, 0.5],
+    "et aucun 0 ne doit apparaître : il ne vient d'aucune cellule du fichier.");
+
+  /* Le pendant : elles sont ÉCARTÉES, pas perdues. Une ligne qui disparaît sans compter
+     serait le même mensonge dans l'autre sens. */
+  assert.equal(r.ignored.length, 2, "les deux lignes doivent être comptées comme écartées.");
+  assert.deepEqual(r.ignored.map((x) => x.line), [4, 5],
+    "avec leur numéro de ligne, seul moyen de les retrouver dans un export de client.");
+  for (const x of r.ignored) {
+    assert.match(x.reason, /empty/,
+      `le motif doit distinguer « vide » de « pas un nombre » : « ${x.reason} » envoie chercher `
+      + "une faute de frappe qui n'existe pas.");
+  }
+});
+
+test("un vrai zéro reste un vrai zéro", () => {
+  /*
+   * LE CONTRÔLE POSITIF, et il est obligatoire ici : le cas ci-dessus passerait aussi si la
+   * correction écartait TOUS les zéros. Un score de 0 écrit dans le fichier est une donnée.
+   */
+  const r = readScoredCases(["score,outcome", "0,true", "0.0,false", "0.7,true"].join("\n"));
+  assert.equal(r.ignored.length, 0, `écarté à tort : ${JSON.stringify(r.ignored)}`);
+  assert.deepEqual(r.rows.map((x) => x.score), [0, 0, 0.7]);
+});
