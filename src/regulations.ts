@@ -49,6 +49,19 @@ export type Regulation = {
  * le, mesuré le, vérifié par — ne se factorise pas.
  */
 
+/* piege:ok devise-tapee — ces montants ne sont pas des devises tapées dans une phrase rendue :
+   ce sont des SEUILS RÉGLEMENTAIRES cités, chacun à côté de sa référence (`cite`), de sa source
+   et de sa date de relevé. Le champ `quote` est une citation LITTÉRALE du texte de loi.
+
+   Dériver ces chiffres d'une table déclarante — le remède habituel de cette règle — serait ici
+   strictement pire : la citation cesserait de dire ce que la source dit pour dire ce que notre
+   table dit, et une citation engendrée n'est plus une citation. Le remède de la règle le prévoit
+   dans ses propres termes : « un seuil cité d'un texte de loi est une exception légitime : il
+   s'exempte avec sa raison, il ne se dérive pas. »
+
+   Ce que ces montants exigent en revanche, et qui est tenu ailleurs : que la date de relevé soit
+   vraie (garde `gardiens.test.mjs`, qui balaie désormais TOUTES les copies de ce fichier) et que
+   la source reste joignable. */
 export const REGULATIONS = {
   /* ── Suspicious activity reporting ─────────────────────────────── */
 
