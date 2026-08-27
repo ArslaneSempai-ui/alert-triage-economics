@@ -179,6 +179,9 @@ const FAUX = new Set(["0", "false", "no", "n", "non", "faux", "fp", "negative", 
  * around by deleting the guard. Written once so the two places that refuse say the same
  * thing.
  */
+/* Le motif d'écart est nommé à part : il est publié dans le relevé des lignes refusées, et un
+   lecteur doit pouvoir distinguer « la cellule était vide » de « ce n'était pas un nombre ». */
+const SCORE_VIDE = "score cell is empty";
 const QUOTE_NON_FERMEE = 'unterminated quote \u2014 write a literal " inside a quoted cell as ""';
 export function readScoredCases(text) {
     /*
@@ -292,10 +295,27 @@ export function readScoredCases(text) {
             ignored.push({ line: n + 1, reason: QUOTE_NON_FERMEE });
             continue;
         }
-        const brut = Number(cellules[colScore]);
+        /*
+         * LA CELLULE VIDE, AVANT LA CONVERSION.
+         *
+         * `Number("")` vaut 0, `Number("   ")` aussi. Une cellule de score vide passait donc
+         * `Number.isFinite` et entrait dans la calibration comme un score de 0 — la valeur la plus
+         * basse possible, jamais comme une ligne écartée.
+         *
+         * Reproduit avant correction : cinq lignes dont deux à score vide, cinq retenues, zéro
+         * ignorée, et l'une des deux marquée « vrai positif ». Un vrai positif placé au score 0 dit
+         * que le modèle a noté zéro une alerte qui en valait la peine : il tire toute la courbe et
+         * fait paraître pire n'importe quel seuil. Le chiffre publié bouge, et rien ne le signale —
+         * le mécanisme d'écart existe et compte les lignes refusées, celle-ci n'y arrivait pas.
+         *
+         * `undefined` — colonne absente — donne bien NaN et était déjà écarté. C'est la chaîne vide
+         * qui traverse, et c'est le piège de la conversion posée avant la garde.
+         */
+        const cellule = (cellules[colScore] ?? "").trim();
+        const brut = cellule === "" ? Number.NaN : Number(cellule);
         const issue = (cellules[colIssue] ?? "").toLowerCase();
         if (!Number.isFinite(brut)) {
-            ignored.push({ line: n + 1, reason: "score is not a number" });
+            ignored.push({ line: n + 1, reason: cellule === "" ? SCORE_VIDE : "score is not a number" });
             continue;
         }
         if (!VRAI.has(issue) && !FAUX.has(issue)) {
