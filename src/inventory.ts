@@ -77,7 +77,7 @@ export const INVENTORY: Inventory = [
     name: "rungs, widestDeadZone",
     provenance: "measured",
     what: "how wide the next step is, and how much of it buys nothing",
-    note: "the eleven-analyst step is a property of this population's shape",
+    note: "the ten-analyst step is a property of this population's shape",
   },
   {
     name: "plan.decideBy",

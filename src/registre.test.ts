@@ -282,7 +282,20 @@ test("les couches partagées sont bien celles d'identite", (t) => {
   }
 
   const partages = readdirSync(source, { withFileTypes: true })
-    .filter((e) => e.isFile() && /\.(ts|mjs|js|css)$/.test(e.name) && !/\.test\.mjs$/.test(e.name))
+    /*
+     * LES FICHIERS DE CAS PARTAGÉS SONT CONTRÔLÉS COMME LES AUTRES.
+     *
+     * Cette ligne excluait tous les `.test.mjs`, sur une prémisse qui était vraie : « les cas
+     * appartiennent à chaque dépôt ». Elle a cessé de l'être. Deux d'entre eux sont déclarés
+     * dans la couche partagée — `gardiens.test.mjs` depuis longtemps, `capturer.test.mjs`
+     * depuis que je l'y ai inscrit le 27 août 2026 — donc ils VOYAGENT, et rien ne regardait
+     * s'ils arrivaient intacts. Ils pouvaient dériver en silence dans onze dépôts.
+     *
+     * L'exclusion n'est pas remplacée par une liste : le filtre d'existence juste en dessous
+     * fait déjà le tri. Un fichier de cas propre au dépôt source n'existe pas chez le voisin,
+     * donc il n'est pas comparé — sans qu'on ait à le nommer, ni à tenir cette liste à jour.
+     */
+    .filter((e) => e.isFile() && /\.(ts|mjs|js|css)$/.test(e.name))
     .map((e) => e.name)
     .filter((nom) => !(nom in ADAPTES) && existsSync(racine + "src/" + nom))
     .sort();

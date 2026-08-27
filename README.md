@@ -226,9 +226,11 @@ was decorative. The promise made to the regulator decides now.
 
 ## How to read it critically
 
-Every operating assumption is editable on screen — productive hours per day, working days
-per year, loaded cost, headcount. A model whose assumptions you can't challenge isn't a
-model, it's an opinion in a table.
+The five operating assumptions are editable on screen — productive hours per day, working
+days per year, loaded cost, headcount, and the service target — and they are the five the
+sweep moves. The four behind the capacity plan (growth, hiring lead time, ramp, attrition)
+are declared in the inventory but fixed. A model whose assumptions you can't challenge isn't
+a model, it's an opinion in a table.
 
 <!-- figures:defaults -->
 The defaults are deliberately conservative: **6 productive hours a day**, not 8. Anyone modelling an analyst at 8 hours of case review is modelling a person who doesn't exist, and every conclusion downstream inherits that.
@@ -270,7 +272,7 @@ not, and the ranking isn't subtle.
 | measured | `alerts, hours, FTE, coverage` | the operating statement at any threshold | measured on the synthetic population below — see `truePositiveShare` |
 | measured | `costPerMarginalTruePositive` | what the next detection costs when the threshold drops one notch | the shape of the curve is the finding; the amounts illustrate it |
 | measured | `waitDays, load, queueHolds` | whether the backlog clears, and how long a file waits | standard queueing: waiting grows as 1/(1−load), and diverges at 1 |
-| measured | `rungs, widestDeadZone` | how wide the next step is, and how much of it buys nothing | the eleven-analyst step is a property of this population's shape |
+| measured | `rungs, widestDeadZone` | how wide the next step is, and how much of it buys nothing | the ten-analyst step is a property of this population's shape |
 | measured | `plan.decideBy` | the quarter a hiring decision is due | arithmetic on the assumptions below — no data of its own |
 | assumed | `productiveHoursPerDay` | hours genuinely productive per analyst per day | your own time-tracking, if you have any; weeks of work to establish |
 | assumed | `workingDaysPerYear` | working days in your calendar | your HR calendar knows this exactly |
@@ -321,8 +323,9 @@ refactor that quietly removes it should not pass silently.
 - **No cost of a miss.** It prices what detection costs, not what a missed report costs.
   That figure exists (fines, remediation, licence risk) and it belongs in the same table;
   it's the obvious next step and it needs numbers I'm not going to invent.
-- **No ramp time.** A new analyst is productive on day one here. In reality they cost
-  three to six months of someone else's time first.
+- **Only a blunt ramp.** The capacity plan discounts an arriving analyst to half a head for
+  their first quarter and to a whole one thereafter; the staircase costs them as a whole head
+  from day one. In reality they cost three to six months of someone else's time first.
 
 ---
 
@@ -346,7 +349,7 @@ the mechanism — a team paid for and not used is capacity you already own — a
 that almost nobody computes it before moving the setting.
 
 **Not "the next analyst costs $1,442 a case."** That is the price of the *first* step. The
-step after it costs $29,524 a case and is eleven analysts wide; the one after that,
+step after it costs $29,524 a case and is ten analysts wide; the one after that,
 $85,846. Quoting the first number alone is how a committee approves the flat part of a
 staircase.
 
@@ -391,7 +394,7 @@ been the first screen, not the fifth section.
 |---|---|
 | Every figure on this page | Generated from the model; `npm test` fails if the page drifts |
 | Every regulation cited | Linked to the section, with the retrieval date, quoted verbatim |
-| Every assumption | Declared in the inventory, editable on the screen, and swept |
+| Every assumption | Declared in the inventory; the five operating ones are editable on the screen and swept |
 | The deadline arithmetic | Working days converted to calendar days, with a test on the conversion |
 | Every step price | The whole step, not the unit that completes it — asserted in a test |
 | The population draw | Seeded — a stranger running `npm test` gets these exact numbers |
