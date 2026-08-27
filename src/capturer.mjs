@@ -197,6 +197,36 @@ function lireRegistre() {
  * mort de celui qui l'a ouvert. Une écriture qui échoue en silence laisse donc un orphelin
  * qu'aucun outil ne pourra plus nommer. Elle ne tue pas la capture, mais elle se dit.
  */
+/*
+ * LE REGISTRE EST PARTAGÉ PAR TOUTES LES SESSIONS, ET SES ÉCRITURES SONT LIRE-MODIFIER-ÉCRIRE.
+ * Quatre écrivains sans verrou : deux `npm run pages` simultanés — l'usage quotidien de six
+ * sessions — et l'inscription de l'un écrase la rature de l'autre. Le verrou est un dossier
+ * (`mkdirSync` est atomique sur un même volume), tenu quelques millisecondes, repris s'il a
+ * plus de cinq secondes — un verrou d'un processus mort ne doit bloquer personne, sinon on le
+ * contourne et il ne verrouille plus rien. Audit du 27 août 2026.
+ */
+const VERROU_REGISTRE = REGISTRE + ".verrou";
+function sousVerrou(fn) {
+  const echeance = Date.now() + 2_000;
+  for (;;) {
+    try { mkdirSync(VERROU_REGISTRE); break; } catch {
+      try {
+        if (Date.now() - statSync(VERROU_REGISTRE).mtimeMs > 5_000) { rmSync(VERROU_REGISTRE, { recursive: true, force: true }); continue; }
+      } catch { continue; }
+      if (Date.now() > echeance) {
+        process.stderr.write(`  REGISTRE : verrou tenu depuis plus de 2 s — on écrit quand même,
+`
+          + `  une entrée concurrente peut être perdue (et ceci le dit plutôt que de le taire).
+`);
+        break;
+      }
+      /* attente brève, synchrone : quelques millisecondes suffisent, les sections sont courtes */
+      const fin = Date.now() + 25; while (Date.now() < fin) { /* rien */ }
+    }
+  }
+  try { return fn(); } finally { rmSync(VERROU_REGISTRE, { recursive: true, force: true }); }
+}
+
 function ecrireRegistre(v) {
   try { writeFileSync(REGISTRE, JSON.stringify(v)); return true; } catch (e) {
     process.stderr.write(`  REGISTRE NON ÉCRIT — ${REGISTRE} : ${e.message}\n`
@@ -300,74 +330,83 @@ function entreeDeRegistre(pid, port, outil, racine) {
 }
 
 export function inscrire(pid, port, outil, racine) {
+  return sousVerrou(() => {
   const r = lireRegistre();
-  if (!r.lisible) {
-    process.stderr.write(`  REGISTRE ILLISIBLE — ${r.pourquoi}\n`
-      + "  Ce serveur s'inscrit quand même ; ce que le fichier portait avant est perdu.\n");
-  }
-  ecrireRegistre([...r.entrees.filter((e) => e.pid !== pid),
-    entreeDeRegistre(pid, port, outil, racine)]);
+    if (!r.lisible) {
+      process.stderr.write(`  REGISTRE ILLISIBLE — ${r.pourquoi}\n`
+        + "  Ce serveur s'inscrit quand même ; ce que le fichier portait avant est perdu.\n");
+    }
+    ecrireRegistre([...r.entrees.filter((e) => e.pid !== pid),
+      entreeDeRegistre(pid, port, outil, racine)]);
+  
+  });
 }
 
 /** Se rayer du registre : l'arrêt normal ne doit rien laisser derrière lui. */
 export function rayer(pid) {
+  return sousVerrou(() => {
   const r = lireRegistre();
-  /* Ne rien écrire par-dessus un registre illisible : on effacerait ce qu'on ne sait pas lire. */
-  if (!r.lisible) return;
-  ecrireRegistre(r.entrees.filter((e) => e.pid !== pid));
+    /* Ne rien écrire par-dessus un registre illisible : on effacerait ce qu'on ne sait pas lire. */
+    if (!r.lisible) return;
+    ecrireRegistre(r.entrees.filter((e) => e.pid !== pid));
+  
+  });
 }
 
 /** Ferme les serveurs inscrits que personne n'a rayés, et rend ce qu'elle a fermé. */
 export function ramasserOrphelins(maxAgeMs = 3_600_000, maintenant = Date.now()) {
+  return sousVerrou(() => {
   const r = lireRegistre();
-  if (!r.lisible) {
-    /* LE REFUS PLUTÔT QUE L'ÉCRASEMENT. Rendre « zéro orphelin » sur un registre qu'on n'a pas
-       pu lire serait un vert vide, et réécrire par-dessus perdrait tout le monde. */
-    process.stderr.write(`  REGISTRE ILLISIBLE — ${r.pourquoi}\n`
-      + `  Aucun orphelin n'a été cherché, et le registre n'est PAS réécrit.\n`
-      + `  Regardez le fichier, ou effacez-le si vous acceptez d'oublier ce qu'il portait.\n`);
-    return { fermes: [], restants: null, illisible: r.pourquoi };
-  }
-  const garde = [], fermes = [], usurpes = [], nonVerifiables = [];
-  for (const e of r.entrees) {
-    if (!vivant(e.pid)) continue;
-    if (maintenant - e.depuis < maxAgeMs) { garde.push(e); continue; }
-    /*
-     * UN NUMÉRO DE PROCESSUS SE RECYCLE, ET L'ENTRÉE PORTE DE QUOI LE VÉRIFIER.
-     *
-     * `vivant(pid)` répond « un processus porte ce numéro », pas « c'est le nôtre ». Sur une
-     * machine où six sessions ouvrent et ferment des processus, un numéro libéré est réattribué
-     * en minutes — et cette boucle tuait alors quelque chose qu'elle n'avait jamais lancé, sur la
-     * foi d'une entrée périmée. Le registre porte `outil` et `port` depuis le début ; ils
-     * n'étaient lus que pour composer le message.
-     *
-     * L'invariant qui tranche n'est pas le nom de la commande — un orphelin légitime peut être
-     * n'importe quoi — c'est le TEMPS : un numéro réattribué désigne forcément un processus
-     * démarré APRÈS l'inscription qui le nomme. On compare donc l'heure de démarrage réelle à
-     * la date de l'entrée, et si le processus est plus jeune que sa propre inscription, **on ne
-     * tue pas**.
-     *
-     * Trouvé par un cas existant : ma première version exigeait `http.server` dans la ligne de
-     * commande, ce qui est vrai des vrais serveurs et faux du montage du témoin. Le cas rouge
-     * disait que la garde était trop étroite, pas que le témoin était mauvais.
-     */
-    if (typeof e.demarre !== "number") nonVerifiables.push(e);
-    else if (!estToujoursLeNotre(e)) { usurpes.push(e); continue; }
-    try { process.kill(e.pid); fermes.push(e); } catch { garde.push(e); }
-  }
-  if (nonVerifiables.length) {
-    process.stderr.write(
-      `  ${nonVerifiables.length} entrée(s) sans heure de démarrage : fermées sans vérification.\n`
-      + `  Elles datent d'avant ce champ ; les suivantes seront vérifiables.\n`);
-  }
-  if (usurpes.length) {
-    process.stderr.write(
-      `  ${usurpes.length} entrée(s) périmée(s) : le numéro de processus a été réattribué.\n`
-      + usurpes.map((e) => `    pid ${e.pid} inscrit pour ${e.outil}:${e.port}\n`).join("")
-      + `  Rien n'a été tué : ce numéro appartient maintenant à un autre processus.\n`);
-  }
-  ecrireRegistre(garde);
-  return { fermes, restants: garde.length };
+    if (!r.lisible) {
+      /* LE REFUS PLUTÔT QUE L'ÉCRASEMENT. Rendre « zéro orphelin » sur un registre qu'on n'a pas
+         pu lire serait un vert vide, et réécrire par-dessus perdrait tout le monde. */
+      process.stderr.write(`  REGISTRE ILLISIBLE — ${r.pourquoi}\n`
+        + `  Aucun orphelin n'a été cherché, et le registre n'est PAS réécrit.\n`
+        + `  Regardez le fichier, ou effacez-le si vous acceptez d'oublier ce qu'il portait.\n`);
+      return { fermes: [], restants: null, illisible: r.pourquoi };
+    }
+    const garde = [], fermes = [], usurpes = [], nonVerifiables = [];
+    for (const e of r.entrees) {
+      if (!vivant(e.pid)) continue;
+      if (maintenant - e.depuis < maxAgeMs) { garde.push(e); continue; }
+      /*
+       * UN NUMÉRO DE PROCESSUS SE RECYCLE, ET L'ENTRÉE PORTE DE QUOI LE VÉRIFIER.
+       *
+       * `vivant(pid)` répond « un processus porte ce numéro », pas « c'est le nôtre ». Sur une
+       * machine où six sessions ouvrent et ferment des processus, un numéro libéré est réattribué
+       * en minutes — et cette boucle tuait alors quelque chose qu'elle n'avait jamais lancé, sur la
+       * foi d'une entrée périmée. Le registre porte `outil` et `port` depuis le début ; ils
+       * n'étaient lus que pour composer le message.
+       *
+       * L'invariant qui tranche n'est pas le nom de la commande — un orphelin légitime peut être
+       * n'importe quoi — c'est le TEMPS : un numéro réattribué désigne forcément un processus
+       * démarré APRÈS l'inscription qui le nomme. On compare donc l'heure de démarrage réelle à
+       * la date de l'entrée, et si le processus est plus jeune que sa propre inscription, **on ne
+       * tue pas**.
+       *
+       * Trouvé par un cas existant : ma première version exigeait `http.server` dans la ligne de
+       * commande, ce qui est vrai des vrais serveurs et faux du montage du témoin. Le cas rouge
+       * disait que la garde était trop étroite, pas que le témoin était mauvais.
+       */
+      if (typeof e.demarre !== "number") nonVerifiables.push(e);
+      else if (!estToujoursLeNotre(e)) { usurpes.push(e); continue; }
+      try { process.kill(e.pid); fermes.push(e); } catch { garde.push(e); }
+    }
+    if (nonVerifiables.length) {
+      process.stderr.write(
+        `  ${nonVerifiables.length} entrée(s) sans heure de démarrage : fermées sans vérification.\n`
+        + `  Elles datent d'avant ce champ ; les suivantes seront vérifiables.\n`);
+    }
+    if (usurpes.length) {
+      process.stderr.write(
+        `  ${usurpes.length} entrée(s) périmée(s) : le numéro de processus a été réattribué.\n`
+        + usurpes.map((e) => `    pid ${e.pid} inscrit pour ${e.outil}:${e.port}\n`).join("")
+        + `  Rien n'a été tué : ce numéro appartient maintenant à un autre processus.\n`);
+    }
+    ecrireRegistre(garde);
+    return { fermes, restants: garde.length };
+  
+  });
 }
 
 export function servir(racine, port) {
@@ -413,8 +452,13 @@ export function servir(racine, port) {
                : `  Il n'a pas pu être mis de côté (${pourquoiPas}) ; ce qu'il portait est perdu.\n`)
       + `  Ce serveur s'inscrit dans un registre neuf.\n`);
   }
-  ecrireRegistre([...avant.entrees.filter((e) => e.pid !== p.pid),
-    entreeDeRegistre(p.pid, port, "capturer", racine)]);
+  sousVerrou(() => {
+    /* Relire SOUS le verrou : `avant` date d'avant l'attente du serveur, et une session a pu
+       écrire entre-temps — réécrire sa version, c'est l'effacer. */
+    const courant = lireRegistre();
+    ecrireRegistre([...courant.entrees.filter((e) => e.pid !== p.pid),
+      entreeDeRegistre(p.pid, port, "capturer", racine)]);
+  });
   /*
    * « QUELQUE CHOSE RÉPOND » N'EST PAS « LE MIEN RÉPOND ».
    *
@@ -499,6 +543,28 @@ function tirer(url, sortie, [large, haut], echelle) {
     `--window-size=${large},${haut}`, `--force-device-scale-factor=${echelle}`,
     "--virtual-time-budget=9000", `--screenshot=${sortie}`, url,
   ], { encoding: "utf8", maxBuffer: 40e6 });
+  /*
+   * UN TIR QUI N'A PAS EU LIEU NE REND PAS « ZÉRO SÉLECTEUR MANQUANT ». Chrome absent de
+   * /Applications (Chromium, installation utilisateur) pose `tir.error` ENOENT sans rien
+   * écrire ; un stderr saturé (> 40 Mo) pose `tir.status` non nul. Dans les deux cas
+   * `tir.stderr ?? ""` rendait une liste vide — c'est-à-dire « tout va bien » — et la panne
+   * n'éclatait que plus loin, sur une image absente, en accusant le mauvais endroit.
+   * Audit du 27 août 2026.
+   */
+  if (tir.error) {
+    throw new Error(`Chrome did not run: ${tir.error.message}
+`
+      + `  Looked for it at: ${CHROME}
+`
+      + `  Set CHROME=/path/to/your/chrome and run again. Nothing was captured.`);
+  }
+  if (tir.status !== 0) {
+    throw new Error(`Chrome exited ${tir.status} for ${url}
+`
+      + `  stderr (${(tir.stderr ?? "").length} bytes) ends with:
+  `
+      + (tir.stderr ?? "").slice(-300).split("\n").join("\n  ") + `\n  Nothing was captured for this page.`);
+  }
   if (process.env.CAPTURE_DEBUG) {
     const e = tir.stderr ?? "";
     console.error(`[debug] stderr ${e.length} octets, ${e.split("\n").filter((l) => l.includes(":CONSOLE:")).length} ligne(s) CONSOLE`);
@@ -600,86 +666,99 @@ if (lance) {
   }
 
   for (const image of plan.images) {
-    const [large, haut] = image.taille;
-    const echelle = image.echelle ?? 2;
-    const cible = racine + image.sortie;
-
-    if (image.type === "gif") {
-      /*
-       * La fenêtre de rendu n'est pas le cadre du film.
-       *
-       * Rendre en 900×780 ne montre que le haut de la page — et les commandes que le film
-       * doit mettre en scène sont plus bas. Les clics passaient, rien ne bougeait à l'image,
-       * et les scènes se fondaient. On rend donc large, on cadre sur la bande utile, puis on
-       * réduit à la taille du film.
-       */
-      const fenetre = image.fenetre ?? [large, haut];
-      const cadres = [];
-      for (let i = 0; i < image.scenes.length; i++) {
-        const etapes = image.scenes.slice(0, i + 1).flat().join("|");
-        const f = `${temp}f${i}.png`;
-        for (const m of tirer(`http://127.0.0.1:${port}/?etapes=${encodeURIComponent(etapes)}`, f, fenetre, echelle)) pilotageMort.add(m);
-        cadres.push(f);
-      }
-      refuserSiPilotageMort();
-      /* L'assemblage passe par Pillow : Chrome ne sait pas écrire de GIF animé. */
-      execFileSync(python(), ["-c", `
-  from PIL import Image, ImageSequence
-  import sys
-  cadres = [Image.open(c).convert("RGB") for c in sys.argv[2:]]
-  hautCrop = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
-  basCrop = ${nombreDeGabarit(image.depart, "depart", 0) + nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle}
-  cadres = [c.crop((0, hautCrop, c.width, min(c.height, basCrop))) for c in cadres]
-  petits = [c.resize((${large}, ${haut}), Image.LANCZOS) for c in cadres]
-  petits[0].save(sys.argv[1], save_all=True, append_images=petits[1:],
-                 duration=${image.duree ?? 900}, loop=0, optimize=True)
-  # Pillow fond les images identiques. Une scène qui n'a rien changé disparaît donc en
-  # silence — et c'est exactement ce qui arrive quand le pilotage ne trouve pas son
-  # contrôle. On refuse d'écrire un film qui a perdu des scènes.
-  vu = sum(1 for _ in ImageSequence.Iterator(Image.open(sys.argv[1])))
-  if vu < len(petits):
-      raise SystemExit(f"{sys.argv[1]} : {vu} image(s) pour {len(petits)} scène(s) — "
-                       "des scènes n'ont rien changé, le pilotage n'a pas pris")
-  `, cible, ...cadres], { stdio: "inherit" });
-    } else {
-      const etapes = (image.scenes ?? []).flat().join("|");
-      for (const m of tirer(`http://127.0.0.1:${port}/?etapes=${encodeURIComponent(etapes)}`, cible, [large, haut], echelle)) pilotageMort.add(m);
-      refuserSiPilotageMort();
-      if (image.hauteurUtile || image.depart) {
-        /* Le cadrage se fait en pixels CSS, pas en pixels d'image : l'échelle rétine ne doit
-         * pas obliger à recompter à chaque fois qu'on la change. */
-        execFileSync(python(), ["-c", `
-  from PIL import Image
-  import sys
-  im = Image.open(sys.argv[1])
-  haut = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
-  bas = min(im.height, haut + ${nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle})
-  im.crop((0, haut, im.width, bas)).save(sys.argv[1])
-  `, cible], { stdio: "inherit" });
-      }
-    }
     /*
-     * CE QUI A ÉTÉ ÉCRIT, PAS CE QU'ON AVAIT PRÉVU D'ÉCRIRE.
-     *
-     * Chrome sans tête rend **0 quoi qu'il arrive** : page inaccessible, page qui lève, page
-     * vide — il photographie l'échec et s'en va content. Mesuré le 21 août 2026 sur une URL
-     * morte : code de sortie 0, PNG de 16 ko de la page « ce site est inaccessible ». Rien
-     * dans `tirer()` ne pouvait donc distinguer une capture d'un constat d'échec, et le bilan
-     * final annonçait `plan.images.length` — le nombre de lignes du plan, jamais celui des
-     * fichiers produits.
-     *
-     * C'est exactement la panne que ce script existe pour empêcher, retournée contre lui :
-     * neuf README montraient un écran disparu sous un commit qui affirmait les avoir
-     * rafraîchis. Un bilan qui compte l'intention refait la même promesse.
-     *
-     * Ce qui se vérifie ici est modeste et vrai : le fichier existe, et il a changé pendant
-     * cette exécution. Qu'il montre le bon écran ne se mécanise pas — c'est pourquoi ces
-     * images se refont plutôt qu'elles ne se relisent.
+     * L'ÉCHEC PORTE LE NOM DE L'IMAGE. Le garde Python — scènes identiques après recadrage —
+     * lève, `execFileSync` jette, et rien n'attrapait : le processus mourait au milieu de la
+     * boucle, les images suivantes jamais tirées, et la pile ne nommait que la commande
+     * python, pas QUELLE image du plan avait échoué. Audit du 27 août 2026.
      */
-    const apres = existsSync(cible) ? statSync(cible).mtimeMs : 0;
-    if (apres === 0) manquantes.push(`${image.sortie} : aucun fichier écrit`);
-    else if (apres === avant.get(image.sortie)) manquantes.push(`${image.sortie} : inchangée depuis avant le tir`);
-    else { ecrites.push(image.sortie); console.log(`  ${image.sortie}`); }
+    try {
+      const [large, haut] = image.taille;
+      const echelle = image.echelle ?? 2;
+      const cible = racine + image.sortie;
+  
+      if (image.type === "gif") {
+        /*
+         * La fenêtre de rendu n'est pas le cadre du film.
+         *
+         * Rendre en 900×780 ne montre que le haut de la page — et les commandes que le film
+         * doit mettre en scène sont plus bas. Les clics passaient, rien ne bougeait à l'image,
+         * et les scènes se fondaient. On rend donc large, on cadre sur la bande utile, puis on
+         * réduit à la taille du film.
+         */
+        const fenetre = image.fenetre ?? [large, haut];
+        const cadres = [];
+        for (let i = 0; i < image.scenes.length; i++) {
+          const etapes = image.scenes.slice(0, i + 1).flat().join("|");
+          const f = `${temp}f${i}.png`;
+          for (const m of tirer(`http://127.0.0.1:${port}/?etapes=${encodeURIComponent(etapes)}`, f, fenetre, echelle)) pilotageMort.add(m);
+          cadres.push(f);
+        }
+        refuserSiPilotageMort();
+        /* L'assemblage passe par Pillow : Chrome ne sait pas écrire de GIF animé. */
+        execFileSync(python(), ["-c", `
+    from PIL import Image, ImageSequence
+    import sys
+    cadres = [Image.open(c).convert("RGB") for c in sys.argv[2:]]
+    hautCrop = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
+    basCrop = ${nombreDeGabarit(image.depart, "depart", 0) + nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle}
+    cadres = [c.crop((0, hautCrop, c.width, min(c.height, basCrop))) for c in cadres]
+    petits = [c.resize((${large}, ${haut}), Image.LANCZOS) for c in cadres]
+    petits[0].save(sys.argv[1], save_all=True, append_images=petits[1:],
+                   duration=${image.duree ?? 900}, loop=0, optimize=True)
+    # Pillow fond les images identiques. Une scène qui n'a rien changé disparaît donc en
+    # silence — et c'est exactement ce qui arrive quand le pilotage ne trouve pas son
+    # contrôle. On refuse d'écrire un film qui a perdu des scènes.
+    vu = sum(1 for _ in ImageSequence.Iterator(Image.open(sys.argv[1])))
+    if vu < len(petits):
+        raise SystemExit(f"{sys.argv[1]} : {vu} image(s) pour {len(petits)} scène(s) — "
+                         "des scènes n'ont rien changé, le pilotage n'a pas pris")
+    `, cible, ...cadres], { stdio: "inherit" });
+      } else {
+        const etapes = (image.scenes ?? []).flat().join("|");
+        for (const m of tirer(`http://127.0.0.1:${port}/?etapes=${encodeURIComponent(etapes)}`, cible, [large, haut], echelle)) pilotageMort.add(m);
+        refuserSiPilotageMort();
+        if (image.hauteurUtile || image.depart) {
+          /* Le cadrage se fait en pixels CSS, pas en pixels d'image : l'échelle rétine ne doit
+           * pas obliger à recompter à chaque fois qu'on la change. */
+          execFileSync(python(), ["-c", `
+    from PIL import Image
+    import sys
+    im = Image.open(sys.argv[1])
+    haut = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
+    bas = min(im.height, haut + ${nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle})
+    im.crop((0, haut, im.width, bas)).save(sys.argv[1])
+    `, cible], { stdio: "inherit" });
+        }
+      }
+      /*
+       * CE QUI A ÉTÉ ÉCRIT, PAS CE QU'ON AVAIT PRÉVU D'ÉCRIRE.
+       *
+       * Chrome sans tête rend **0 quoi qu'il arrive** : page inaccessible, page qui lève, page
+       * vide — il photographie l'échec et s'en va content. Mesuré le 21 août 2026 sur une URL
+       * morte : code de sortie 0, PNG de 16 ko de la page « ce site est inaccessible ». Rien
+       * dans `tirer()` ne pouvait donc distinguer une capture d'un constat d'échec, et le bilan
+       * final annonçait `plan.images.length` — le nombre de lignes du plan, jamais celui des
+       * fichiers produits.
+       *
+       * C'est exactement la panne que ce script existe pour empêcher, retournée contre lui :
+       * neuf README montraient un écran disparu sous un commit qui affirmait les avoir
+       * rafraîchis. Un bilan qui compte l'intention refait la même promesse.
+       *
+       * Ce qui se vérifie ici est modeste et vrai : le fichier existe, et il a changé pendant
+       * cette exécution. Qu'il montre le bon écran ne se mécanise pas — c'est pourquoi ces
+       * images se refont plutôt qu'elles ne se relisent.
+       */
+      const apres = existsSync(cible) ? statSync(cible).mtimeMs : 0;
+      if (apres === 0) manquantes.push(`${image.sortie} : aucun fichier écrit`);
+      else if (apres === avant.get(image.sortie)) manquantes.push(`${image.sortie} : inchangée depuis avant le tir`);
+      else { ecrites.push(image.sortie); console.log(`  ${image.sortie}`); }
+    
+    } catch (e) {
+      const restantes = plan.images.length - plan.images.indexOf(image) - 1;
+      throw new Error(`while capturing "${image.sortie}": ${e?.message ?? e}\n`
+        + `  ${restantes} image(s) of this plan were not attempted.`);
+    }
   }
 
   serveur.kill();

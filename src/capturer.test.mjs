@@ -224,7 +224,10 @@ test("un registre illisible est mis de côté, jamais écrasé, quand un serveur
      est bien celui-là — déplacer avant d'écrire — plutôt que de démarrer un serveur pour ça. */
   assert.match(SOURCE, /renameSync\(REGISTRE, preuve\)/,
     "le registre illisible n'est plus mis de côté : il sera écrasé, et la cause avec lui.");
-  assert.ok(SOURCE.indexOf("renameSync(REGISTRE, preuve)") < SOURCE.indexOf("ecrireRegistre([...avant.entrees"),
+  /* L'aiguille suit le site d'appel réel — `[...courant` depuis que `servir` relit sous le
+     verrou. Un témoin qui lit le texte casse quand le texte bouge : c'est sa faiblesse connue,
+     et il la paie ici pour la deuxième fois. */
+  assert.ok(SOURCE.indexOf("renameSync(REGISTRE, preuve)") < SOURCE.indexOf("ecrireRegistre([...courant"),
     "le déplacement arrive APRÈS l'écriture du registre neuf : il n'y aurait plus rien à déplacer.");
 
   /* CONTRE-ÉPREUVE : sur un registre LISIBLE, rien n'est mis de côté. Une garde qui archive
@@ -458,5 +461,35 @@ test("une entrée SANS provenance est comptée comme non vérifiable", async () 
       + "dit « tout est vérifié » alors que rien ne l'a été.\nCe qui a été écrit :\n" + dit);
   } finally {
     try { enfant.kill("SIGKILL"); } catch { /* déjà fermé par le ramassage, c'est le but */ }
+  }
+});
+
+test("deux écrivains simultanés du registre ne se perdent pas l'un l'autre", async () => {
+  /*
+   * Quatre écrivains en lire-modifier-écrire sans verrou : l'inscription de l'un écrasait la
+   * rature de l'autre — deux `npm run pages` simultanés suffisaient. Vingt inscriptions
+   * concurrentes depuis deux processus : les vingt doivent être dans le registre à la fin.
+   */
+  const { spawn } = await import("node:child_process");
+  const { rayer } = await import("./capturer.mjs");
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { fileURLToPath } = await import("node:url");
+  const moi = fileURLToPath(new URL("./capturer.mjs", import.meta.url));
+  const lancer = (base) => spawn(process.execPath, ["--input-type=module", "-e", `
+    import { inscrire } from ${JSON.stringify("file://" + moi)};
+    for (let i = 0; i < 10; i++) inscrire(${base} + i, 9000 + ${base} + i, "essai-verrou", "/tmp");
+  `], { stdio: "ignore" });
+  const [a, b] = [lancer(700000), lancer(800000)];
+  await Promise.all([a, b].map((c) => new Promise((r) => c.on("exit", r))));
+  const registre = join(tmpdir(), "serveurs-portfolio.json");
+  const entrees = JSON.parse(readFileSync(registre, "utf8"));
+  const miens = entrees.filter((e) => e.outil === "essai-verrou");
+  try {
+    assert.equal(miens.length, 20,
+      `${miens.length}/20 inscriptions ont survécu : un lire-modifier-écrire en a écrasé.`);
+  } finally {
+    for (const e of miens) rayer(e.pid);
   }
 });
