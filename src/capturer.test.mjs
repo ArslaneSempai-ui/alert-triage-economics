@@ -379,6 +379,62 @@ test("une valeur de plan est un nombre fini, ou elle est refusée", async () => 
 });
 
 /*
+ * LA GARDE EXISTAIT, ET QUATRE VALEURS PASSAIENT À CÔTÉ — DANS LE MÊME GABARIT.
+ *
+ * Le cas ci-dessus éprouve `nombreDeGabarit` et il est juste. Il ne dit RIEN des points
+ * d'appel : `depart` et `hauteurUtile` étaient gardés, `echelle`, `taille[0]`, `taille[1]` et
+ * `duree` ne l'étaient pas, interpolés trois lignes plus bas dans le même Python engendré. Un
+ * `captures.json` portant `"echelle": "2)\nimport os; os.system(…)\n#"` s'exécutait au
+ * `npm run captures` — sur la machine qui détient la clé de signature. Trouvé par un audit
+ * extérieur le 31 août 2026, pas par ce fichier.
+ *
+ * CE CAS NE LISTE PAS LES QUATRE CHAMPS, et c'est tout l'écart. Une liste de noms redevient
+ * fausse à la cinquième interpolation, en silence, exactement comme celle qui vient d'être
+ * payée. La règle lit les GABARITS et exige que chaque `${…}` qui s'y trouve traverse une
+ * garde. Un champ ajouté demain sans garde fait tomber la suite sans que personne ait pensé
+ * à lui.
+ */
+test("aucune valeur ne s'interpole nue dans le Python engendré", async () => {
+  const src = readFileSync(fileURLToPath(new URL("./capturer.mjs", import.meta.url)), "utf8");
+
+  /* Les gabarits passés à `python -c` : du dos d'apostrophe qui suit le marqueur au suivant.
+     Aucun n'en contient, ce qui rend le découpage exact plutôt qu'approché. */
+  const MARQUEUR = '["-c", `';
+  const gabarits = [];
+  for (let i = src.indexOf(MARQUEUR); i !== -1; i = src.indexOf(MARQUEUR, i + 1)) {
+    const debut = i + MARQUEUR.length;
+    gabarits.push(src.slice(debut, src.indexOf("`", debut)));
+  }
+
+  /* LE DÉNOMINATEUR D'ABORD : un marqueur qui ne trouve plus rien rendrait zéro
+     interpolation nue, et ce zéro se lirait comme une preuve. */
+  assert.ok(gabarits.length >= 2,
+    `${gabarits.length} gabarit(s) Python trouvé(s) dans capturer.mjs : le découpage ne lit `
+    + "plus les sources engendrées, et le zéro qui suit ne dirait rien.");
+
+  const garde = /nombre(?:Requis)?DeGabarit\(/;
+  const nus = [];
+  for (const g of gabarits) {
+    for (const m of g.matchAll(/\$\{([^}]*)\}/g)) if (!garde.test(m[1])) nus.push(m[1]);
+  }
+  assert.deepEqual(nus, [],
+    `${nus.length} valeur(s) s'interpolent nues dans du Python engendré :\n`
+    + nus.map((x) => "  ${" + x + "}").join("\n") + "\n"
+    + "  → elles viennent d'un fichier de plan. Un saut de ligne y devient une LIGNE de la\n"
+    + "    source engendrée, exécutée par `npm run captures` sur cette machine.\n"
+    + "  → enveloppez dans `nombreDeGabarit(valeur, \"nom\", defaut)`, ou\n"
+    + "    `nombreRequisDeGabarit(valeur, \"nom\")` si le champ n'a pas de défaut.");
+
+  /* CONTRE-ÉPREUVE. La règle doit voir le défaut qu'elle vient de payer, et se taire sur la
+     forme corrigée — sinon elle rendrait ce même vert sans rien lire. */
+  const voit = (gabarit) => [...gabarit.matchAll(/\$\{([^}]*)\}/g)].filter((m) => !garde.test(m[1])).length;
+  assert.equal(voit("    petits = [c.resize((${large}, ${haut}))]"), 2,
+    "la règle ne voit plus une interpolation nue : c'est exactement le défaut du 31 août.");
+  assert.equal(voit('    d = ${nombreDeGabarit(image.duree, "duree", 900)}'), 0,
+    "la règle refuse une valeur pourtant gardée : elle ferait fuir les suivants.");
+});
+
+/*
  * L'ENTRÉE ÉCRITE PAR L'APPEL EXPORTÉ NE PORTAIT PAS SA PROVENANCE.
  *
  * `estToujoursLeNotre()` compare `e.demarre` à l'heure de démarrage réelle du processus, pour

@@ -274,6 +274,22 @@ export function nombreDeGabarit(valeur, nom, defaut) {
   return n;
 }
 
+/**
+ * La même garde, pour un champ qui n'a pas de défaut : absent, il est refusé, pas remplacé.
+ *
+ * `taille` est requis — sans lui il n'y a pas d'image à écrire. Lui donner un défaut
+ * fabriquerait une capture aux mauvaises dimensions au lieu de dire ce qui manque.
+ */
+export function nombreRequisDeGabarit(valeur, nom) {
+  if (valeur === undefined || valeur === null) {
+    throw new Error(
+      `${nom} is missing, and it is required.\n`
+      + `  This value goes into generated crop code, so there is no default that would be\n`
+      + `  safe to guess: a wrong one writes a wrong image instead of naming the gap.`);
+  }
+  return nombreDeGabarit(valeur, nom, 0);
+}
+
 /** L'heure de démarrage réelle d'un processus, ou null si on ne peut pas la lire. */
 function demarrageDe(pid) {
   try {
@@ -696,8 +712,13 @@ if (lance) {
      * python, pas QUELLE image du plan avait échoué. Audit du 27 août 2026.
      */
     try {
-      const [large, haut] = image.taille;
-      const echelle = image.echelle ?? 2;
+      /* GARDÉES ICI POUR CHROME, ET DE NOUVEAU AU POINT D'INTERPOLATION POUR PYTHON. Ce
+         n'est pas une redondance oubliée : une frontière se pose là où on la traverse, et il
+         y en a deux — un argument de processus, qui ne peut qu'être malformé, et une source
+         engendrée, où un saut de ligne devient une instruction. La règle qui les vérifie ne
+         sait rien des variables ; elle lit les gabarits. */
+      const [large, haut] = [0, 1].map((i) => nombreRequisDeGabarit(image.taille?.[i], `taille[${i}]`));
+      const echelle = nombreDeGabarit(image.echelle, "echelle", 2);
       const cible = racine + image.sortie;
   
       if (image.type === "gif") {
@@ -709,7 +730,8 @@ if (lance) {
          * et les scènes se fondaient. On rend donc large, on cadre sur la bande utile, puis on
          * réduit à la taille du film.
          */
-        const fenetre = image.fenetre ?? [large, haut];
+        const fenetre = image.fenetre === undefined ? [large, haut]
+          : [0, 1].map((i) => nombreRequisDeGabarit(image.fenetre?.[i], `fenetre[${i}]`));
         const cadres = [];
         for (let i = 0; i < image.scenes.length; i++) {
           const etapes = image.scenes.slice(0, i + 1).flat().join("|");
@@ -723,12 +745,12 @@ if (lance) {
     from PIL import Image, ImageSequence
     import sys
     cadres = [Image.open(c).convert("RGB") for c in sys.argv[2:]]
-    hautCrop = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
-    basCrop = ${nombreDeGabarit(image.depart, "depart", 0) + nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle}
+    hautCrop = ${nombreDeGabarit(image.depart, "depart", 0)} * ${nombreDeGabarit(image.echelle, "echelle", 2)}
+    basCrop = ${nombreDeGabarit(image.depart, "depart", 0) + nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${nombreDeGabarit(image.echelle, "echelle", 2)}
     cadres = [c.crop((0, hautCrop, c.width, min(c.height, basCrop))) for c in cadres]
-    petits = [c.resize((${large}, ${haut}), Image.LANCZOS) for c in cadres]
+    petits = [c.resize((${nombreRequisDeGabarit(image.taille?.[0], "taille[0]")}, ${nombreRequisDeGabarit(image.taille?.[1], "taille[1]")}), Image.LANCZOS) for c in cadres]
     petits[0].save(sys.argv[1], save_all=True, append_images=petits[1:],
-                   duration=${image.duree ?? 900}, loop=0, optimize=True)
+                   duration=${nombreDeGabarit(image.duree, "duree", 900)}, loop=0, optimize=True)
     # Pillow fond les images identiques. Une scène qui n'a rien changé disparaît donc en
     # silence — et c'est exactement ce qui arrive quand le pilotage ne trouve pas son
     # contrôle. On refuse d'écrire un film qui a perdu des scènes.
@@ -748,8 +770,8 @@ if (lance) {
     from PIL import Image
     import sys
     im = Image.open(sys.argv[1])
-    haut = ${nombreDeGabarit(image.depart, "depart", 0)} * ${echelle}
-    bas = min(im.height, haut + ${nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${echelle})
+    haut = ${nombreDeGabarit(image.depart, "depart", 0)} * ${nombreDeGabarit(image.echelle, "echelle", 2)}
+    bas = min(im.height, haut + ${nombreDeGabarit(image.hauteurUtile, "hauteurUtile", 100000)} * ${nombreDeGabarit(image.echelle, "echelle", 2)})
     im.crop((0, haut, im.width, bas)).save(sys.argv[1])
     `, cible], { stdio: "inherit" });
         }
