@@ -55,7 +55,16 @@ export function wilson(successes: number, n: number, z = 1.96): [number, number]
   const d = 1 + (z * z) / n;
   const centre = (p + (z * z) / (2 * n)) / d;
   const spread = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / d;
-  return [Math.max(0, centre - spread), Math.min(1, centre + spread)];
+  /*
+   * L'INTERVALLE CONTIENT SON ESTIMATION, ET C'EST UNE GARANTIE FLOTTANTE, PAS UN THÉORÈME
+   * REDIT. Mathématiquement, l'intervalle de Wilson contient toujours p̂ — mais wilson(60, 60)
+   * rendait une borne haute de 0,9999999999999999 : la division perd le 1 exact, et un
+   * lecteur qui vérifie « taux ≤ borne haute » sur un relevé scellé aurait RAISON de le
+   * refuser. Trouvé par un témoin de cascade-screening qui parcourait toutes les cellules de
+   * son relevé public ; le même flottant dormait ici. Les bornes sont donc élargies jusqu'à
+   * p̂ quand la virgule les a fait passer de l'autre côté — jamais rétrécies.
+   */
+  return [Math.max(0, Math.min(centre - spread, p)), Math.min(1, Math.max(centre + spread, p))];
 }
 
 /** Half the width of the interval, in percentage points. The number to quote. */
