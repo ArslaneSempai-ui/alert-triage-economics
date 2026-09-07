@@ -65,7 +65,9 @@ const INTERNES: Record<string, string> = {
 };
 
 /** Les blocs `<!-- figures:x -->` du README dont le texte est une donnée citée. */
-const BLOCS_DE_DONNEES: string[] = [];
+const BLOCS_DE_DONNEES: string[] = [
+  "gallery",   // les documents que le modèle a lus, cités tels quels (cascade, tranché le 12/09)
+];
 
 /** Les lignes encore autorisées à porter un tiret, chacune avec ce qui la protège. Le tiret
  *  d'un TITRE cité appartient au document cité, comme la ponctuation d'un extrait : le
@@ -185,9 +187,15 @@ test("aucun cadratin dans les documents servis", () => {
       `${chemin} ne porte plus de cadratin : l'exemption « ${pourquoi} » est périmée, la retirer.`);
   }
   const readme = docs.find((d) => d.chemin === "README.md")!;
+  /* Le bloc de données dort ou il ment, comme un permis : ce fichier est le MÊME dans les
+     onze dépôts et « gallery » n'existe que dans le README de cascade. Une entrée absente
+     ICI ne prouve rien ; une entrée présente doit encore ouvrir et fermer, sinon l'exclusion
+     blanchirait une zone qui n'existe plus. */
   for (const b of BLOCS_DE_DONNEES) {
-    assert.match(readme.texte, new RegExp(`<!-- figures:${b} -->`),
-      `le bloc de données « ${b} » a disparu du README : l'exclusion ne s'applique plus à rien.`);
+    const readme = docs.find((d) => d.chemin === "README.md");
+    if (!readme || !readme.texte.includes(`<!-- figures:${b} -->`)) continue;
+    assert.match(readme.texte, new RegExp(`<!-- /figures:${b} -->`),
+      `le bloc de données « ${b} » ouvre sans se fermer : l'exclusion blanchirait tout ce qui suit.`);
   }
   /* Le permis dort ou il ment, et ici on ne peut distinguer que le second cas : ce fichier
      est le MÊME dans les dix dépôts, et une citation ne vit que chez celui qui la sert (le
