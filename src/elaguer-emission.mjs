@@ -1,3 +1,6 @@
+/* PARTAGÉ — la source de ce fichier est ~/Documents/identite ; les dépôts du portfolio
+   en portent une copie identique. Corrigez-le DANS identite, puis recopiez. Corriger une
+   copie sur place fait refuser le commit, et le refus arrive après le travail. */
 #!/usr/bin/env node
 /**
  * L'ÉLAGUEUR POST-ÉMISSION — docs/ ne contient que la fermeture réellement importée.
@@ -53,7 +56,7 @@ for (const html of sous(DOCS, ".html")) {
   }
 }
 if (!entrees.size) {
-  console.error("✖ pruner: NO .js entry point found in the HTML under docs/; either the page loads\n"
+  console.error("✖ pruner: NO .js entry point found in the HTML under docs/. Either the page loads\n"
     + "  nothing (unlikely), or the extraction no longer reads what the pages write. Refusing:\n"
     + "  pruning against an empty closure would erase every published .js file.");
   process.exit(1);

@@ -1,3 +1,6 @@
+/* PARTAGÉ — la source de ce fichier est ~/Documents/identite ; les dépôts du portfolio
+   en portent une copie identique. Corrigez-le DANS identite, puis recopiez. Corriger une
+   copie sur place fait refuser le commit, et le refus arrive après le travail. */
 /* AJOUTÉ tel quel dans les dix dépôts du portfolio (arbitrage, banc, cycle, derive,
    economics, funnel, rag, remediation, triage, vitrine) — le fichier est le MÊME partout :
    le corriger dans l'un impose de le recopier dans les neuf autres. */
