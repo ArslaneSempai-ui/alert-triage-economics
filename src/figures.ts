@@ -39,7 +39,7 @@ export function render(markdown: string, blocks: Blocks): string {
     const a = out.indexOf(open(name));
     const b = out.indexOf(close(name));
     if (a === -1 || b === -1 || b < a) {
-      throw new Error(`README has no block named "${name}" — add the markers first`);
+      throw new Error(`README has no block named "${name}": add the markers first`);
     }
     out = out.slice(0, a + open(name).length) + "\n" + body.trim() + "\n" + out.slice(b);
   }
@@ -96,7 +96,7 @@ export function run(path: string, blocks: Blocks): void {
     return;
   }
   if (mode === "check") {
-    console.error(`${path} is stale — these blocks no longer match the code:`);
+    console.error(`${path} is stale; these blocks no longer match the code:`);
     for (const name of result.stale) console.error(`  - ${name}`);
     console.error("\nRun: npm run figures");
     process.exit(1);

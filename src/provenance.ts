@@ -43,7 +43,7 @@ export const MEANING: Record<Provenance, { label: string; means: string; ask: st
   measured: {
     label: "measured",
     means: "running the code in this repository produces it",
-    ask: "run it yourself — the draws are seeded",
+    ask: "run it yourself; the draws are seeded",
   },
   assumed: {
     label: "assumed",
@@ -96,12 +96,12 @@ export function markdown(inv: Inventory, table: (h: string[], rows: (string | nu
 
   const rows = ORDER.flatMap((p) =>
     inv.filter((f) => f.provenance === p)
-      .map((f) => [MEANING[p].label, "`" + f.name + "`", f.what, f.note ?? "—"]),
+      .map((f) => [MEANING[p].label, "`" + f.name + "`", f.what, f.note ?? "n/a"]),
   );
 
   return `${summary}. What each kind means, and what you are entitled to ask of it:\n\n` +
     ORDER.filter((p) => n[p] > 0)
-      .map((p) => `- **${MEANING[p].label}** — ${MEANING[p].means}. *${MEANING[p].ask}.*`)
+      .map((p) => `- **${MEANING[p].label}**: ${MEANING[p].means}. *${MEANING[p].ask}.*`)
       .join("\n") +
     `\n\n${table(["Kind", "Name", "What it is", "Note"], rows)}`;
 }

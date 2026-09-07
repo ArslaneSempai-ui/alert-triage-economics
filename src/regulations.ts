@@ -210,7 +210,7 @@ export const ALL: Regulation[] = Object.values(REGULATIONS);
 /** How a rule cites itself on screen: the reference, then what it requires. */
 export function citation(key: RegulationKey): string {
   const r = REGULATIONS[key];
-  return `${r.cite} — ${r.says}`;
+  return `${r.cite}: ${r.says}`;
 }
 
 /** The line that lets a reader go and check. */

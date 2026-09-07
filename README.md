@@ -259,10 +259,10 @@ not, and the ranking isn't subtle.
 <!-- figures:provenance -->
 **5 retrieved**, **5 measured**, **9 assumed**, **4 chosen**. What each kind means, and what you are entitled to ask of it:
 
-- **retrieved** — a public source says this, on the date recorded, in words linked from the page. *follow the link.*
-- **measured** — running the code in this repository produces it. *run it yourself — the draws are seeded.*
-- **assumed** — an input nobody here can know; yours to supply. *put your own figure in, and read the band around it.*
-- **chosen** — my judgement and nothing else. *check whether the sweep says it decides anything.*
+- **retrieved**: a public source says this, on the date recorded, in words linked from the page. *follow the link.*
+- **measured**: running the code in this repository produces it. *run it yourself; the draws are seeded.*
+- **assumed**: an input nobody here can know; yours to supply. *put your own figure in, and read the band around it.*
+- **chosen**: my judgement and nothing else. *check whether the sweep says it decides anything.*
 
 | Kind | Name | What it is | Note |
 |---|---|---|---|

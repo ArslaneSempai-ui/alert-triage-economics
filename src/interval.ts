@@ -48,7 +48,7 @@ export function wilson(successes: number, n: number, z = 1.96): [number, number]
   if (!Number.isFinite(successes) || successes < 0 || successes > n) {
     throw new Error(
       `wilson(${successes}, ${n}): a success count outside [0, n].\n`
-      + "  An interval cannot absorb this — it would return NaN, and NaN compares silently as\n"
+      + "  An interval cannot absorb this: it would return NaN, and NaN compares silently as\n"
       + "  \"not separable\". The defect is in the counting, upstream.");
   }
   const p = successes / n;
@@ -146,7 +146,7 @@ export function rate(successes: number, n: number, z = CONFIANCE.z): Rate {
  * portait la condition ; le second l'oubliera toujours, et c'est celui qu'on garde.
  */
 export function cellulesDeTaux(r: Rate, digits = 1): { taux: string; intervalle: string } {
-  if (!r.reportable) return { taux: "— too few to quote", intervalle: `n < ${ENOUGH}` };
+  if (!r.reportable) return { taux: "n/a: too few to quote", intervalle: `n < ${ENOUGH}` };
   return {
     taux: `${(r.rate * 100).toFixed(digits)} %`,
     intervalle: `[${(r.low * 100).toFixed(0)}–${(r.high * 100).toFixed(0)}]`,
@@ -154,7 +154,7 @@ export function cellulesDeTaux(r: Rate, digits = 1): { taux: string; intervalle:
 }
 
 export function writeRate(r: Rate, digits = 1): string {
-  if (!r.reportable) return `— (n=${r.n}, too few to quote)`;
+  if (!r.reportable) return `n/a (n=${r.n}, too few to quote)`;
   return `${(r.rate * 100).toFixed(digits)} % [${(r.low * 100).toFixed(0)}–${(r.high * 100).toFixed(0)}], n=${r.n}`;
 }
 
@@ -240,7 +240,7 @@ export function pairedVerdict(gains: number, regressions: number) {
     /** Can this set tell the two versions apart at all? */
     decidable: p < 0.05,
     note: p < 0.05
-      ? "the set distinguishes these versions"
-      : "the set cannot distinguish these versions by rate — judge the broken cases instead",
+      ? "The set distinguishes these versions"
+      : "The set cannot distinguish these versions by rate, so judge the broken cases instead",
   };
 }
