@@ -71,7 +71,7 @@ export function refuserDrapeauxInconnus(connus, depuis = 2, jusqua) {
     dire(connus.length
         ? `This command accepts: ${connus.join(", ")}`
         : `This command accepts no options.`);
-    dire(`Nothing was run — a command that ignores an option you typed would answer a`);
+    dire(`Nothing was run. A command that ignores an option you typed would answer a`);
     dire(`question you did not ask, and look right doing it.`);
     sortie?.exit?.(2);
 }
