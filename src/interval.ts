@@ -138,7 +138,7 @@ export function rate(successes: number, n: number, z = CONFIANCE.z): Rate {
  * `writeRate` refuse de citer un taux sous `ENOUGH` observations. Le rapport écrit au
  * client, lui, fabriquait ses cellules à la main et ne regardait jamais `reportable` :
  *
- *     n=1    console « — (n=1, too few to quote) »     fichier « 100.0 % [21–100] »
+ *     n=1    console « n/a (n=1, too few to quote) »   fichier « 100.0 % [21–100] »
  *     n=19   console refuse                            fichier « 78.9 % [57–91] »
  *
  * La garde protégeait le terminal, qui défile et se perd, et laissait passer le fichier,
