@@ -40,6 +40,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
 
@@ -158,6 +159,58 @@ export function estEnFrancais(texte: string): boolean {
   return (texte.toLowerCase().match(/\b(le|la|les|des|une|qui|que|dans|pour|sur|est|sont)\b/g) ?? []).length >= 20;
 }
 
+/*
+ * ─────────── LA SECONDE RÈGLE DE CE FICHIER : LA TYPOGRAPHIE FRANÇAISE ───────────
+ *
+ * Elle a son PROPRE périmètre, et il est plus large que celui du cadratin : tout `.md`
+ * SUIVI PAR GIT, à n'importe quelle profondeur, dont les mots-outils disent qu'il est en
+ * français. Le cadratin regarde ce qu'un lecteur reçoit d'une PAGE ; celle-ci regarde ce
+ * que le dépôt publie, parce qu'un document de décision rangé sous `decisions/` se lit
+ * aussi bien sur GitHub qu'un README.
+ *
+ * LA RÈGLE : en français, `;` `:` `!` `?` et l'intérieur des guillemets prennent une espace
+ * INSÉCABLE (U+00A0). Une espace ordinaire y laisse la ponctuation passer à la ligne toute
+ * seule, ce qui est la faute que la règle existe pour empêcher.
+ *
+ * CE QU'ELLE NE REGARDE JAMAIS : les blocs clôturés (```), les blocs indentés de quatre
+ * espaces et le code en ligne. Un `:` de commande qui gagnerait un caractère invisible
+ * casserait la commande que le document montre — le document deviendrait faux pour avoir
+ * été bien typographié.
+ *
+ * Posée le 13 septembre 2026 sur treize documents (950 espaces), après le relevé : la maison
+ * n'en portait que trois en tout. C'était donc une convention à créer, pas à rattraper, et
+ * elle ne vaut que si une garde la tient : une convention appliquée à cinq fichiers sur
+ * treize crée la divergence qu'elle prétend fermer.
+ */
+const TYPO_PERMIS: string[] = [];
+
+/** Les lignes de PROSE d'un markdown : hors bloc clôturé, hors bloc indenté, code en ligne
+ *  blanchi. Rendues avec leur numéro, pour que la faute se retrouve. */
+export function proseHorsCode(texte: string): { ligne: number; contenu: string }[] {
+  const sortie: { ligne: number; contenu: string }[] = [];
+  let dansBloc = false;
+  texte.split("\n").forEach((l, i) => {
+    const nu = l.trimStart();
+    if (nu.startsWith("```") || nu.startsWith("~~~")) { dansBloc = !dansBloc; return; }
+    if (dansBloc || l.startsWith("    ") || l.startsWith("\t")) return;
+    sortie.push({ ligne: i + 1, contenu: l.replace(/`[^`]*`/g, (m) => " ".repeat(m.length)) });
+  });
+  return sortie;
+}
+
+/** Les espaces ordinaires là où le français en veut une insécable. */
+export function fautesTypographiques(chemin: string, texte: string): string[] {
+  if (TYPO_PERMIS.includes(chemin)) return [];
+  const fautes: string[] = [];
+  for (const { ligne, contenu } of proseHorsCode(texte)) {
+    const quoi: string[] = [];
+    if (/ [;:!?](?=\s|$|\))/.test(contenu)) quoi.push("espace ordinaire devant une ponctuation double");
+    if (/« | »/.test(contenu)) quoi.push("espace ordinaire dans les guillemets");
+    if (quoi.length) fautes.push(`${chemin}:${ligne} — ${quoi.join(" et ")} : ${contenu.trim().slice(0, 70)}`);
+  }
+  return fautes;
+}
+
 /** Les fautes d'un document : la ligne, sa forme, et de quoi la retrouver. */
 export function fautifs(doc: Doc): string[] {
   if (doc.chemin in DONNEES_CITEES || doc.chemin in PREENREGISTRES) return [];
@@ -257,4 +310,45 @@ test("témoin : un cadratin planté dans chaque sorte de document est vu", () =>
     "un commentaire du code servi est refusé : la règle déborde sur ce que la maison garde.");
   assert.deepEqual(planté("docs/data/instantane.json", '{"extrait": "cité — tel quel"}', "prose"), [],
     "l'exemption déclarée des données citées ne s'applique plus.");
+});
+
+test("les documents français publiés portent leurs espaces insécables", (t) => {
+  let suivis: string[];
+  try {
+    suivis = execFileSync("git", ["-C", RACINE, "ls-files", "--", "*.md"], { encoding: "utf8" })
+      .split("\n").filter(Boolean);
+  } catch {
+    return t.skip("pas un dépôt git ici : la règle vise ce que le dépôt PUBLIE, et sans git "
+      + "elle ne peut pas distinguer un document publié d'un brouillon de travail");
+  }
+  const francais = suivis
+    .map((c) => ({ chemin: c, texte: existsSync(join(RACINE, c)) ? readFileSync(join(RACINE, c), "utf8") : "" }))
+    .filter((d) => estEnFrancais(d.texte));
+  if (francais.length === 0) {
+    return t.skip("ce dépôt ne publie aucun document français : la règle n'a rien à tenir ici, "
+      + "et elle le dit plutôt que de rendre un vert qui n'a rien regardé");
+  }
+  const fautes = francais.flatMap((d) => fautesTypographiques(d.chemin, d.texte));
+  assert.deepEqual(fautes, [],
+    "des espaces ordinaires là où le français veut une insécable (U+00A0). La ponctuation "
+    + "double\n  et les guillemets se détachent en fin de ligne sans elle.");
+});
+
+test("témoin : la règle typographique voit la faute, et ne voit pas le code", () => {
+  const f = (t: string) => fautesTypographiques("essai.md", t);
+
+  assert.equal(f("Voici : un cas.").length, 1, "une espace ordinaire devant un deux-points n'est pas vue");
+  assert.equal(f("Alors ; puis ? et !").length, 1, "les autres ponctuations doubles ne sont pas vues");
+  assert.equal(f("Il dit « bonjour » ici.").length, 1, "les guillemets ne sont pas vus");
+  assert.deepEqual(f("Voici\u00a0: un cas, «\u00a0bonjour\u00a0» et\u00a0!"), [],
+    "un document déjà correct est refusé : la règle mordrait sur du travail juste");
+
+  assert.deepEqual(f("```\nnpm run x : y\n```"), [],
+    "un bloc clôturé est regardé : un « : » de commande gagnerait un caractère invisible");
+  assert.deepEqual(f("    indenté : du code"), [], "un bloc indenté est regardé");
+  assert.deepEqual(f("Le code `a : b` est intact\u00a0!"), [], "le code en ligne est regardé");
+  assert.equal(f("Après le bloc :\n```\nx : y\n```\nEt après : encore.")[0]?.includes("essai.md:1"), true,
+    "la faute doit porter son numéro de ligne, et la ligne d'après le bloc reste regardée");
+  assert.equal(f("Après le bloc :\n```\nx : y\n```\nEt après : encore.").length, 2,
+    "les deux lignes de prose autour du bloc doivent être vues, et elles seules");
 });
