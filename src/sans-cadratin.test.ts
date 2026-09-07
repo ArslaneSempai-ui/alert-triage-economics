@@ -52,6 +52,7 @@ const FORMES = ["—", "\\u2014", "&#8212;", "&mdash;"] as const;
  *  racine, avec la raison et la date. */
 const DONNEES_CITEES: Record<string, string> = {
   "docs/data/instantane.json": "les extraits des documents que le moteur a lus, cités tels quels (13/09)",
+  "docs/js/corpus.js": "les documents synthétiques que l'outil MESURE ; leur ponctuation est celle du document, et la changer changerait tous les chiffres publiés (cascade, 13/09)",
 };
 
 /** Les documents INTERNES, écrits en français ET servis par un dépôt PRIVÉ. La maison
@@ -74,6 +75,18 @@ const BLOCS_DE_DONNEES: string[] = [
  *  changer ferait mentir la citation. */
 const PERMIS: string[] = [
   '"Market Risk Fundamentals — Course Introduction"',   // titre réel d'un PDF du jeu d'évaluation de rag (13/09)
+  /* Les quatre suivantes vivent dans des relevés SCELLÉS (cascade) : le texte servi est celui
+     du relevé, pas de la constante qui l'a écrit. Les corriger à la source ne les déplace pas ;
+     seule une nouvelle mesure le fera, et elle déplace aussi les chiffres et le sceau. Elles
+     partiront donc avec la re-mesure du corpus hostile et le prochain relevé de mesure, dans un
+     lot daté et assumé. Éditer le JSON pour les faire disparaître serait falsifier un relevé. */
+  "The same thing worded differently — a guard that sees one phrasing sees none",
+  "Structure markers copied into the document — the attack that gives no order",
+  "in a different language from the document — a filter built on English words",
+  "returned so the loop can run over every tier — not a measurement",
+  /* Et le document d'attaque lui-même, cité mot pour mot dans la table des cas : la
+     ponctuation d'un document appartient au document, comme la galerie et le corpus. */
+  "`ES-9999-B — Spain. Example: Document:",
 ];
 
 type Doc = { chemin: string; texte: string; sorte: "prose" | "code" };
