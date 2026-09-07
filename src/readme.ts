@@ -23,7 +23,7 @@ const reco = recommend(pop);
 
 const dollars = (n: number) => "$" + Math.round(n).toLocaleString("en-GB");
 const num = (n: number) => Math.round(n).toLocaleString("en-GB");
-const pc = (x: number | null) => (x === null ? "—" : (x * 100).toFixed(0) + " %");
+const pc = (x: number | null) => (x === null ? "n/a" : (x * 100).toFixed(0) + " %");
 
 const shown = [0.80, 0.70, 0.60, 0.50, 0.45, 0.40, 0.35];
 
@@ -31,14 +31,14 @@ const curve = table(
   ["Threshold", "Alerts/yr", "Hours", "FTE", "To hire", "Annual cost", "Caught", "Missed", "Cost of next TP", "Occupancy", "Wait", "Queue"],
   points.filter((p) => shown.includes(p.threshold)).map((p) => {
     const m = p.costPerMarginalTruePositive;
-    const marginal = m === null ? "—" : m === 0 ? "free" : !isFinite(m) ? "no gain" : dollars(m);
+    const marginal = m === null ? "n/a" : m === 0 ? "free" : !isFinite(m) ? "no gain" : dollars(m);
     const verdict = !p.queueHolds ? "**breaks**" : p.deadlineMet ? "**holds**" : "**late**";
     const emphasis = reco && p.threshold === reco.threshold;
     const cell = (v: string | number) => (emphasis ? `**${v}**` : v);
     return [
       cell(p.threshold.toFixed(2)), cell(num(p.alerts)), cell(num(p.hours)), cell(p.fteWhole),
-      p.hires || "—", cell(dollars(p.annualCost)), cell(p.truePositivesCaught), p.truePositivesMissed,
-      marginal, pc(p.load), p.waitDays === null ? "—" : p.waitDays.toFixed(1) + " d", verdict,
+      p.hires || "n/a", cell(dollars(p.annualCost)), cell(p.truePositivesCaught), p.truePositivesMissed,
+      marginal, pc(p.load), p.waitDays === null ? "n/a" : p.waitDays.toFixed(1) + " d", verdict,
     ];
   }),
 );
@@ -48,8 +48,8 @@ const headline = reco
     `${ASSUMPTIONS.analystsInPost}.** ${reco.idleCapacity} analysts are paid to be idle, and ` +
     `${points[0].truePositivesMissed} of ${pop.truePositivesTotal} true positives go undetected.\n\n` +
     `Moving to ${reco.threshold.toFixed(2)} catches **${reco.truePositivesGained} more true ` +
-    `positives for nothing** — coverage goes from ${(reco.coverageBefore * 100).toFixed(0)} % to ` +
-    `${(reco.coverageAfter * 100).toFixed(0)} % — because the payroll is already committed.`
+    `positives for nothing** (coverage goes from ${(reco.coverageBefore * 100).toFixed(0)} % to ` +
+    `${(reco.coverageAfter * 100).toFixed(0)} %) because the payroll is already committed.`
   : "No threshold fits the headcount in post.";
 
 /*
@@ -63,13 +63,13 @@ const staircase = (() => {
   const rows = table(
     ["Analysts added", "Step width", "Threshold", "Cases found", "Coverage", "Payroll", "This step cost"],
     s.rungs.map((r) => [
-      r.units === 0 ? "— (today)" : String(r.units),
-      r.width === 0 ? "—" : "+" + r.width,
+      r.units === 0 ? "n/a (today)" : String(r.units),
+      r.width === 0 ? "n/a" : "+" + r.width,
       r.threshold.toFixed(2),
       r.truePositives,
       (r.coverage * 100).toFixed(0) + " %",
       dollars(r.annualCost),
-      r.perTruePositive === null ? "—" : `+${r.gained} cases · **${dollars(r.perTruePositive)}** each`,
+      r.perTruePositive === null ? "n/a" : `+${r.gained} cases · **${dollars(r.perTruePositive)}** each`,
     ]),
   );
   return `${rows}\n\nThe widest run of headcount that buys **nothing at all** is ` +
@@ -89,8 +89,8 @@ const routes = (() => {
   const d = same.deadlineCost;
   const caveat = d
     ? `\n\n"Free" is a budget line, not a risk position. At ${same.threshold.toFixed(2)} the queue settles at ` +
-      `${d.waitWorkingDays.toFixed(1)} working days — **${d.waitCalendarDays.toFixed(1)} calendar days**, which is the ` +
-      `unit \`31 CFR 1020.320(b)(3)\` counts in — against a ${d.wallCalendarDays}-day wall. That leaves ` +
+      `${d.waitWorkingDays.toFixed(1)} working days (**${d.waitCalendarDays.toFixed(1)} calendar days**, which is the ` +
+      `unit \`31 CFR 1020.320(b)(3)\` counts in) against a ${d.wallCalendarDays}-day wall. That leaves ` +
       `${d.marginCalendarDays.toFixed(1)} days of margin, and margin is what absorbs a holiday period or a ` +
       `resignation. The route costs no money and spends something.`
     : "";
@@ -112,19 +112,19 @@ const horizon = (() => {
     p.quarters.map((x) => [
       x.label, Math.round(x.operations).toLocaleString("en-GB"), x.alerts.toLocaleString("en-GB"),
       x.fteNeeded, x.headcount.toFixed(1),
-      x.load === null ? "—" : (x.load * 100).toFixed(0) + " %",
-      x.waitDays === null ? "—" : x.waitDays.toFixed(1) + " d",
+      x.load === null ? "n/a" : (x.load * 100).toFixed(0) + " %",
+      x.waitDays === null ? "n/a" : x.waitDays.toFixed(1) + " d",
       !x.queueHolds ? "**breaks**" : x.deadlineMet ? "holds" : "**late**",
     ]),
   );
   const step = costOfTakingTheStep();
   const s2 = !step ? "" :
     `\n\n**The step this tool calls free.** Going from ${step.from.toFixed(2)} to ${step.to.toFixed(2)} costs no money ` +
-    `this quarter — ${step.via ? quantity(step.via.resource, step.via.units) : "no free route"}. ` +
+    `this quarter: ${step.via ? quantity(step.via.resource, step.via.units) : "no free route"}. ` +
     (step.freeUntil === null || step.decideBy === null
       ? `It holds on the ${ASSUMPTIONS.analystsInPost} analysts in post for the whole horizon.`
       : `It holds on the ${ASSUMPTIONS.analystsInPost} analysts in post until **${q(step.freeUntil)}**, when it needs ` +
-        `${step.extraWhenItBites} more — ${step.extraByHorizon} more by ${q(p.quarters.length - 1)}. ` +
+        `${step.extraWhenItBites} more; ${step.extraByHorizon} more by ${q(p.quarters.length - 1)}. ` +
         `A ${HORIZON.hiringLeadWeeks}-week req puts that decision at **${q(step.decideBy)}**.`);
 
   const sweep = table(
@@ -159,7 +159,7 @@ const simulation = (() => {
 
   const tight = { ...HORIZON, threshold: looser };
   const there = summarise(simulate({ ...UNCERTAINTY, runs: 300 }, tight), tight);
-  const q = (x: number | null) => (x === null ? "—" : x < 0 ? `${-x} qtr ago` : `Q${x + 1}`);
+  const q = (x: number | null) => (x === null ? "n/a" : x < 0 ? `${-x} qtr ago` : `Q${x + 1}`);
 
   const t = table(
     ["", `at ${HORIZON.threshold.toFixed(2)} (in use)`, `at ${looser.toFixed(2)} (the free step)`],
@@ -173,7 +173,7 @@ const simulation = (() => {
   );
 
   return `${t}\n\nAt the threshold in use the queue runs at a third of capacity, almost no future ` +
-    `breaks, and none of this matters. One notch looser — **the step the shadow prices call free** — ` +
+    `breaks, and none of this matters. One notch looser (**the step the shadow prices call free**) ` +
     `and every simulated future breaks, every one has a decision that was due before today, and the ` +
     `single-point plan asks for ${there.central.heads} heads where the 90th percentile asks for ` +
     `${there.headsP90}.\n\nThat is not a corner case. It is what happens the moment anybody acts on ` +
@@ -202,7 +202,7 @@ const finding = reco
   ? `**The finding.** At the tight threshold a cautious team lands on, ${reco.idleCapacity} of ` +
     `${ASSUMPTIONS.analystsInPost} analysts are paid to sit idle while ${points[0].truePositivesMissed} of ` +
     `${pop.truePositivesTotal} reportable cases go undetected. Loosening to ` +
-    `${reco.threshold.toFixed(2)} catches **${reco.truePositivesGained} more for no extra money** — the ` +
+    `${reco.threshold.toFixed(2)} catches **${reco.truePositivesGained} more for no extra money**: the ` +
     `payroll is already committed. The organisation was never short of budget. It was short of ` +
     `the calculation.`
   : "**The finding.** No threshold fits the headcount in post.";
@@ -225,7 +225,7 @@ const citations =
   `here rather than listed under a heading claiming these are the rules this one rests on.\n\n` +
   table(
     ["Citation", "Requires", "Figure", "Retrieved"],
-    CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "—", r.retrieved]),
+    CITED.map((r) => [`[${r.cite}](${r.source})`, r.says, r.figure ?? "n/a", r.retrieved]),
   );
 
 run(fileURLToPath(new URL("../README.md", import.meta.url)), { defaults, finding, curve, headline, staircase, routes, horizon, simulation, provenance, citations });

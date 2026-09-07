@@ -128,7 +128,7 @@ export function advise(b: Band): string {
     return `Your value decides the recommendation. It holds from ${f(b.stableFrom)} to ${f(b.stableTo)}.${c} Worth measuring properly.`;
   }
   if (b.reason === "another constraint binds") {
-    return `Changes nothing at present — but only because another constraint is binding. Move that one and this takes over. Worth knowing before you do.`;
+    return `Changes nothing at present, but only because another constraint is binding. Move that one and this takes over. Worth knowing before you do.`;
   }
   return `Changes nothing across ${f(b.stableFrom)}–${f(b.stableTo)}. Not worth spending weeks measuring for this decision.`;
 }
@@ -146,7 +146,7 @@ if (isMain(import.meta)) {
     );
   }
   console.log(
-    "\nAn assumption nobody needs to measure is worth as much as one they do — measuring an" +
+    "\nAn assumption nobody needs to measure is worth as much as one they do: measuring an" +
     "\nanalyst's productive hours costs weeks. What must never be conflated is an assumption" +
     "\nthat is irrelevant with one that is merely dormant behind a constraint that binds first.\n",
   );

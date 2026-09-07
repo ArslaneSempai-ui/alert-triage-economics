@@ -228,7 +228,7 @@ if (isMain(import.meta)) {
   console.log("─".repeat(104));
 
   for (const p of sweep(pop)) {
-    const marginal = p.costPerMarginalTruePositive === null ? "—"
+    const marginal = p.costPerMarginalTruePositive === null ? "n/a"
       : p.costPerMarginalTruePositive === Infinity ? "no gain"
       : p.costPerMarginalTruePositive === 0 ? "free"
       : dollars(p.costPerMarginalTruePositive);

@@ -85,7 +85,7 @@ function blockerAt(pop, a) {
         return "the queue diverges before the money runs out";
     if (!next.deadlineMet)
         return "the handling deadline";
-    return "nothing — it still buys";
+    return "nothing; it still buys";
 }
 export function shadowPrice(resource, pop = generatePopulation(), a = ASSUMPTIONS) {
     const spec = RESOURCES[resource];
@@ -156,7 +156,7 @@ export function verdict(s) {
     const width = `${capitalise(unit(first.width))}`;
     const next = steps[1];
     const after = next
-        ? ` The step after that is ${unit(next.width)} wide and costs ${next.perTruePositive !== null ? money(next.perTruePositive) + " per case" : "no money"} — ` +
+        ? ` The step after that is ${unit(next.width)} wide and costs ${next.perTruePositive !== null ? money(next.perTruePositive) + " per case" : "no money"}, ` +
             `and every partial amount inside it buys nothing at all.`
         : ` There is no further step within ${unit(spec.maxUnits)}: past the first one, what binds is ${s.blocker}.`;
     return `${width} lowers the sustainable threshold to ${first.threshold.toFixed(2)}, finding ` +
@@ -233,14 +233,14 @@ if (isMain(import.meta)) {
     for (const s of shadowPrices(pop)) {
         const spec = RESOURCES[s.resource];
         console.log(`${capitalise(spec.label)}` +
-            (s.unitCost ? `  —  ${money(s.unitCost)} a year each` : s.unitCost === 0 ? "  —  free" : "  —  not priced here"));
+            (s.unitCost ? `:  ${money(s.unitCost)} a year each` : s.unitCost === 0 ? ":  free" : ":  not priced here"));
         console.log("  bought   step   threshold   found   coverage    payroll      this step bought");
         console.log("  " + "─".repeat(84));
         for (const r of s.rungs) {
             const bought = r.width === 0 ? "(where you are today)"
                 : `+${r.gained} case${r.gained === 1 ? "" : "s"}` +
                     (r.perTruePositive !== null ? `  ·  ${money(r.perTruePositive)} each` : "");
-            console.log(`  ${unit(r.units).padStart(6)}   ${(r.width === 0 ? "—" : "+" + unit(r.width)).padStart(4)}` +
+            console.log(`  ${unit(r.units).padStart(6)}   ${(r.width === 0 ? "n/a" : "+" + unit(r.width)).padStart(4)}` +
                 `   ${r.threshold.toFixed(2).padStart(9)}   ${String(r.truePositives).padStart(5)}` +
                 `   ${pc(r.coverage).padStart(8)}   ${money(r.annualCost).padStart(10)}      ${bought}`);
         }
@@ -261,8 +261,8 @@ if (isMain(import.meta)) {
         if (same.deadlineCost) {
             const d = same.deadlineCost;
             console.log(`\n  "Free" is a budget line, not a risk position. At ${same.threshold.toFixed(2)} the queue settles at ` +
-                `${d.waitWorkingDays.toFixed(1)} working days —\n  ${d.waitCalendarDays.toFixed(1)} calendar days, which is the unit ` +
-                `31 CFR 1020.320(b)(3) counts in — against a ${d.wallCalendarDays}-day wall.\n  That leaves ` +
+                `${d.waitWorkingDays.toFixed(1)} working days\n  (${d.waitCalendarDays.toFixed(1)} calendar days, which is the unit ` +
+                `31 CFR 1020.320(b)(3) counts in) against a ${d.wallCalendarDays}-day wall.\n  That leaves ` +
                 `${d.marginCalendarDays.toFixed(1)} days of margin, and margin is what absorbs a holiday period or a\n  resignation. ` +
                 `The route costs no money and spends something.`);
         }
@@ -270,6 +270,6 @@ if (isMain(import.meta)) {
             "\n  one with a price on it, and it is not the cheapest.\n");
     }
     console.log("A slope through this table would report one average price per case and hide the only" +
-        "\nthing worth deciding: how wide the next step is. Funding part of a step buys nothing —" +
-        "\nnot less, nothing — because a threshold the queue cannot sustain is not one anybody runs.\n");
+        "\nthing worth deciding: how wide the next step is. Funding part of a step buys nothing" +
+        "\n(not less, nothing) because a threshold the queue cannot sustain is not one anybody runs.\n");
 }

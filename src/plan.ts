@@ -422,7 +422,7 @@ if (isMain(import.meta)) {
   const h = HORIZON;
   const p = plan(h);
   const money = (x: number) => "$" + Math.round(x).toLocaleString("en-GB");
-  const pc = (x: number | null) => (x === null ? "—" : (x * 100).toFixed(0) + " %");
+  const pc = (x: number | null) => (x === null ? "n/a" : (x * 100).toFixed(0) + " %");
   const q = (i: number) => (i < 0 ? `${-i} quarter${i === -1 ? "" : "s"} ago` : `Q${i + 1}`);
 
   console.log(
@@ -438,7 +438,7 @@ if (isMain(import.meta)) {
       `  ${x.label}   ${Math.round(x.operations).toLocaleString("en-GB").padStart(9)}` +
       `   ${x.alerts.toLocaleString("en-GB").padStart(7)}   ${String(x.fteNeeded).padStart(12)}` +
       `   ${x.headcount.toFixed(1).padStart(10)}   ${pc(x.load).padStart(9)}` +
-      `   ${(x.waitDays === null ? "—" : x.waitDays.toFixed(1) + " d").padStart(6)}   ${verdict}`,
+      `   ${(x.waitDays === null ? "n/a" : x.waitDays.toFixed(1) + " d").padStart(6)}   ${verdict}`,
     );
   }
 
@@ -458,7 +458,7 @@ if (isMain(import.meta)) {
 
   console.log(
     `\n  Doing nothing, the queue ${p.breaksAt === null ? "never fails on this horizon" : "first fails in " + q(p.breaksAt)}.` +
-    `\n  A req takes ${h.hiringLeadWeeks} weeks — ${leadQuarters(h)} quarter${leadQuarters(h) === 1 ? "" : "s"} —` +
+    `\n  A req takes ${h.hiringLeadWeeks} weeks (${leadQuarters(h)} quarter${leadQuarters(h) === 1 ? "" : "s"})` +
     ` and a new analyst is worth ${(h.rampFirstQuarter * 100).toFixed(0)} % of one` +
     `\n  in their first quarter. So the first decision is due ` +
     `${p.decideBy === null ? "at no point on this horizon" : q(p.decideBy)}.`,
@@ -486,7 +486,7 @@ if (isMain(import.meta)) {
         ? `\n  It holds on the ${ASSUMPTIONS.analystsInPost} analysts in post for the whole ${h.quarters}-quarter horizon.` +
           `\n  Nothing to diarise, at this growth rate.`
         : `\n  It holds on the ${ASSUMPTIONS.analystsInPost} analysts in post until ${q(step.freeUntil)}, when it` +
-          ` needs ${step.extraWhenItBites} more —` +
+          ` needs ${step.extraWhenItBites} more;` +
           `\n  ${step.extraByHorizon} more by ${q(h.quarters - 1)}. Which puts the first req at ${q(step.decideBy!)}.` +
           `\n\n  Take the step now and diarise the decision. Take it now and forget, and the quarter` +
           `\n  it stops being free is the quarter you find out you needed to act two quarters ago.`) + "\n",
@@ -506,7 +506,7 @@ if (isMain(import.meta)) {
 
   console.log(
     "\nNobody can hand you next year's volume growth. What they can be handed is the range" +
-    "\nover which the decision does not move — and where it does, that is the number worth" +
+    "\nover which the decision does not move; and where it does, that is the number worth" +
     `\nan afternoon with the data team. The wall itself is fixed: ${REGULATORY_DEADLINE_DAYS} calendar days.\n`,
   );
 }

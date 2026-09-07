@@ -185,7 +185,7 @@ if (isMain(import.meta)) {
   const s = summarise(draws);
   const j = jensenGap(draws);
   const pc = (x: number) => (x * 100).toFixed(1) + " %";
-  const q = (i: number | null) => (i === null ? "—" : i < 0 ? `${-i} quarter${i === -1 ? "" : "s"} ago` : `Q${i + 1}`);
+  const q = (i: number | null) => (i === null ? "n/a" : i < 0 ? `${-i} quarter${i === -1 ? "" : "s"} ago` : `Q${i + 1}`);
 
   console.log(
     `\n${s.runs.toLocaleString("en-GB")} runs of the same plan, over draws of growth, attrition and lead time\n`,
@@ -214,10 +214,10 @@ if (isMain(import.meta)) {
   console.log(
     j.bites
       ? "Queue waiting grows as 1/(1−load) and diverges at 1. That curve is convex, so the average\n" +
-        "of the results is worse than the result of the average — and a plan built on a central\n" +
+        "of the results is worse than the result of the average, and a plan built on a central\n" +
         "estimate under-provisions systematically rather than by accident. The gap above is that\n" +
         "effect, measured on this configuration rather than quoted from a textbook.\n"
-      : "The two agree here, which means the convexity does not bite at this configuration — the\n" +
+      : "The two agree here, which means the convexity does not bite at this configuration: the\n" +
         "queue is far enough from capacity that the curve is locally straight. That is worth\n" +
         "saying plainly rather than repeating the general result, and it stops being true as\n" +
         "soon as occupancy rises.\n",
@@ -242,7 +242,7 @@ if (isMain(import.meta)) {
     const s2 = summarise(d2, tight);
     const j2 = jensenGap(d2, tight);
 
-    console.log(`\nThe same plan at ${looser.toFixed(2)} — the step this tool recommends taking\n`);
+    console.log(`\nThe same plan at ${looser.toFixed(2)}, the step this tool recommends taking\n`);
     console.log(`  queue fails somewhere  ${pc(s2.breaksShare)} of runs   (was ${pc(s.breaksShare)})`);
     console.log(`  decision already late  ${pc(s2.overdueShare)} of runs   (was ${pc(s.overdueShare)})`);
     console.log(`  heads needed           ${s2.headsP50} median · ${s2.headsP90} at p90`);

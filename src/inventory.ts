@@ -59,7 +59,7 @@ export const INVENTORY: Inventory = [
     name: "alerts, hours, FTE, coverage",
     provenance: "measured",
     what: "the operating statement at any threshold",
-    note: "measured on the synthetic population below — see `truePositiveShare`",
+    note: "measured on the synthetic population below; see `truePositiveShare`",
   },
   {
     name: "costPerMarginalTruePositive",
@@ -83,7 +83,7 @@ export const INVENTORY: Inventory = [
     name: "plan.decideBy",
     provenance: "measured",
     what: "the quarter a hiring decision is due",
-    note: "arithmetic on the assumptions below — no data of its own",
+    note: "arithmetic on the assumptions below; no data of its own",
   },
 
   /* ── assumed: nobody here can know these, and the screen lets you say ── */
@@ -147,7 +147,7 @@ export const INVENTORY: Inventory = [
     name: "truePositiveShare",
     provenance: "chosen",
     what: "how rare a genuinely reportable case is, in the synthetic population",
-    note: "no public figure exists — banks do not publish their true-positive rate",
+    note: "no public figure exists: banks do not publish their true-positive rate",
   },
   {
     name: "score distributions",
@@ -159,7 +159,7 @@ export const INVENTORY: Inventory = [
     name: "handlingMinutes",
     provenance: "chosen",
     what: "12 to 55 minutes, highest for the most ambiguous alerts",
-    note: "the shape — ambiguous costs most — is the point; the bounds are mine",
+    note: "the shape (ambiguous costs most) is the point; the bounds are mine",
   },
   {
     name: "THRESHOLDS",

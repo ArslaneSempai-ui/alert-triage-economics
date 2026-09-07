@@ -1,6 +1,6 @@
 # What was checked here, and what it cost
 
-Six checks. **Four found something, two resisted, and naming the two is half the report** —
+Six checks. **Four found something, two resisted, and naming the two is half the report**:
 a report that lists only its findings does not let anyone tell a clean repository from an
 unexamined one.
 
@@ -15,7 +15,7 @@ reported with its number and a reason*. **Two faults cumulated, and the second g
 went.**
 
 - Blank lines were removed **before** numbering, so `n + 1` counted non-blank lines.
-- The out-of-range pass indexed `rows` — already filtered — while `rows.splice()` inside the
+- The out-of-range pass indexed `rows` (already filtered) while `rows.splice()` inside the
   same loop shifted every later index by one more.
 
 A reader following the number looked at the wrong line, **and further off the more errors
@@ -31,12 +31,12 @@ the score is expected, **the file parses, the run succeeds, and the tool reports
 nobody chose.**
 
 That is worse than a crash, because a crash is noticed and this returns a plausible number.
-A sibling repository lost half its rows to the same shape — seven lines became three — and
+A sibling repository lost half its rows to the same shape (seven lines became three) and
 then printed *"3 cases is below the point where a rate says anything"*: it warned that the
 sample was small **without saying it had made it small**. Here it would not even shrink.
 
 Quotes are honoured, `""` is a literal quote inside a quoted cell, and a line whose quote
-never closes is refused **by name**, with the escape spelled out — a refusal a reader cannot
+never closes is refused **by name**, with the escape spelled out: a refusal a reader cannot
 act on is worked around by deleting the guard.
 
 **Seven witnesses, proved in both directions.** Four fail on the old parser and pass on the
@@ -50,18 +50,18 @@ bites legitimate use is removed at the first complaint.
 coverage, $1,442 a case*. Three are right. `ASSUMPTIONS.analystsInPost` is **8**, and the
 published headline says *1 FTE out of 8*.
 
-It is the comment that argues about what **measured** is allowed to mean — which makes it
+It is the comment that argues about what **measured** is allowed to mean, which makes it
 the worst place in the repository for a figure that nothing re-derives. Corrected, and it
 now says where to check it.
 
 ### 4. The citation table was a selection that did not say so
 
 It publishes **5 of the 9** sections in the shared regulations file. The reason is good and
-was already written in `inventory.ts` — but it was written for whoever edits the code, and
+was already written in `inventory.ts`, but it was written for whoever edits the code, and
 **the reader saw a table with no hint that it was a subset.**
 
 *A figure that results from a selection carries the count of what was set aside, or it is
-not a figure — it is a sample presented as a census.* The count is generated into the block,
+not a figure: it is a sample presented as a census.* The count is generated into the block,
 so the two numbers cannot drift apart the day a section is added.
 
 ---
@@ -80,15 +80,15 @@ marker without a generator, no generated key without a marker. `--check` is wire
 **No dead guard.** No constant predicate, no `catch` returning a fixed value, no always-true
 condition in the published paths.
 
-**The four shared modules are byte-identical to `cascade`** — `figures.ts`, `interval.ts`,
-`provenance.ts`, `cli.ts` — checked md5 for md5 before and after this work, and not touched.
+**The four shared modules are byte-identical to `cascade`** (`figures.ts`, `interval.ts`,
+`provenance.ts`, `cli.ts`), checked md5 for md5 before and after this work, and not touched.
 
 ---
 
 ## Not mine, and left alone
 
 One test fails: `capturer.mjs` differs from `identite`. `identite`'s copy is **being edited
-right now** — its tree shows the file modified. The divergence is in flight, not broken, and
+right now**: its tree shows the file modified. The divergence is in flight, not broken, and
 recopying from a tree someone is working in is how a half-written change gets committed by
 someone who did not write it.
 
@@ -102,5 +102,5 @@ someone who did not write it.
     npm run figures -- --check       up to date, proved both ways
 
 The full `npm test` was not run to completion: it replays the generator, which takes longer
-than four minutes on this machine. **That is a result, not an omission** — it is reported
+than four minutes on this machine. **That is a result, not an omission**: it is reported
 here rather than being left to look like a suite that was run and passed.

@@ -72,7 +72,7 @@ export function verdict(measured: number, baseline: Baseline, n: number): string
   const se = Math.sqrt((measured * (1 - measured)) / n + (baseline.accuracy * (1 - baseline.accuracy)) / n);
   const gap = measured - baseline.accuracy;
   if (Math.abs(gap) < z * se) {
-    return `indistinguishable from "${baseline.name}" on ${n} cases — this measurement does not show the system doing anything`;
+    return `indistinguishable from "${baseline.name}" on ${n} cases; this measurement does not show the system doing anything`;
   }
   return gap > 0
     ? `beats "${baseline.name}" by ${(gap * 100).toFixed(1)} points`

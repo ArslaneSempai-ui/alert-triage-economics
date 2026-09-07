@@ -131,7 +131,7 @@ export function fitToObservation(o, base = ASSUMED) {
     const moyenneBruit = meanForShare(partBruit, o.threshold, base.falsePositiveSpread);
     if (moyenneBruit === null) {
         refused.push(partBruit >= 1
-            ? "more false alerts than operations screened — check the alert count"
+            ? "more false alerts than operations screened; check the alert count"
             : "no false-positive mean reproduces that alert count at that threshold");
     }
     else {
@@ -143,7 +143,7 @@ export function fitToObservation(o, base = ASSUMED) {
     const moyenneSignal = meanForShare(partSignal, o.threshold, base.truePositiveSpread);
     if (moyenneSignal === null) {
         refused.push(partSignal >= 1
-            ? "you report more real cases than the assumed base rate allows — raise the share of reportable operations"
+            ? "you report more real cases than the assumed base rate allows; raise the share of reportable operations"
             : "no true-positive mean reproduces that hit rate at that threshold");
     }
     else {
@@ -182,7 +182,7 @@ const FAUX = new Set(["0", "false", "no", "n", "non", "faux", "fp", "negative", 
 /* Le motif d'écart est nommé à part : il est publié dans le relevé des lignes refusées, et un
    lecteur doit pouvoir distinguer « la cellule était vide » de « ce n'était pas un nombre ». */
 const SCORE_VIDE = "score cell is empty";
-const QUOTE_NON_FERMEE = 'unterminated quote \u2014 write a literal " inside a quoted cell as ""';
+const QUOTE_NON_FERMEE = 'unterminated quote; write a literal " inside a quoted cell as ""';
 export function readScoredCases(text) {
     /*
      * THE LINE NUMBER IS THE LINE NUMBER IN THE FILE, and it was not.

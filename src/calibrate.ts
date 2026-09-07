@@ -182,7 +182,7 @@ export function fitToObservation(o: Observation, base: Separation = ASSUMED): Fi
   if (moyenneBruit === null) {
     refused.push(
       partBruit >= 1
-        ? "more false alerts than operations screened — check the alert count"
+        ? "more false alerts than operations screened; check the alert count"
         : "no false-positive mean reproduces that alert count at that threshold",
     );
   } else {
@@ -196,7 +196,7 @@ export function fitToObservation(o: Observation, base: Separation = ASSUMED): Fi
   if (moyenneSignal === null) {
     refused.push(
       partSignal >= 1
-        ? "you report more real cases than the assumed base rate allows — raise the share of reportable operations"
+        ? "you report more real cases than the assumed base rate allows; raise the share of reportable operations"
         : "no true-positive mean reproduces that hit rate at that threshold",
     );
   } else {
@@ -253,7 +253,7 @@ const FAUX = new Set(["0", "false", "no", "n", "non", "faux", "fp", "negative", 
 const SCORE_VIDE = "score cell is empty";
 
 const QUOTE_NON_FERMEE =
-  'unterminated quote \u2014 write a literal " inside a quoted cell as ""';
+  'unterminated quote; write a literal " inside a quoted cell as ""';
 
 export function readScoredCases(text: string): Reading {
   /*

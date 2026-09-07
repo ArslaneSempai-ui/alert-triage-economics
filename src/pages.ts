@@ -99,7 +99,7 @@ window.LOCAL_POSE && window.LOCAL_POSE();
  * measurement of a real bank.
  */
 const BANNER = `<p class="renvoi" style="margin-bottom:1.5rem">
-This runs entirely in your browser — no server, no data leaves your machine. The alert
+This runs entirely in your browser: no server, no data leaves your machine. The alert
 population is <b>synthetic and seeded</b>; the regulatory deadlines are real and cited.
 Every setting below is editable. <a href="https://github.com/ArslaneSempai-ui/alert-triage-economics">Source and method</a>.
 </p>`;
@@ -132,7 +132,7 @@ export function build(): void {
   // underscore and rewrites nothing else usefully. Opting out is one empty file.
   writeFileSync(docs + "/.nojekyll", "");
 
-  console.log("docs/ built — commit it and enable GitHub Pages on the docs folder");
+  console.log("docs/ built; commit it and enable GitHub Pages on the docs folder");
 }
 
 if (isMain(import.meta)) build();

@@ -25,7 +25,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DOCS = resolve(fileURLToPath(new URL("..", import.meta.url)), "docs");
-if (!existsSync(DOCS)) { console.error("✖ pruner: docs/ is missing — nothing to prune, nothing to guarantee."); process.exit(1); }
+if (!existsSync(DOCS)) { console.error("✖ pruner: docs/ is missing; nothing to prune, nothing to guarantee."); process.exit(1); }
 
 function sous(d, ext, acc = []) {
   for (const e of readdirSync(d)) {
@@ -53,7 +53,7 @@ for (const html of sous(DOCS, ".html")) {
   }
 }
 if (!entrees.size) {
-  console.error("✖ pruner: NO .js entry point found in the HTML under docs/ — either the page loads\n"
+  console.error("✖ pruner: NO .js entry point found in the HTML under docs/; either the page loads\n"
     + "  nothing (unlikely), or the extraction no longer reads what the pages write. Refusing:\n"
     + "  pruning against an empty closure would erase every published .js file.");
   process.exit(1);
@@ -80,7 +80,7 @@ const tous = sous(DOCS, ".js");
 const morts = tous.filter((f) => !fermeture.has(f));
 for (const f of morts) {
   unlinkSync(f);
-  console.log(`  pruned: ${relative(DOCS, f)} — emitted but outside the loaded closure`);
+  console.log(`  pruned: ${relative(DOCS, f)}, emitted but outside the loaded closure`);
 }
 console.log(`pruner: ${entrees.size} entry point(s), closure of ${fermeture.size} module(s), `
   + `${morts.length} removed out of ${tous.length} emitted.`);

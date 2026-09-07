@@ -97,13 +97,13 @@ const T = {
     casse: "breaks", tientH: "holds", tardH: "late",
     marcheTitre: "The step this tool calls free",
     marcheTient: (s1, s2, via, n) => `Going from <b>${s1}</b> to <b>${s2}</b> costs no money this quarter: ${via}. It holds on the ${n} analysts in post across the whole horizon.`,
-    marcheCasse: (s1, s2, via, n, quand, combien, fin, dernier, quandDec) => `Going from <b>${s1}</b> to <b>${s2}</b> costs no money this quarter: ${via}. It holds on the ${n} analysts in post until <b>${quand}</b>, when it needs ${combien} more — ${fin} more by ${dernier}. Which puts the req at <b>${quandDec}</b>.`,
+    marcheCasse: (s1, s2, via, n, quand, combien, fin, dernier, quandDec) => `Going from <b>${s1}</b> to <b>${s2}</b> costs no money this quarter: ${via}. It holds on the ${n} analysts in post until <b>${quand}</b>, when it needs ${combien} more; ${fin} more by ${dernier}. Which puts the req at <b>${quandDec}</b>.`,
     croissanceTitre: "Nobody can hand you next year's growth rate",
     colCroissance: "growth / qtr", colCasse: "queue fails", colDecision: "first decision due",
     horsHorizon: "not on this horizon", rienADecider: "nothing to decide",
     trimPasse: (n) => `${n} quarter${n > 1 ? "s" : ""} ago`,
     titreEscalier: "What the next analyst buys",
-    escalierQuoi: "The resource is bought in steps. Funding part of a step buys nothing — not less, nothing.",
+    escalierQuoi: "The resource is bought in steps. Funding part of a step buys nothing (not less, nothing).",
     colAjoutes: "added", colLargeur: "step width", colCouverture: "coverage",
     colPaie: "payroll", colAchete: "what the step bought",
     aujourdhui: "today", chacun: "each", cas: "cases",
@@ -115,7 +115,7 @@ const T = {
     routesTitre: "The same step, priced three ways",
     routesQuoi: (s, vp) => `Going down to ${s} finds <b>${vp} more reportable cases a year</b>. Three ways to get there:`,
     gratos: "free", nonChiffre: "not priced here", parAn: "a year",
-    marge: (o, c, mur, m) => `"Free" is a budget line, not a risk position. The queue settles at ${o} working days — <b>${c} calendar days</b>, the unit 31 CFR 1020.320(b)(3) counts in — against a ${mur}-day wall. That leaves ${m} days of margin, and margin is what absorbs a holiday period or a resignation.`,
+    marge: (o, c, mur, m) => `"Free" is a budget line, not a risk position. The queue settles at ${o} working days (<b>${c} calendar days</b>, the unit 31 CFR 1020.320(b)(3) counts in) against a ${mur}-day wall. That leaves ${m} days of margin, and margin is what absorbs a holiday period or a resignation.`,
     calcul: "computing…",
     titreCourbe: "What each notch costs",
     colSeuil: "threshold", colAlertes: "alerts", colHeures: "hours", colEtp: "FTE",
@@ -127,7 +127,7 @@ const T = {
     colAttente: "wait", colCharge: "occupancy",
     delaiRateTitre: "The promised deadline is missed",
     delaiRateQuoi: (a, d, c) => `The backlog clears, but the average wait reaches ${a} days against a promised ${d}. At ${c} occupancy, one absence is enough to lose the team.`,
-    courbeQuoi: "The cost of the next true positive stays at zero, then explodes — long before the total cost looks unreasonable.",
+    courbeQuoi: "The cost of the next true positive stays at zero, then explodes, long before the total cost looks unreasonable.",
     figCoutTitre: "The cost of the next true positive, notch by notch",
     figCoutAria: "Step chart: across the strictest notches the next true positive costs nothing, then the cost jumps to tens of thousands of dollars on the last two.",
     figEchangeTitre: "What you catch against what it costs",
@@ -220,7 +220,7 @@ function blocRecommandation() {
       ${esc(L.debordeQuoi(a.fteWhole, etat.assumptions.analystsInPost))}</div>`;
   } else if (!a.deadlineMet) {
     html += `<div class="renvoi defavorable"><b>${esc(L.delaiRateTitre)}</b><br>
-      ${esc(L.delaiRateQuoi(a.waitDays.toFixed(1), etat.assumptions.maxHandlingDays, a.load === null ? "—" : pc(a.load)))}</div>`;
+      ${esc(L.delaiRateQuoi(a.waitDays.toFixed(1), etat.assumptions.maxHandlingDays, a.load === null ? "n/a" : pc(a.load)))}</div>`;
   }
   if (r && r.truePositivesGained > 0 && r.threshold < etat.threshold) {
     html += `<div class="renvoi favorable"><b>${esc(L.recoTitre)}</b><br>
@@ -253,17 +253,17 @@ function blocCourbe() {
   const pts = [...etat.courbe].sort((a, b) => a.threshold - b.threshold);
   const lignes = etat.courbe.map((p) => {
     const m = p.costPerMarginalTruePositive;
-    const marginal = m === null ? "—"
+    const marginal = m === null ? "n/a"
       : m === 0 ? `<span class="gratuit">${esc(L.gratuit)}</span>`
       : m === null || !isFinite(m) ? esc(L.aucunGain)
       : dollars(m);
     return `<tr class="${Math.abs(p.threshold - etat.threshold) < 0.001 ? "ici " : ""}${p.queueHolds && p.deadlineMet ? "" : "deborde"}">
       <td>${p.threshold.toFixed(2)}</td><td>${nb(p.alerts)}</td><td>${nb(p.hours)}</td>
-      <td>${p.fteWhole}</td><td>${p.hires || "—"}</td><td>${dollars(p.annualCost)}</td>
+      <td>${p.fteWhole}</td><td>${p.hires || "n/a"}</td><td>${dollars(p.annualCost)}</td>
       <td>${nb(p.truePositivesCaught)}</td><td>${nb(p.truePositivesMissed)}</td>
       <td>${marginal}</td>
-      <td>${p.load === null ? "—" : pc(p.load)}</td>
-      <td>${p.waitDays === null ? "—" : p.waitDays.toFixed(1) + " " + L.jour}</td>
+      <td>${p.load === null ? "n/a" : pc(p.load)}</td>
+      <td>${p.waitDays === null ? "n/a" : p.waitDays.toFixed(1) + " " + L.jour}</td>
       <td>${esc(!p.queueHolds ? L.deborde : p.deadlineMet ? L.tient : L.enRetard)}</td></tr>`;
   }).join("");
 
@@ -390,10 +390,10 @@ function blocEscalier() {
 
   const lignes = escalier.analyst.rungs.map((r) => `<tr${r.width === 0 ? ' class="ici"' : ""}>
     <td>${r.units === 0 ? esc(L.aujourdhui) : "+" + r.units}</td>
-    <td>${r.width === 0 ? "—" : "+" + r.width}</td>
+    <td>${r.width === 0 ? "n/a" : "+" + r.width}</td>
     <td>${r.threshold.toFixed(2)}</td>
     <td>${nb(r.truePositives)}</td><td>${pc(r.coverage)}</td><td>${dollars(r.annualCost)}</td>
-    <td>${r.width === 0 ? "—"
+    <td>${r.width === 0 ? "n/a"
       : `+${r.gained} ${esc(L.cas)}` + (r.perTruePositive === null ? "" : ` · <b>${dollars(r.perTruePositive)}</b> ${esc(L.chacun)}`)}</td>
   </tr>`).join("");
 
@@ -451,8 +451,8 @@ function blocHorizon() {
   const lignes = p.quarters.map((x) => `<tr class="${x.queueHolds && x.deadlineMet ? "" : "deborde"}">
     <td>${esc(x.label)}</td><td>${nb(x.operations)}</td><td>${nb(x.alerts)}</td>
     <td>${x.fteNeeded}</td><td>${x.headcount.toFixed(1)}</td>
-    <td>${x.load === null ? "—" : pc(x.load)}</td>
-    <td>${x.waitDays === null ? "—" : x.waitDays.toFixed(1) + " " + L.jour}</td>
+    <td>${x.load === null ? "n/a" : pc(x.load)}</td>
+    <td>${x.waitDays === null ? "n/a" : x.waitDays.toFixed(1) + " " + L.jour}</td>
     <td>${esc(!x.queueHolds ? L.casse : x.deadlineMet ? L.tientH : L.tardH)}</td></tr>`).join("");
 
   const st = escalier.step;
