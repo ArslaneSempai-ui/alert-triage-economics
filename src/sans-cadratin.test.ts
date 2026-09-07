@@ -65,6 +65,16 @@ const INTERNES: Record<string, string> = {
   "CONSTATS.md": "constats de travail en français ; le dépôt qui les sert est privé (13/09)",
 };
 
+/** Les documents PRÉ-ENREGISTRÉS : leur valeur vient de leur immobilité, et leurs octets sont
+ *  la preuve. Un cas de cascade vérifie que le texte en vigueur à la mesure est celui publié ;
+ *  une passe de ponctuation qui les touche détruit ce qu'ils démontrent. Mesuré le 13/09 : la
+ *  correction de leurs douze cadratins a fait rougir cette garde-là, et il a fallu restaurer
+ *  leurs octets. Ils ne se corrigent qu'avec la mesure qu'ils régissent. */
+const PREENREGISTRES: Record<string, string> = {
+  "NOTATION-CAS-DURS.md": "notation du corpus dur, écrite avant la mesure du 27/08 (cascade)",
+  "COUT-PALIER-1.7B.md": "estimation du huitième palier, écrite avant de l'ajouter (cascade)",
+};
+
 /** Les blocs `<!-- figures:x -->` du README dont le texte est une donnée citée. */
 const BLOCS_DE_DONNEES: string[] = [
   "gallery",   // les documents que le modèle a lus, cités tels quels (cascade, tranché le 12/09)
@@ -147,7 +157,7 @@ export function estEnFrancais(texte: string): boolean {
 
 /** Les fautes d'un document : la ligne, sa forme, et de quoi la retrouver. */
 export function fautifs(doc: Doc): string[] {
-  if (doc.chemin in DONNEES_CITEES) return [];
+  if (doc.chemin in DONNEES_CITEES || doc.chemin in PREENREGISTRES) return [];
   /* L'exemption d'un document interne ne vaut que s'il est VRAIMENT en français : le même
      fichier vit dans les dix dépôts, et `RAPPORT-COMBLEMENT.md` y est tantôt français
      (derive), tantôt anglais (banc, economics, funnel, remediation, vitrine, mesuré le
