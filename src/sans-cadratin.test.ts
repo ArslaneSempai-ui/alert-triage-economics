@@ -54,15 +54,14 @@ const DONNEES_CITEES: Record<string, string> = {
   "docs/data/instantane.json": "les extraits des documents que le moteur a lus, cités tels quels (13/09)",
 };
 
-/** Les documents INTERNES, écrits en français. La maison n'adresse au lecteur que de
- *  l'anglais — un cas de cascade refuse tout message client en français — donc un document
+/** Les documents INTERNES, écrits en français ET servis par un dépôt PRIVÉ. La maison
+ *  n'adresse au lecteur que de l'anglais — un cas de cascade refuse tout message client en français — donc un document
  *  français est par construction un document de travail, et la règle vise ce que le lecteur
  *  reçoit. Chemin relatif, raison, date. L'exemption est vérifiée plus bas : un document
  *  déclaré ici et écrit en anglais serait un trou, pas une exception. */
 const INTERNES: Record<string, string> = {
-  "RAPPORT-COMBLEMENT.md": "rapport de travail en français, jamais adressé au lecteur (13/09)",
-  "README.fr.md": "la traduction française du README, pour le lecteur francophone du dépôt privé (13/09)",
-  "CONSTATS.md": "constats de travail en français, jamais adressés au lecteur (13/09)",
+  "README.fr.md": "la traduction française du README ; le dépôt qui la sert (recherche-documentaire) est privé (13/09)",
+  "CONSTATS.md": "constats de travail en français ; le dépôt qui les sert est privé (13/09)",
 };
 
 /** Les blocs `<!-- figures:x -->` du README dont le texte est une donnée citée. */
@@ -159,8 +158,12 @@ test("aucun cadratin dans les documents servis", () => {
   const docs = documents();
   assert.ok(docs.some((d) => d.chemin === "README.md"),
     "aucun README.md lu : la garde ne regarde pas le document que le lecteur ouvre en premier.");
-  assert.ok(docs.filter((d) => d.chemin.startsWith("docs/")).length >= 1,
-    "aucun fichier servi sous docs/ : le balayage ne lit rien, son zéro ne vaut rien.");
+  /* Tout dépôt ne publie pas de page : les outils de la suite cascade sont des commandes,
+     sans `docs/`. Exiger un fichier servi ferait d'une absence légitime un rouge ; l'exiger
+     quand le dossier EXISTE garde ce que le cas veut vraiment, un balayage qui lit. */
+  assert.ok(!existsSync(join(RACINE, "docs"))
+    || docs.filter((d) => d.chemin.startsWith("docs/")).length >= 1,
+    "`docs/` existe et le balayage n'y lit rien : son zéro ne vaut rien.");
 
   /* L'exemption qui ne protège plus rien : ici on ne peut que constater qu'un document
      déclaré interne et présent est bien français. S'il est anglais, il n'est pas exempté
