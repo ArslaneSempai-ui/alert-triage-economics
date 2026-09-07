@@ -226,6 +226,26 @@ test("la commande de test ne laisse tomber aucun fichier de contrôle", () => {
     "registre.test.ts": "gabarit : compare le src/ du dépôt à la source, sans objet à la source",
   };
 
+  /*
+   * DEUX EXEMPTIONS QUI NE VALENT QU'À LA SOURCE, ET C'EST TOUTE LA DIFFÉRENCE.
+   *
+   * `sans-cadratin.test.ts` et `liste-ignores.test.ts` sont entrés dans la couche le 13
+   * septembre 2026. À la source ils n'ont rien à lire — identite ne sert aucun document et ne
+   * tient pas de liste d'ignorés — donc son lanceur ne les prend pas, et ce cas le disait.
+   * Mais chez un PORTEUR ils tournent, et doivent continuer : les inscrire dans EXCLUS tout
+   * court aurait ouvert, dans dix dépôts, la porte que ce cas existe pour fermer — un
+   * rétrécissement du motif y serait devenu invisible.
+   *
+   * La source se reconnaît à `depots.json`, qui n'existe que là. Ailleurs, les deux fichiers
+   * restent exigés.
+   */
+  if (existsSync(ICI + "depots.json")) {
+    EXCLUS["sans-cadratin.test.ts"] = "gabarit : lit les documents SERVIS du dépôt (.md de la "
+      + "racine et ce que docs/ sert) ; la source n'en sert aucun, il n'y aurait rien à garder";
+    EXCLUS["liste-ignores.test.ts"] = "gabarit : lit la liste des cas ignorés attendus du "
+      + "dépôt ; la source n'en tient pas";
+  }
+
   const pkgChemin = existsSync(ICI + "package.json") ? ICI + "package.json" : ICI + "../package.json";
   if (!existsSync(pkgChemin)) return;   /* un dossier sans paquet n'a pas de lanceur à juger */
   const cmd = JSON.parse(readFileSync(pkgChemin, "utf8")).scripts?.test ?? "";
