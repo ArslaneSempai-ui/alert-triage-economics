@@ -471,8 +471,12 @@ test("l'entrée écrite par inscrire() porte sa provenance", async () => {
       + "la ferme sans avoir pu vérifier que le numéro n'a pas été réattribué. C'est le "
       + "chemin qu'emprunte `verifier-ecran.mjs`, à chaque construction de page.");
     /* Et la valeur doit être la NÔTRE, pas une constante quelconque : un `demarre: 0` posé
-       pour faire taire ce cas passerait le test de type et rendrait la comparaison fausse. */
-    assert.ok(Math.abs(moi.demarre - Date.now()) < 60_000,
+       pour faire taire ce cas passerait le test de type et rendrait la comparaison fausse.
+       Comparée à l'heure où CE processus a démarré (`performance.timeOrigin`), pas à
+       maintenant : le 30/09 sur macOS 26 en CI, le fichier tournait depuis 79 s quand ce cas
+       est arrivé, et « à moins de 60 s de maintenant » mesurait l'âge du processus, pas sa
+       naissance. L'heure système se lit à la seconde : deux secondes de marge. */
+    assert.ok(Math.abs(moi.demarre - performance.timeOrigin) < 2_000,
       `demarre vaut ${moi.demarre}, qui n'est pas l'heure de démarrage de ce processus. `
       + "Un champ posé pour la forme ne vaut pas mieux qu'un champ absent.");
   } finally {
